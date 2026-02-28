@@ -400,6 +400,11 @@
   </style>
 </head>
 <body>
+  <audio id="bgm" preload="auto" loop playsinline webkit-playsinline>
+    <source src="./bgm.m4a" type="audio/mp4">
+    <source src="./bgm.mp3" type="audio/mpeg">
+  </audio>
+
   <div class="wrap">
     <div class="card">
       <div class="top-actions">
@@ -409,6 +414,10 @@
       <header>
         <p class="sub">今天让命运安排一顿！</p>
       </header>
+
+      <div class="footer-actions">
+        <button class="pill" id="bgmBtn" aria-label="BGM">BGM: 关</button>
+      </div>
 
       <div class="wheel-area">
         <div class="wheel-wrap" id="wheelWrap">
@@ -975,6 +984,66 @@
   }
 
   startBtn.addEventListener('click', startSpin);
+
+
+  // ====== BGM ======
+  const bgm = document.getElementById('bgm');
+  const bgmBtn = document.getElementById('bgmBtn');
+  const BGM_KEY = 'lw5_bgm_on_v1';
+
+  function renderBgmBtn(){
+    const on = localStorage.getItem(BGM_KEY) === '1';
+    if (bgmBtn) bgmBtn.textContent = on ? 'BGM: 开' : 'BGM: 关';
+  }
+
+  async function tryPlayBgm(){
+    if (!bgm) return false;
+    try{
+      await bgm.play();
+      return true;
+    }catch(e){
+      return false;
+    }
+  }
+
+  function setBgm(on){
+    localStorage.setItem(BGM_KEY, on ? '1' : '0');
+    if (!bgm) return;
+    if (on){
+      // volume gentle
+      bgm.volume = 0.55;
+      // actual play must happen on user gesture
+    } else {
+      try{ bgm.pause(); }catch(e){}
+      bgm.currentTime = 0;
+    }
+    renderBgmBtn();
+  }
+
+  // default: off (avoid iOS auto-play restrictions); user can toggle
+  if (localStorage.getItem(BGM_KEY) === null) localStorage.setItem(BGM_KEY, '0');
+  renderBgmBtn();
+
+  if (bgmBtn){
+    bgmBtn.addEventListener('click', async ()=>{
+      const on = localStorage.getItem(BGM_KEY) === '1';
+      setBgm(!on);
+      if (!on){
+        // user gesture: start playing now
+        await tryPlayBgm();
+      }
+    });
+  }
+
+  // Hook into start button gesture to unlock audio
+  const __oldStartSpin = startSpin;
+  startSpin = async function(){
+    const on = localStorage.getItem(BGM_KEY) === '1';
+    if (on){
+      await tryPlayBgm();
+    }
+    return __oldStartSpin.apply(this, arguments);
+  };
 
   // 初次绘制
   drawWheel(0);
