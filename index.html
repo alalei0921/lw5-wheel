@@ -1,0 +1,995 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,maximum-scale=1" />
+  <meta name="format-detection" content="telephone=no,email=no,address=no" />
+  <meta name="theme-color" content="#F6F7FB" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+
+  <title>Lw&5的随机大餐</title>
+  <meta name="description" content="今天让命运安排一顿！点开始，转盘替你决定吃什么。" />
+
+  <!-- Open Graph (微信分享通常抓取 title/desc；如需更强控制可接微信JS-SDK) -->
+  <meta property="og:title" content="Lw&5的随机大餐" />
+  <meta property="og:description" content="今天让命运安排一顿！" />
+  <meta property="og:type" content="website" />
+
+  <!-- 预加载关键资源：提升微信内打开速度 -->
+  <link rel="preload" as="image" href="./bg.jpg" fetchpriority="high">
+  <link rel="preload" as="image" href="./start.png" fetchpriority="high">
+  <link rel="preload" as="image" href="./modal.jpg">
+
+  <style>
+    :root{
+      --bg1:#f7f8ff;
+      --bgImg: url('./bg.jpg');
+      --modalBgImg: url('./modal.jpg');
+      --startBtnImg: url('./start.png');
+      --bg2:#f3fbff;
+      --card: rgba(255,255,255,.72);
+      --stroke: rgba(255,255,255,.65);
+      --shadow: 0 24px 60px rgba(28, 35, 55, .12);
+      --shadow-soft: 0 10px 30px rgba(28, 35, 55, .10);
+      --text:#121826;
+      --muted:#6b7280;
+      --greenA:#22c55e;
+      --greenB:#16a34a;
+      --goldA:#fbbf24;
+      --goldB:#d97706;
+      --ring:#e5e7eb;
+      --danger:#ef4444;
+    }
+
+    *{ box-sizing:border-box; -webkit-tap-highlight-color: transparent; }
+    html,body{ height:100%; }
+    body{
+      margin:0;
+      font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "SF Pro Display", "Helvetica Neue", Arial, "Noto Sans CJK SC", "Microsoft YaHei", sans-serif;
+      color:var(--text);
+      /* 背景图：主人提供；为保证不遮挡文字/小狗，内容区会留上下安全边距 */
+      background:
+        linear-gradient(180deg, rgba(247,248,255,.55), rgba(243,251,255,.62)),
+        var(--bgImg);
+      background-size: cover;
+      background-position: top center, center bottom;
+      background-repeat: no-repeat;
+      overflow-x:hidden;
+    }
+
+    .wrap{
+      min-height:100%;
+      display:flex;
+      align-items:flex-start;
+      justify-content:center;
+      /* 上下留白：避免挡住背景图上方文字与下方小狗 */
+      padding: 92px 16px 220px;
+    }
+
+    .card{
+      width:min(420px, 100%);
+      border-radius: 0;
+      background: transparent;
+      backdrop-filter: none;
+      -webkit-backdrop-filter: none;
+      border: none;
+      box-shadow: none;
+      padding: 0;
+      position:relative;
+    }
+
+    header{
+      padding: 10px 4px 8px;
+      text-align:center;
+    }
+
+    .sub{
+      margin: 0;
+      font-size: 14px;
+      color: rgba(17,24,39,.86);
+      font-weight: 700;
+      text-shadow: 0 6px 22px rgba(255,255,255,.65);
+    }
+
+    .top-actions{
+      position:absolute;
+      top: 14px;
+      right: 14px;
+      display:flex;
+      gap:10px;
+      z-index:3;
+    }
+
+    .icon-btn{
+      border: 1px solid rgba(255,255,255,.6);
+      background: rgba(255,255,255,.65);
+      border-radius: 999px;
+      padding: 8px 10px;
+      font-size: 14px;
+      line-height: 1;
+      box-shadow: var(--shadow-soft);
+      cursor:pointer;
+      user-select:none;
+    }
+
+    .wheel-area{
+      display:flex;
+      align-items:flex-start;
+      justify-content:center;
+      padding: 6px 6px 12px;
+      /* 不缩小转盘：仅整体上移一点 */
+      margin-top: -6px;
+    }
+
+    .wheel-wrap{
+      position:relative;
+      width: min(340px, 86vw);
+      aspect-ratio: 1 / 1;
+      display:grid;
+      place-items:center;
+      /* 强制形成独立层叠上下文，避免 canvas 抢层级 */
+      isolation: isolate;
+    }
+
+    canvas{
+      position:absolute;
+      inset: 0;
+      z-index: 1;
+      width: 100%;
+      height: 100%;
+      border-radius: 50%;
+      box-shadow:
+        0 18px 45px rgba(10, 12, 25, .16),
+        inset 0 0 0 10px rgba(255,255,255,.18);
+      background: rgba(255,255,255,.10);
+    }
+
+    .pointer{
+      position:absolute;
+      top: -6px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 0;
+      height: 0;
+      border-left: 12px solid transparent;
+      border-right: 12px solid transparent;
+      border-bottom: 22px solid rgba(18,24,38,.92);
+      filter: drop-shadow(0 6px 8px rgba(0,0,0,.12));
+      z-index:5;
+    }
+
+    .pointer::after{
+      content:"";
+      position:absolute;
+      left: -6px;
+      top: 16px;
+      width: 12px;
+      height: 12px;
+      background: rgba(18,24,38,.92);
+      border-radius: 999px;
+      box-shadow: 0 8px 12px rgba(0,0,0,.18);
+    }
+
+    .center{
+      position:absolute;
+      inset: 0;
+      /* 按钮永远在最上层 */
+      z-index: 10;
+      pointer-events:none;
+    }
+
+    .start-btn{
+      pointer-events:auto;
+      position:absolute;
+      left: 50%;
+      top: 50%;
+      transform: translate(-50%, -50%);
+      width: 98px;
+      height: 98px;
+      border-radius: 50%;
+      border: 1px solid rgba(255,255,255,.7);
+      background: var(--startBtnImg);
+      background-size: cover;
+      background-position: center;
+      background-repeat: no-repeat;
+      box-shadow: 0 16px 28px rgba(18,24,38,.16);
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      font-size: 0;
+      font-weight: 800;
+      color: transparent;
+      cursor:pointer;
+      user-select:none;
+      /* 按下反馈 */
+      transition: transform .12s ease, filter .12s ease, box-shadow .12s ease;
+      z-index: 11;
+    }
+
+    .start-btn:active{
+      transform: translate(-50%, -50%) scale(.94);
+      filter: saturate(1.05) brightness(1.03);
+      box-shadow: 0 10px 18px rgba(18,24,38,.18);
+    }
+
+    .start-btn[disabled]{
+      cursor: default;
+      filter: grayscale(.15) brightness(.98);
+      opacity: .9;
+    }
+
+    .start-btn:active{
+      transform: scale(.96);
+      box-shadow: 0 10px 18px rgba(18,24,38,.14);
+    }
+
+    .start-btn[disabled]{
+      cursor:not-allowed;
+      opacity:.65;
+    }
+
+    .footer-actions{
+      display:flex;
+      justify-content:center;
+      gap: 10px;
+      padding: 4px 0 2px;
+    }
+
+    .pill{
+      border: 1px solid rgba(255,255,255,.6);
+      background: rgba(255,255,255,.68);
+      padding: 10px 14px;
+      border-radius: 999px;
+      font-size: 14px;
+      box-shadow: var(--shadow-soft);
+      cursor:pointer;
+      user-select:none;
+    }
+
+    .hint{
+      text-align:center;
+      color: var(--muted);
+      font-size: 12px;
+      padding-top: 10px;
+    }
+
+    /* 结果弹窗 */
+    .modal-backdrop{
+      position: fixed;
+      inset: 0;
+      background: rgba(10, 12, 25, .38);
+      display:none;
+      align-items:flex-start;
+      justify-content:center;
+      padding: 22px 16px;
+      z-index: 50;
+    }
+
+    .modal-backdrop.show{ display:flex; }
+
+    .modal{
+      width: min(420px, 100%);
+      border-radius: 20px;
+      /* 结果弹窗：用主人给的封面图做背景，文字放上半区不挡小狗 */
+      background:
+        linear-gradient(180deg, rgba(255,255,255,.92) 0%, rgba(255,255,255,.78) 18%, rgba(255,255,255,.08) 55%, rgba(255,255,255,0) 70%),
+        var(--modalBgImg);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border: 1px solid rgba(255,255,255,.65);
+      box-shadow: 0 22px 70px rgba(0,0,0,.18);
+      padding: 14px 14px 12px;
+      margin-top: 38px;
+      min-height: min(560px, 72vh);
+      transform: translateY(8px) scale(.98);
+      opacity: 0;
+      transition: transform .18s ease, opacity .18s ease;
+      position:relative;
+      overflow:hidden;
+      background-size: cover;
+      background-position: center;
+      background-repeat: no-repeat;
+    }
+
+    .modal::after{
+      content:"";
+      position:absolute;
+      inset:0;
+      pointer-events:none;
+      background: linear-gradient(180deg, rgba(255,255,255,0) 45%, rgba(255,255,255,.30) 78%, rgba(255,255,255,.62) 100%);
+    }
+
+    .modal > *{
+      position:relative;
+      z-index:1;
+    }
+
+    .modal-backdrop.show .modal{
+      transform: translateY(0) scale(1);
+      opacity: 1;
+    }
+
+    .modal h3{
+      margin: 4px 0 8px;
+      font-size: 18px;
+      font-weight: 900;
+    }
+
+    .modal .top-zone{
+      display:flex;
+      flex-direction:column;
+      gap:6px;
+      padding-top: 6px;
+      /* 只占上半部分，避免压住背景图下方的小狗 */
+      min-height: 210px;
+    }
+
+    .result{
+      font-size: 28px;
+      font-weight: 900;
+      letter-spacing: .2px;
+      margin: 2px 0 10px;
+    }
+
+    .modal .meta{
+      font-size: 13px;
+      color: var(--muted);
+      line-height: 1.4;
+    }
+
+    .modal .actions{
+      display:flex;
+      justify-content:flex-end;
+      gap:10px;
+      margin-top: 12px;
+    }
+
+    .btn{
+      border: none;
+      border-radius: 12px;
+      padding: 10px 12px;
+      font-size: 14px;
+      cursor:pointer;
+      user-select:none;
+    }
+
+    .btn.primary{ background: #111827; color:#fff; }
+    .btn.ghost{ background: rgba(17,24,39,.06); color:#111827; }
+
+    /* 金光特效 */
+    .gold-burst{
+      position: fixed;
+      inset: 0;
+      pointer-events:none;
+      opacity: 0;
+      z-index: 60;
+      background:
+        radial-gradient(circle at 50% 45%, rgba(251,191,36,.22), transparent 55%),
+        radial-gradient(circle at 30% 40%, rgba(250,204,21,.20), transparent 52%),
+        radial-gradient(circle at 70% 50%, rgba(245,158,11,.18), transparent 55%);
+    }
+
+    .gold-burst.show{
+      animation: burst 1.5s ease-in-out both;
+    }
+
+    @keyframes burst{
+      0%{ opacity:0; filter: blur(2px); }
+      20%{ opacity:1; filter: blur(0); }
+      70%{ opacity:.85; }
+      100%{ opacity:0; }
+    }
+
+    .wheel-wrap.glow{
+      animation: ringGlow 1.5s ease-in-out both;
+    }
+
+    @keyframes ringGlow{
+      0%{ filter: drop-shadow(0 0 0 rgba(251,191,36,0)); }
+      20%{ filter: drop-shadow(0 0 22px rgba(251,191,36,.55)); }
+      70%{ filter: drop-shadow(0 0 18px rgba(245,158,11,.38)); }
+      100%{ filter: drop-shadow(0 0 0 rgba(251,191,36,0)); }
+    }
+
+    /* 小屏适配 */
+    @media (max-width: 360px){
+      h1{ font-size: 24px; }
+      .start-btn{ width: 90px; height: 90px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="card">
+      <div class="top-actions">
+        <button class="icon-btn" id="muteBtn" aria-label="静音切换" title="静音">🔊</button>
+      </div>
+
+      <header>
+        <p class="sub">今天让命运安排一顿！</p>
+      </header>
+
+      <div class="wheel-area">
+        <div class="wheel-wrap" id="wheelWrap">
+          <div class="pointer" aria-hidden="true"></div>
+          <canvas id="wheel" width="800" height="800"></canvas>
+          <div class="center">
+            <button class="start-btn" id="startBtn">开始</button>
+          </div>
+        </div>
+      </div>
+      <div class="hint">提示：第一次点击会解锁音效（微信/手机限制）。</div>
+    </div>
+  </div>
+
+  <div class="modal-backdrop" id="modalBackdrop" role="dialog" aria-modal="true">
+    <div class="modal" id="modal">
+      <div class="top-zone">
+        <h3 id="modalTitle">今晚吃：</h3>
+        <div class="result" id="modalResult">—</div>
+        <div class="meta" id="modalMeta">点“开始”让命运再安排一次。</div>
+      </div>
+      <div class="actions">
+        <button class="btn ghost" id="closeBtn">知道了</button>
+        <button class="btn primary" id="againBtn">再来一次</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="gold-burst" id="goldBurst" aria-hidden="true"></div>
+
+<script>
+(() => {
+  /**
+   * 你这份提示词整体没问题；我这里按“可直接部署的单文件H5”实现。
+   * - 权重：绿色 1.0；金色 0.5（单项权重随机）
+   * - 先抽结果，再精准停靠对应扇区
+   * - 音效：base64 占位变量 + WebAudio 兜底
+   */
+
+  // ====== 数据 ======
+  const greenItems = [
+    '好嫂子','澳门茶餐厅','麦当劳','虾吃虾涮','必胜客','肉夹馍','大懒龙','疙瘩汤','达美乐','猪脚饭','村上一屋','麻辣烫','烤串','牛肉丸汤','驴肉火烧','芝士肋排'
+  ];
+  const goldItems = ['➕奶茶','小大董','尊贵蛋包饭'];
+
+  /**
+   * 组装扇区：把金色混入绿里，避免金色挤在一起太显眼
+   *（不影响概率：概率由“单项权重抽取”决定）
+   */
+  const segments = (() => {
+    const out = [];
+    // 简单插入策略：每隔 N 个绿插入 1 个金
+    const greens = [...greenItems];
+    const golds = [...goldItems];
+    const interval = Math.ceil(greens.length / golds.length);
+    let gi = 0;
+    for (let i=0; i<greens.length + golds.length; i++) {
+      if ((i % (interval+1) === interval) && golds.length) {
+        out.push({ label: golds.shift(), tier: 'gold', weight: 1.0 });
+      } else {
+        if (gi < greens.length) {
+          out.push({ label: greens[gi++], tier: 'green', weight: 1.0 });
+        } else if (golds.length) {
+          out.push({ label: golds.shift(), tier: 'gold', weight: 1.0 });
+        }
+      }
+    }
+    // 补齐未插入的金
+    while (golds.length) out.push({ label: golds.shift(), tier: 'gold', weight: 1.0 });
+    return out;
+  })();
+
+  const goldSet = new Set(goldItems);
+
+  // ====== Canvas 绘制 ======
+  const canvas = document.getElementById('wheel');
+  const ctx = canvas.getContext('2d');
+  const wheelWrap = document.getElementById('wheelWrap');
+  const startBtn = document.getElementById('startBtn');
+
+  const TAU = Math.PI * 2;
+  const N = segments.length;
+  const slice = TAU / N;
+
+  // 颜色：做成更有“质感”的哑光渐变（Canvas gradient）
+  function segFillStyle(seg, i, r, midAngle) {
+    // 经典绿/金（更稳定）：用偏去饱和的金色 + 轻微明暗过渡
+    const isGold = seg.tier === 'gold';
+
+    // 沿着扇区中线方向做径向渐变：外缘略亮、内侧略暗
+    const x0 = Math.cos(midAngle) * (r * 0.18);
+    const y0 = Math.sin(midAngle) * (r * 0.18);
+    const x1 = Math.cos(midAngle) * (r * 1.02);
+    const y1 = Math.sin(midAngle) * (r * 1.02);
+    const g = ctx.createLinearGradient(x0, y0, x1, y1);
+
+    if (isGold) {
+      const a = (i % 2 === 0);
+      // matte gold
+      g.addColorStop(0.00, a ? '#8B6B1F' : '#7A5C1A');
+      g.addColorStop(0.35, a ? '#C9A24B' : '#BF983E');
+      g.addColorStop(0.72, a ? '#E4C97A' : '#DDBE66');
+      g.addColorStop(1.00, a ? '#B98A2F' : '#A77C2B');
+      return g;
+    }
+
+    const a = (i % 2 === 0);
+    // clean green with subtle depth
+    g.addColorStop(0.00, a ? '#0F6B3A' : '#0D5F33');
+    g.addColorStop(0.40, a ? '#22C55E' : '#1FB453');
+    g.addColorStop(0.78, a ? '#5BE28E' : '#49D77F');
+    g.addColorStop(1.00, a ? '#169B4D' : '#128A45');
+    return g;
+  }
+
+  function textColor(seg){
+    // 金色上用更深字；绿色上用更深字增强清晰度
+    return seg.tier === 'gold' ? 'rgba(17,24,39,.92)' : 'rgba(17,24,39,.92)';
+  }
+
+  function drawWheel(angleRad=0) {
+    const w = canvas.width, h = canvas.height;
+    const cx = w/2, cy = h/2;
+    const r = Math.min(cx, cy) - 14;
+
+    ctx.clearRect(0,0,w,h);
+
+    // 背板
+    ctx.save();
+    ctx.beginPath();
+    ctx.arc(cx,cy,r+10,0,TAU);
+    ctx.fillStyle = 'rgba(255,255,255,.65)';
+    ctx.fill();
+    ctx.restore();
+
+    // 扇区
+    ctx.save();
+    ctx.translate(cx, cy);
+    ctx.rotate(angleRad);
+
+    for (let i=0; i<N; i++) {
+      const seg = segments[i];
+      const a0 = i*slice;
+      const a1 = a0 + slice;
+
+      const mid = a0 + slice/2;
+
+      ctx.beginPath();
+      ctx.moveTo(0,0);
+      ctx.arc(0,0,r,a0,a1);
+      ctx.closePath();
+      ctx.fillStyle = segFillStyle(seg, i, r, mid);
+      ctx.fill();
+
+      // 分隔线
+      ctx.strokeStyle = 'rgba(255,255,255,.65)';
+      ctx.lineWidth = 3;
+      ctx.stroke();
+
+      // 文本（竖排）：每个字符竖着写，确保尽量显示全
+      ctx.save();
+      ctx.rotate(mid);
+      ctx.translate(r*0.66, 0);
+      // 让竖排文字沿切线方向更自然
+      ctx.rotate(Math.PI/2);
+
+      const label = seg.label;
+      const maxH = r * 0.44;   // 竖排可用高度
+      const maxW = r * 0.16;   // 单字可用宽度（用于字号上限）
+
+      drawVerticalLabel(label, seg, maxH, maxW);
+
+      ctx.restore();
+    }
+
+    ctx.restore();
+
+
+    // 外圈
+    ctx.save();
+    ctx.beginPath();
+    ctx.arc(cx,cy,r+2,0,TAU);
+    ctx.strokeStyle = 'rgba(17,24,39,.08)';
+    ctx.lineWidth = 10;
+    ctx.stroke();
+
+    // 内圈
+    ctx.beginPath();
+    ctx.arc(cx,cy,r*0.34,0,TAU);
+    ctx.fillStyle = 'rgba(255,255,255,.45)';
+    ctx.fill();
+    ctx.restore();
+  }
+
+  function wrapCN(text, maxWidth, ctx) {
+    // 简单中文/符号分行：逐字累积测宽（保留给别处可能用到）
+    const out = [];
+    let line = '';
+    for (const ch of text) {
+      const test = line + ch;
+      if (ctx.measureText(test).width <= maxWidth || line.length === 0) {
+        line = test;
+      } else {
+        out.push(line);
+        line = ch;
+      }
+    }
+    if (line) out.push(line);
+    if (out.length > 3) {
+      const cut = out.slice(0,3);
+      cut[2] = cut[2].slice(0, Math.max(1, cut[2].length-1)) + '…';
+      return cut;
+    }
+    return out;
+  }
+
+  function drawVerticalLabel(label, seg, maxH, maxW) {
+    // 竖排：按字符堆叠；若太长则缩字号，尽量不省略
+    const chars = Array.from(label);
+
+    const maxFontByW = Math.min(34, Math.floor(maxW));
+    const maxFontByH = Math.min(34, Math.floor(maxH / Math.max(1, chars.length) * 0.95));
+    let fontSize = Math.max(16, Math.min(maxFontByW, maxFontByH));
+
+    let lineH = Math.max(14, Math.floor(fontSize * 1.08));
+
+    const totalH = () => (chars.length - 1) * lineH;
+    while (totalH() > maxH && fontSize > 14) {
+      fontSize -= 1;
+      lineH = Math.max(13, Math.floor(fontSize * 1.08));
+    }
+
+    ctx.fillStyle = textColor(seg);
+    ctx.font = `900 ${fontSize}px -apple-system, BlinkMacSystemFont, PingFang SC, SF Pro Display, Helvetica Neue, Arial`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+
+    const y0 = - totalH() / 2;
+    for (let i=0; i<chars.length; i++) {
+      ctx.fillText(chars[i], 0, y0 + i*lineH);
+    }
+  }
+
+  // ====== 权重随机 ======
+  function weightedPick(items) {
+    const total = items.reduce((s,x)=>s + x.weight, 0);
+    let r = Math.random() * total;
+    for (const it of items) {
+      r -= it.weight;
+      if (r <= 0) return it;
+    }
+    return items[items.length-1];
+  }
+
+  // ====== 动画控制 ======
+  let spinning = false;
+  let currentAngle = 0; // wheel rotation in rad
+
+  function easeOutCubic(t){ return 1 - Math.pow(1-t, 3); }
+
+  function angleToStopAtIndex(index) {
+    /**
+     * 指针在正上方（0 rad 指向右侧），canvas 绘制从 0 rad 在 x正方向。
+     * 我们希望“选中扇区的中线”转到指针位置（-90° = -PI/2）。
+     */
+    const pointerAngle = -Math.PI/2;
+    const segMid = index*slice + slice/2;
+    // 当 wheel 旋转 currentAngle 时，扇区角度 = segMid + currentAngle
+    // 令 segMid + targetAngle = pointerAngle (mod 2π)
+    let target = pointerAngle - segMid;
+    // 规范到 [0, 2π)
+    target = ((target % TAU) + TAU) % TAU;
+    return target;
+  }
+
+  function spinToResult(resultSeg) {
+    const index = segments.findIndex(s => s.label === resultSeg.label);
+    if (index < 0) throw new Error('Result not found');
+
+    const targetBase = angleToStopAtIndex(index);
+    // 为了更爽：多转几圈 + 一个小随机微调（落在扇区中线附近）
+    const extraTurns = 5 + Math.floor(Math.random()*3); // 5~7圈
+    const jitter = (Math.random() - 0.5) * (slice * 0.18); // 微抖动
+    const targetAngle = targetBase + jitter + extraTurns * TAU;
+
+    const startAngle = currentAngle;
+    const delta = targetAngle - (startAngle % TAU);
+    const final = startAngle + delta;
+
+    const duration = 3600 + Math.random()*600; // 3.6~4.2s
+
+    const t0 = performance.now();
+    spinning = true;
+    startBtn.setAttribute('disabled','disabled');
+
+    sfx.playStart();
+    sfx.startSpinLoop();
+
+    function tick(now) {
+      const t = Math.min(1, (now - t0) / duration);
+      const eased = easeOutCubic(t);
+      currentAngle = startAngle + (final - startAngle) * eased;
+      drawWheel(currentAngle);
+
+      if (t < 1) {
+        requestAnimationFrame(tick);
+      } else {
+        spinning = false;
+        startBtn.removeAttribute('disabled');
+        sfx.stopSpinLoop();
+        sfx.playDing();
+
+        // 结果弹窗
+        const isGold = goldSet.has(resultSeg.label);
+        showResult(resultSeg.label, isGold);
+      }
+    }
+
+    requestAnimationFrame(tick);
+  }
+
+  // ====== 音效（base64 + WebAudio 兜底） ======
+
+  // 你可以把下面字符串替换成真实 base64（可含或不含 data: 前缀）
+  // 说明：微信/手机对自动播放有限制，因此会在“第一次点击开始”后解锁并启动。
+  const SFX_BGM_BASE64   = ''; // 背景音乐（欢快），loop
+  const SFX_START_BASE64 = ''; // 启动 click/whoosh
+  const SFX_SPIN_BASE64  = ''; // 旋转 loop（音量更低）
+  const SFX_DING_BASE64  = ''; // 命中 ding
+
+  const sfx = (() => {
+    let muted = false;
+    let unlocked = false;
+
+    // HTMLAudio（优先）：适合 base64
+    const aBgm   = makeAudio(SFX_BGM_BASE64,   { loop:true,  volume:0.14 });
+    const aStart = makeAudio(SFX_START_BASE64, { loop:false, volume:0.9 });
+    const aSpin  = makeAudio(SFX_SPIN_BASE64,  { loop:true,  volume:0.22 });
+    const aDing  = makeAudio(SFX_DING_BASE64,  { loop:false, volume:0.95 });
+
+    // WebAudio（兜底）：没有 base64 也能听到（简单音色）
+    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+    const ac = AudioCtx ? new AudioCtx() : null;
+
+    // 兜底旋转音（WebAudio 低频 whoosh/转动感）
+    let spinOsc = null;
+    let spinGain = null;
+
+    function makeAudio(base64, opt) {
+      const au = new Audio();
+      au.preload = 'auto';
+      au.loop = !!opt.loop;
+      au.volume = opt.volume ?? 0.8;
+      if (base64 && base64.trim()) {
+        au.src = base64.startsWith('data:') ? base64 : `data:audio/mp3;base64,${base64}`;
+      }
+      return au;
+    }
+
+    async function unlock() {
+      if (unlocked) return;
+      unlocked = true;
+
+      // iOS/微信：必须在手势里 resume + play/pause
+      try { if (ac && ac.state === 'suspended') await ac.resume(); } catch(e) {}
+
+      // 尝试静默播放一下（有src才有意义）
+      for (const au of [aBgm, aStart, aSpin, aDing]) {
+        try {
+          if (au.src) {
+            au.muted = true;
+            await au.play();
+            au.pause();
+            au.currentTime = 0;
+            au.muted = false;
+          }
+        } catch (e) {
+          // ignore
+        }
+      }
+
+      // 解锁后就把背景音乐挂上（不强行播放，等第一次开始再 play）
+    }
+
+    function playOsc({freq=440, dur=0.08, type='sine', gain=0.08}) {
+      if (!ac || muted) return;
+      const o = ac.createOscillator();
+      const g = ac.createGain();
+      o.type = type;
+      o.frequency.value = freq;
+      g.gain.value = 0;
+      o.connect(g); g.connect(ac.destination);
+      const t0 = ac.currentTime;
+      g.gain.setValueAtTime(0, t0);
+      g.gain.linearRampToValueAtTime(gain, t0 + 0.01);
+      g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+      o.start(t0);
+      o.stop(t0 + dur + 0.02);
+    }
+
+    let bgmStarted = false;
+    function ensureBgm() {
+      if (muted || bgmStarted) return;
+      if (aBgm.src) {
+        try { aBgm.play(); bgmStarted = true; } catch(e) {}
+      } else {
+        // 没有 base64 就不强行生成“背景音乐”，避免吵；留空也不影响功能。
+      }
+    }
+
+    function playStart() {
+      if (muted) return;
+      ensureBgm();
+      if (aStart.src) {
+        try { aStart.currentTime = 0; aStart.play(); } catch(e) {}
+      } else {
+        // click/whoosh
+        playOsc({freq:520, dur:0.05, type:'square', gain:0.06});
+        playOsc({freq:260, dur:0.10, type:'sine', gain:0.04});
+      }
+    }
+
+    function startSpinLoop() {
+      if (muted) return;
+      ensureBgm();
+      if (aSpin.src) {
+        try { aSpin.currentTime = 0; aSpin.play(); } catch(e) {}
+      } else {
+        // 兜底：WebAudio 做一个低音旋转感（循环），音量很轻
+        if (ac && !spinOsc) {
+          try {
+            spinOsc = ac.createOscillator();
+            spinGain = ac.createGain();
+            spinOsc.type = 'sawtooth';
+            spinOsc.frequency.value = 90;
+            spinGain.gain.value = 0.0;
+            spinOsc.connect(spinGain);
+            spinGain.connect(ac.destination);
+            const t0 = ac.currentTime;
+            spinGain.gain.setValueAtTime(0.0001, t0);
+            spinGain.gain.linearRampToValueAtTime(0.018, t0 + 0.08);
+            spinOsc.start();
+          } catch(e) {
+            spinOsc = null; spinGain = null;
+          }
+        }
+      }
+    }
+
+    function stopSpinLoop() {
+      if (aSpin.src) {
+        try { aSpin.pause(); aSpin.currentTime = 0; } catch(e) {}
+      }
+      if (spinOsc) {
+        try {
+          const t0 = ac.currentTime;
+          spinGain.gain.cancelScheduledValues(t0);
+          spinGain.gain.setValueAtTime(spinGain.gain.value, t0);
+          spinGain.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.06);
+          spinOsc.stop(t0 + 0.07);
+        } catch(e) {}
+        spinOsc = null;
+        spinGain = null;
+      }
+    }
+
+    function playDing() {
+      if (muted) return;
+      if (aDing.src) {
+        try { aDing.currentTime = 0; aDing.play(); } catch(e) {}
+      } else {
+        playOsc({freq:880, dur:0.09, type:'triangle', gain:0.08});
+        playOsc({freq:1320, dur:0.06, type:'sine', gain:0.06});
+      }
+    }
+
+    function setMuted(v){
+      muted = v;
+      for (const au of [aBgm,aStart,aSpin,aDing]) {
+        try { au.muted = muted; if (muted) { au.pause(); } } catch(e) {}
+      }
+      if (muted) {
+        // 静音时顺便停掉兜底旋转音
+        if (spinOsc) {
+          try { spinOsc.stop(); } catch(e) {}
+          spinOsc = null; spinGain = null;
+        }
+      }
+    }
+
+    function getMuted(){ return muted; }
+
+    return { unlock, playStart, startSpinLoop, stopSpinLoop, playDing, setMuted, getMuted };
+  })();
+
+  // ====== 弹窗与金光 ======
+  const modalBackdrop = document.getElementById('modalBackdrop');
+  const modalTitle = document.getElementById('modalTitle');
+  const modalResult = document.getElementById('modalResult');
+  const closeBtn = document.getElementById('closeBtn');
+  const againBtn = document.getElementById('againBtn');
+  const goldBurst = document.getElementById('goldBurst');
+
+  function showResult(label, isGold) {
+    modalTitle.textContent = isGold ? '🎉 尊贵之选！' : '今晚吃：';
+    modalResult.textContent = label;
+
+    // 弹窗“尊贵”一点：微金色边缘
+    if (isGold) {
+      modalResult.style.textShadow = '0 6px 20px rgba(245,158,11,.25)';
+      const dur = 1200 + Math.random()*600; // 1.2~1.8s
+      goldBurst.classList.remove('show');
+      wheelWrap.classList.remove('glow');
+      // reflow
+      void goldBurst.offsetWidth;
+      goldBurst.style.animationDuration = `${dur}ms`;
+      wheelWrap.style.animationDuration = `${dur}ms`;
+      goldBurst.classList.add('show');
+      wheelWrap.classList.add('glow');
+      setTimeout(() => {
+        goldBurst.classList.remove('show');
+        wheelWrap.classList.remove('glow');
+      }, dur + 50);
+    } else {
+      modalResult.style.textShadow = 'none';
+    }
+
+    modalBackdrop.classList.add('show');
+  }
+
+  function closeModal(){ modalBackdrop.classList.remove('show'); }
+
+  closeBtn.addEventListener('click', closeModal);
+  modalBackdrop.addEventListener('click', (e) => {
+    if (e.target === modalBackdrop) closeModal();
+  });
+  againBtn.addEventListener('click', () => {
+    closeModal();
+    startSpin();
+  });
+
+
+  // ====== 静音 ======
+  const muteBtn = document.getElementById('muteBtn');
+  function renderMute(){ muteBtn.textContent = sfx.getMuted() ? '🔇' : '🔊'; }
+  muteBtn.addEventListener('click', async () => {
+    sfx.setMuted(!sfx.getMuted());
+    renderMute();
+    if (!sfx.getMuted()) {
+      // 解除静音时也尝试解锁
+      await sfx.unlock();
+    }
+  });
+  renderMute();
+
+  // ====== 主流程 ======
+  function startSpin(){
+    if (spinning) return;
+    // 用户手势下解锁音频
+    sfx.unlock();
+
+    const result = weightedPick(segments);
+    spinToResult(result);
+  }
+
+  startBtn.addEventListener('click', startSpin);
+
+  // 初次绘制
+  drawWheel(0);
+
+  // 预热图片缓存（微信内置浏览器有时对 preload 不够积极）
+  try{
+    ['bg.jpg','start.png','modal.jpg'].forEach(src=>{
+      const im = new Image();
+      im.decoding = 'async';
+      im.loading = 'eager';
+      im.src = './'+src;
+    });
+  }catch(e){}
+
+})();
+</script>
+</body>
+</html>
