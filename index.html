@@ -229,24 +229,6 @@
       opacity:.65;
     }
 
-    .footer-actions{
-      display:flex;
-      justify-content:center;
-      gap: 10px;
-      padding: 4px 0 2px;
-    }
-
-    .pill{
-      border: 1px solid rgba(255,255,255,.6);
-      background: rgba(255,255,255,.68);
-      padding: 10px 14px;
-      border-radius: 999px;
-      font-size: 14px;
-      box-shadow: var(--shadow-soft);
-      cursor:pointer;
-      user-select:none;
-    }
-
     .hint{
       text-align:center;
       color: var(--muted);
@@ -414,10 +396,6 @@
       <header>
         <p class="sub">今天让命运安排一顿！</p>
       </header>
-
-      <div class="footer-actions">
-        <button class="pill" id="bgmBtn" aria-label="BGM">BGM: 关</button>
-      </div>
 
       <div class="wheel-area">
         <div class="wheel-wrap" id="wheelWrap">
@@ -985,20 +963,14 @@
 
   startBtn.addEventListener('click', startSpin);
 
-
   // ====== BGM ======
   const bgm = document.getElementById('bgm');
-  const bgmBtn = document.getElementById('bgmBtn');
   const BGM_KEY = 'lw5_bgm_on_v1';
-
-  function renderBgmBtn(){
-    const on = localStorage.getItem(BGM_KEY) === '1';
-    if (bgmBtn) bgmBtn.textContent = on ? 'BGM: 开' : 'BGM: 关';
-  }
 
   async function tryPlayBgm(){
     if (!bgm) return false;
     try{
+      bgm.volume = 0.55;
       await bgm.play();
       return true;
     }catch(e){
@@ -1006,48 +978,24 @@
     }
   }
 
-  function setBgm(on){
-    localStorage.setItem(BGM_KEY, on ? '1' : '0');
-    if (!bgm) return;
-    if (on){
-      // volume gentle
-      bgm.volume = 0.55;
-      // actual play must happen on user gesture
-    } else {
-      try{ bgm.pause(); }catch(e){}
-      bgm.currentTime = 0;
-    }
-    renderBgmBtn();
-  }
-
-  // default: off (avoid iOS auto-play restrictions); user can toggle
+  // Default ON (but iOS/WeChat still requires a user gesture to actually start audio)
   if (localStorage.getItem(BGM_KEY) === null) localStorage.setItem(BGM_KEY, '1');
-  renderBgmBtn();
 
-  if (bgmBtn){
-    bgmBtn.addEventListener('click', async ()=>{
-      const on = localStorage.getItem(BGM_KEY) === '1';
-      setBgm(!on);
-      if (!on){
-        // user gesture: start playing now
-        await tryPlayBgm();
-      }
-    });
+  // Auto-enable + try play on FIRST user gesture anywhere
+  let __bgmTried = false;
+  async function __bgmKickOnce(){
+    if (__bgmTried) return;
+    __bgmTried = true;
+    localStorage.setItem(BGM_KEY, '1');
+    await tryPlayBgm();
   }
+  window.addEventListener('touchstart', __bgmKickOnce, { once:true, passive:true });
+  window.addEventListener('click', __bgmKickOnce, { once:true });
 
-  // Hook into start button gesture to unlock audio
+  // Also hook into start button gesture to guarantee kick
   const __oldStartSpin = startSpin;
   startSpin = async function(){
-    let on = localStorage.getItem(BGM_KEY) === '1';
-    if (!on) {
-      // auto-enable on first spin
-      localStorage.setItem(BGM_KEY, '1');
-      on = true;
-      renderBgmBtn();
-    }
-    if (on){
-      await tryPlayBgm();
-    }
+    await __bgmKickOnce();
     return __oldStartSpin.apply(this, arguments);
   };
 
