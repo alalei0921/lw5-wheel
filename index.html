@@ -1021,7 +1021,7 @@
   }
 
   // default: off (avoid iOS auto-play restrictions); user can toggle
-  if (localStorage.getItem(BGM_KEY) === null) localStorage.setItem(BGM_KEY, '0');
+  if (localStorage.getItem(BGM_KEY) === null) localStorage.setItem(BGM_KEY, '1');
   renderBgmBtn();
 
   if (bgmBtn){
@@ -1038,7 +1038,13 @@
   // Hook into start button gesture to unlock audio
   const __oldStartSpin = startSpin;
   startSpin = async function(){
-    const on = localStorage.getItem(BGM_KEY) === '1';
+    let on = localStorage.getItem(BGM_KEY) === '1';
+    if (!on) {
+      // auto-enable on first spin
+      localStorage.setItem(BGM_KEY, '1');
+      on = true;
+      renderBgmBtn();
+    }
     if (on){
       await tryPlayBgm();
     }
