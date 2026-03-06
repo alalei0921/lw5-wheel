@@ -193,6 +193,7 @@
 </head>
 <body>
   <button class="music-btn" id="musicBtn" aria-label="背景音乐">🎵 音乐：开</button>
+  <button class="music-btn" id="updateBtn" aria-label="一键更新" style="right: max(12px, env(safe-area-inset-right)); top: calc(max(12px, env(safe-area-inset-top)) + 52px);">🧁 一键更新</button>
   <audio id="homeBgm" preload="auto" loop playsinline webkit-playsinline>
     <source src="./bgm.m4a" type="audio/mp4">
     <source src="./bgm.mp3" type="audio/mpeg">
@@ -236,6 +237,29 @@
           navigator.serviceWorker.register('./sw.js').catch(() => {});
         });
       }
+    })();
+
+    // One-click update: unregister SW + clear caches + hard reload
+    (function(){
+      const btn = document.getElementById('updateBtn');
+      if (!btn) return;
+      btn.addEventListener('click', async () => {
+        btn.textContent = '🍬 更新中...';
+        try{
+          if ('serviceWorker' in navigator) {
+            const regs = await navigator.serviceWorker.getRegistrations();
+            await Promise.all(regs.map(r => r.unregister()));
+          }
+          if (window.caches) {
+            const keys = await caches.keys();
+            await Promise.all(keys.map(k => caches.delete(k)));
+          }
+        }catch(_){ }
+        // cache-busting reload
+        const url = new URL(location.href);
+        url.searchParams.set('v', String(Date.now()));
+        location.href = url.toString();
+      });
     })();
 
     (function(){

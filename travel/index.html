@@ -156,12 +156,16 @@
     .item{
       display:flex;
       align-items:center;
+      justify-content: space-between;
       gap:10px;
       padding: 10px 10px;
       border-radius: 14px;
       background: rgba(255,255,255,.72);
       border: 1px solid rgba(255,255,255,.85);
+      transition: transform .18s ease, background .18s ease, border-color .18s ease;
     }
+    .item.moved{ animation: popDown .22s ease; }
+    @keyframes popDown{ 0%{transform:scale(1)} 50%{transform:scale(0.98)} 100%{transform:scale(1)} }
 
     .item.checked{
       background: rgba(255,255,255,.52);
@@ -173,6 +177,12 @@
       font-weight: 900;
       color: rgba(17,24,39,.92);
       user-select:none;
+    }
+
+    .item .right{
+      display:flex;
+      align-items:center;
+      gap:10px;
     }
 
     .item.checked label{
@@ -368,6 +378,12 @@
           const row = document.createElement('div');
           row.className = 'item' + ((checkedByCat[cat] && checkedByCat[cat][name]) ? ' checked' : '');
 
+          const label = document.createElement('label');
+          label.textContent = name;
+
+          const right = document.createElement('div');
+          right.className = 'right';
+
           const cb = document.createElement('input');
           cb.type = 'checkbox';
           cb.checked = !!(checkedByCat[cat] && checkedByCat[cat][name]);
@@ -377,14 +393,16 @@
             saveChecked(checkedByCat);
             sortWithinCategory(cat);
             saveItems(itemsByCat);
+            // 小动画：勾选/取消后轻微 pop 一下
+            row.classList.add('moved');
+            setTimeout(() => row.classList.remove('moved'), 260);
             renderList();
           });
 
-          const label = document.createElement('label');
-          label.textContent = name;
+          right.appendChild(cb);
 
-          row.appendChild(cb);
           row.appendChild(label);
+          row.appendChild(right);
           itemsWrap.appendChild(row);
         }
 
