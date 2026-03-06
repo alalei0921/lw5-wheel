@@ -193,7 +193,8 @@
 
     /* settings */
     .row{ display:flex; gap:10px; flex-wrap: wrap; margin-top: 10px; }
-    select,input{
+    .row select,
+    .row input:not([type="checkbox"]) {
       flex: 1;
       min-width: 140px;
       padding: 10px 12px;
