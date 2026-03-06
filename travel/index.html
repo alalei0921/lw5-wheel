@@ -6,242 +6,70 @@
   <meta name="theme-color" content="#FFF6F0" />
   <title>去玩咯｜旅行备忘录</title>
   <style>
-    *{ box-sizing:border-box; -webkit-tap-highlight-color: transparent; }
-    html,body{ height:100%; }
-    body{
-      margin:0;
-      font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","SF Pro Display","Helvetica Neue",Arial,sans-serif;
-      color:#111827;
-      min-height:100vh;
-      position:relative;
-      overflow-x:hidden;
-    }
-    body::before{
-      content:"";
-      position:fixed;
-      inset:0;
-      background-image:
-        linear-gradient(rgba(255,248,235,0.18), rgba(255,248,235,0.18)),
-        url('./bg.jpg');
-      background-position:center;
-      background-size:cover;
-      background-repeat:no-repeat;
-      z-index:-1;
-    }
+    *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+    html,body{height:100%}
+    body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","SF Pro Display","Helvetica Neue",Arial,sans-serif;color:#111827;overflow-x:hidden}
+    body::before{content:"";position:fixed;inset:0;z-index:-1;background:linear-gradient(rgba(255,248,235,.18),rgba(255,248,235,.18)),url('./bg.jpg') center/cover no-repeat}
 
-    .wrap{
-      max-width: 860px;
-      margin: 0 auto;
-      padding: 22px 14px 28px;
-    }
+    .wrap{max-width:860px;margin:0 auto;padding:22px 14px 28px}
+    header{display:flex;justify-content:space-between;gap:12px;align-items:flex-start;margin-bottom:12px}
+    h1{margin:0;font-size:28px;color:#7c4a37;text-shadow:0 2px 10px rgba(255,255,255,.55)}
+    .sub{margin:6px 0 0;font-size:13px;font-weight:700;color:rgba(17,24,39,.75)}
 
-    header{
-      display:flex;
-      align-items:flex-start;
-      justify-content:space-between;
-      gap: 12px;
-      margin-bottom: 12px;
-    }
+    .btn{border:1px solid rgba(255,255,255,.85);background:rgba(255,255,255,.70);backdrop-filter:blur(8px);border-radius:999px;padding:10px 12px;font-size:14px;font-weight:900;cursor:pointer;box-shadow:0 12px 22px rgba(0,0,0,.10);color:#111827}
+    .btn:active{transform:scale(.98)}
 
-    .title{
-      display:flex;
-      flex-direction:column;
-      gap:6px;
-    }
-    h1{
-      margin:0;
-      font-size: 28px;
-      letter-spacing:.2px;
-      color:#7c4a37;
-      text-shadow:0 2px 10px rgba(255,255,255,.55);
-    }
-    .sub{
-      margin:0;
-      font-size: 13px;
-      color: rgba(17,24,39,.75);
-      font-weight: 700;
-    }
+    .tabs{display:flex;gap:10px;margin:10px 0 14px}
+    .tab{padding:10px 14px;border-radius:999px;border:1px solid rgba(255,255,255,.82);background:rgba(255,255,255,.62);backdrop-filter:blur(8px);font-weight:900;cursor:pointer}
+    .tab.active{background:rgba(255,255,255,.82);border-color:rgba(255,255,255,.95);box-shadow:0 10px 18px rgba(0,0,0,.10)}
 
-    .top-actions{
-      display:flex;
-      gap:10px;
-      align-items:center;
-    }
+    .panel{background:rgba(255,255,255,.62);border:1px solid rgba(255,255,255,.75);border-radius:18px;box-shadow:0 18px 45px rgba(0,0,0,.12);backdrop-filter:blur(10px);overflow:hidden}
+    .section{padding:14px 14px 8px;border-bottom:1px solid rgba(0,0,0,.06)}
+    .section:last-child{border-bottom:none}
+    .section-title{margin:0 0 8px;font-size:15px;color:rgba(17,24,39,.85);display:flex;align-items:center;justify-content:space-between;gap:10px}
+    .muted{font-size:12px;color:rgba(107,114,128,.9);font-weight:700}
 
-    .btn{
-      border: 1px solid rgba(255,255,255,.85);
-      background: rgba(255,255,255,.70);
-      backdrop-filter: blur(8px);
-      -webkit-backdrop-filter: blur(8px);
-      border-radius: 999px;
-      padding: 10px 12px;
-      font-size: 14px;
-      font-weight: 900;
-      cursor:pointer;
-      user-select:none;
-      box-shadow: 0 12px 22px rgba(0,0,0,.10);
-      color: #111827;
-    }
-    .btn:active{ transform: scale(.98); }
+    .items{display:flex;flex-direction:column;gap:8px;padding-bottom:8px;width:100%}
 
-    .tabs{
-      display:flex;
-      gap:10px;
-      margin: 10px 0 14px;
-    }
-    .tab{
-      padding: 10px 14px;
-      border-radius: 999px;
-      border: 1px solid rgba(255,255,255,.82);
-      background: rgba(255,255,255,.62);
-      backdrop-filter: blur(8px);
-      font-weight: 900;
-      cursor:pointer;
-    }
-    .tab.active{
-      background: rgba(255,255,255,.82);
-      border-color: rgba(255,255,255,.95);
-      box-shadow: 0 10px 18px rgba(0,0,0,.10);
-    }
-
-    .panel{
-      background: rgba(255,255,255,.62);
-      border: 1px solid rgba(255,255,255,.75);
-      border-radius: 18px;
-      box-shadow: 0 18px 45px rgba(0,0,0,.12);
-      backdrop-filter: blur(10px);
-      -webkit-backdrop-filter: blur(10px);
-      overflow:hidden;
-    }
-
-    .section{
-      padding: 14px 14px 8px;
-      border-bottom: 1px solid rgba(0,0,0,.06);
-    }
-    .section:last-child{ border-bottom:none; }
-
-    .section-title{
-      margin: 0 0 8px;
-      font-size: 15px;
-      color: rgba(17,24,39,.85);
-      display:flex;
-      align-items:center;
-      justify-content:space-between;
-      gap: 10px;
-    }
-
-    .items{ display:flex; flex-direction:column; gap: 8px; padding-bottom: 8px; width:100%; }
-
+    /* 重做：固定两列（左文字，右勾选） */
     .item{
-      width: 100%;
-      position: relative;
-      display: block;
-      /* 右侧预留复选框位置 */
-      padding: 10px 36px 10px 12px;
-      border-radius: 14px;
-      background: rgba(255,255,255,.72);
-      border: 1px solid rgba(255,255,255,.85);
-      transition: transform .18s ease, background .18s ease, border-color .18s ease;
-    }
-    .item.moved{ animation: popDown .34s cubic-bezier(.2,.9,.2,1); }
-    @keyframes popDown{
-      0%{ transform: translateY(0) scale(1); box-shadow: none; }
-      45%{ transform: translateY(6px) scale(0.985); box-shadow: 0 10px 18px rgba(0,0,0,.10); }
-      100%{ transform: translateY(0) scale(1); box-shadow: none; }
-    }
-
-    .item.checked{
-      background: rgba(255,255,255,.52);
-      border-color: rgba(255,255,255,.65);
-    }
-
-    .item label{
-      display:block;
-      flex: 1 1 auto;
-      font-weight: 900;
-      color: rgba(17,24,39,.92);
-      user-select:none;
-    }
-
-    /* iOS 有时会给 checkbox 预留奇怪占位，直接绝对定位到最右更稳 */
-    .item input[type="checkbox"]{
-      position: absolute;
-      right: 8px;
-      top: 50%;
-      transform: translateY(-50%);
-      margin: 0;
-      display:block;
-    }
-
-
-    .item.checked label{
-      color: rgba(107,114,128,.85);
-      text-decoration: line-through;
-    }
-
-    input[type="checkbox"]{
-      width: 22px;
-      height: 22px;
-      accent-color: #ff7aa2;
-    }
-
-    .muted{
-      font-size: 12px;
-      color: rgba(107,114,128,.9);
-      font-weight: 700;
-    }
-
-    /* settings */
-    .row{ display:flex; gap:10px; flex-wrap: wrap; margin-top: 10px; }
-    .row select,
-    .row input:not([type="checkbox"]) {
-      flex: 1;
-      min-width: 140px;
-      padding: 10px 12px;
-      border-radius: 14px;
-      border: 1px solid rgba(255,255,255,.85);
-      background: rgba(255,255,255,.80);
-      font-size: 14px;
-      outline:none;
-    }
-
-    .mini-btn{
-      border: 1px solid rgba(255,255,255,.85);
-      background: rgba(255,255,255,.78);
-      border-radius: 12px;
-      padding: 8px 10px;
-      font-weight: 900;
-      cursor:pointer;
-    }
-    .mini-btn.danger{ background: rgba(255,235,238,.9); border-color: rgba(255,205,210,.95); }
-
-    .settings-item{
-      display:flex;
+      width:100%;
+      display:grid;
+      grid-template-columns:minmax(0,1fr) 28px;
       align-items:center;
-      justify-content:space-between;
-      gap: 10px;
-      padding: 10px 10px;
-      border-radius: 14px;
-      background: rgba(255,255,255,.72);
-      border: 1px solid rgba(255,255,255,.85);
-      margin: 8px 0;
+      gap:10px;
+      padding:10px 8px 10px 12px;
+      border-radius:14px;
+      background:rgba(255,255,255,.72);
+      border:1px solid rgba(255,255,255,.85);
+      transition:transform .18s ease,background .18s ease,border-color .18s ease,box-shadow .18s ease;
     }
+    .item.moved{animation:popDown .34s cubic-bezier(.2,.9,.2,1)}
+    @keyframes popDown{0%{transform:translateY(0) scale(1)}45%{transform:translateY(6px) scale(.985);box-shadow:0 10px 18px rgba(0,0,0,.10)}100%{transform:translateY(0) scale(1)}}
 
-    @media (max-width:420px){
-      h1{ font-size: 24px; }
-    }
+    .item label{min-width:0;display:block;font-weight:900;color:rgba(17,24,39,.92);user-select:none}
+    .item.checked label{color:rgba(107,114,128,.85);text-decoration:line-through}
+    .item.checked{background:rgba(255,255,255,.52);border-color:rgba(255,255,255,.65)}
+
+    .item input[type="checkbox"]{width:22px;height:22px;accent-color:#ff7aa2;margin:0;justify-self:end}
+
+    .row{display:flex;gap:10px;flex-wrap:wrap;margin-top:10px}
+    .row select,.row input[type="text"]{flex:1;min-width:140px;padding:10px 12px;border-radius:14px;border:1px solid rgba(255,255,255,.85);background:rgba(255,255,255,.80);font-size:14px;outline:none}
+    .settings-item{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px;border-radius:14px;background:rgba(255,255,255,.72);border:1px solid rgba(255,255,255,.85);margin:8px 0}
+    .mini-btn{border:1px solid rgba(255,255,255,.85);background:rgba(255,255,255,.78);border-radius:12px;padding:8px 10px;font-weight:900;cursor:pointer}
+    .mini-btn.danger{background:rgba(255,235,238,.9);border-color:rgba(255,205,210,.95)}
+
+    @media (max-width:420px){h1{font-size:24px}}
   </style>
 </head>
 <body>
   <div class="wrap">
     <header>
-      <div class="title">
+      <div>
         <h1>去玩咯</h1>
-        <p class="sub">旅行物品清单｜勾选会变灰并沉到底部（同大类内）</p>
+        <p class="sub">旅行物品清单｜左边文字，右边勾选</p>
       </div>
-      <div class="top-actions">
-        <button class="btn" id="resetBtn" type="button">🧼 一键重置</button>
-      </div>
+      <button class="btn" id="resetBtn" type="button">🧼 一键重置</button>
     </header>
 
     <div class="tabs">
@@ -251,254 +79,173 @@
 
     <div id="viewList" class="panel"></div>
 
-    <div id="viewSettings" class="panel" style="display:none; padding: 14px;">
-      <div style="font-weight:900; color: rgba(17,24,39,.88);">管理小项（大类锁定）</div>
-      <div class="muted" style="margin-top:6px;">可新增/删除小项；勾选状态不影响这里。</div>
+    <div id="viewSettings" class="panel" style="display:none;padding:14px;">
+      <div style="font-weight:900;color:rgba(17,24,39,.88)">管理小项（大类锁定）</div>
+      <div class="muted" style="margin-top:6px">可新增/删除小项；勾选状态不影响这里。</div>
 
       <div class="row">
         <select id="catSel"></select>
-        <input id="newItem" placeholder="新增物品（例如：充电线）" />
+        <input id="newItem" type="text" placeholder="新增物品（例如：充电线）" />
         <button class="btn" id="addBtn" type="button">➕ 添加</button>
       </div>
 
-      <div id="settingsList" style="margin-top: 10px;"></div>
+      <div id="settingsList" style="margin-top:10px"></div>
     </div>
   </div>
 
   <script>
-    const KEY_ITEMS = 'lw5_travel_items_v1';
-    const KEY_CHECKED = 'lw5_travel_checked_v1';
+    const KEY_ITEMS='lw5_travel_items_v1';
+    const KEY_CHECKED='lw5_travel_checked_v1';
 
-    const CATEGORIES = [
-      '证件类',
-      '电子设备类',
-      '洗漱护肤类',
-      '药品类',
-      '海岛装备类',
-      '舒适用品类',
-      '其他类'
-    ];
-
-    const defaultData = {
-      '证件类': ['身份证','护照','取卡针','项链'],
-      '电子设备类': ['手机','充电宝','充电线','充电头','iPad','游戏机','耳机','Pocket'],
-      '洗漱护肤类': ['防晒霜','牙刷','牙膏','洗面奶','擦脸油','面霜','润唇膏','洗脸巾','护发素','湿厕纸'],
-      '药品类': ['糠酸莫米松','碘伏棉签','创可贴','感冒药','止痛药','止泻药','晕船药','驱蚊喷雾','蚊香'],
-      '海岛装备类': ['泳裤','沙滩拖鞋','泳镜','浮潜面罩','速干毛巾','墨镜','草帽','潜水刀'],
-      '舒适用品类': ['颈枕','耳塞','眼罩','TT'],
-      '其他类': []
+    const CATEGORIES=['证件类','电子设备类','洗漱护肤类','药品类','海岛装备类','舒适用品类','其他类'];
+    const defaultData={
+      '证件类':['身份证','护照','取卡针','项链'],
+      '电子设备类':['手机','充电宝','充电线','充电头','iPad','游戏机','耳机','Pocket'],
+      '洗漱护肤类':['防晒霜','牙刷','牙膏','洗面奶','擦脸油','面霜','润唇膏','洗脸巾','护发素','湿厕纸'],
+      '药品类':['糠酸莫米松','碘伏棉签','创可贴','感冒药','止痛药','止泻药','晕船药','驱蚊喷雾','蚊香'],
+      '海岛装备类':['泳裤','沙滩拖鞋','泳镜','浮潜面罩','速干毛巾','墨镜','草帽','潜水刀'],
+      '舒适用品类':['颈枕','耳塞','眼罩','TT'],
+      '其他类':[]
     };
 
-    function loadItems(){
-      try{
-        const v = JSON.parse(localStorage.getItem(KEY_ITEMS));
-        if (v && typeof v === 'object') return v;
-      }catch(_){ }
-      return JSON.parse(JSON.stringify(defaultData));
-    }
+    const clone=(x)=>JSON.parse(JSON.stringify(x));
+    const loadItems=()=>{try{const v=JSON.parse(localStorage.getItem(KEY_ITEMS));if(v&&typeof v==='object')return v;}catch(_){}return clone(defaultData)};
+    const saveItems=(v)=>localStorage.setItem(KEY_ITEMS,JSON.stringify(v));
+    const loadChecked=()=>{try{const v=JSON.parse(localStorage.getItem(KEY_CHECKED));if(v&&typeof v==='object')return v;}catch(_){}return {}};
+    const saveChecked=(v)=>localStorage.setItem(KEY_CHECKED,JSON.stringify(v));
 
-    function saveItems(items){
-      localStorage.setItem(KEY_ITEMS, JSON.stringify(items));
-    }
+    let itemsByCat=loadItems();
+    let checkedByCat=loadChecked();
 
-    function loadChecked(){
-      try{
-        const v = JSON.parse(localStorage.getItem(KEY_CHECKED));
-        if (v && typeof v === 'object') return v;
-      }catch(_){ }
-      return {}; // { "证件类": {"身份证": true} }
-    }
-
-    function saveChecked(checked){
-      localStorage.setItem(KEY_CHECKED, JSON.stringify(checked));
-    }
-
-    let itemsByCat = loadItems();
-    let checkedByCat = loadChecked();
-
-    function ensureCatState(cat){
-      if (!itemsByCat[cat]) itemsByCat[cat] = [];
-      if (!checkedByCat[cat]) checkedByCat[cat] = {};
-    }
-
-    function sortWithinCategory(cat){
-      ensureCatState(cat);
-      const arr = itemsByCat[cat];
-      const checked = checkedByCat[cat];
-      const un = [];
-      const ch = [];
-      for (const name of arr){
-        if (checked && checked[name]) ch.push(name);
-        else un.push(name);
-      }
-      itemsByCat[cat] = [...un, ...ch];
+    function ensure(cat){ if(!itemsByCat[cat])itemsByCat[cat]=[]; if(!checkedByCat[cat])checkedByCat[cat]={}; }
+    function sortCat(cat){
+      ensure(cat);
+      const arr=itemsByCat[cat], ck=checkedByCat[cat]||{};
+      const un=[], ch=[];
+      arr.forEach(n=> (ck[n]?ch:un).push(n));
+      itemsByCat[cat]=[...un,...ch];
     }
 
     function renderList(){
-      const root = document.getElementById('viewList');
-      root.innerHTML = '';
+      const root=document.getElementById('viewList');
+      root.innerHTML='';
 
-      for (const cat of CATEGORIES){
-        ensureCatState(cat);
-        sortWithinCategory(cat);
+      for(const cat of CATEGORIES){
+        ensure(cat); sortCat(cat);
+        const sec=document.createElement('div'); sec.className='section';
 
-        const sec = document.createElement('div');
-        sec.className = 'section';
-        const title = document.createElement('div');
-        title.className = 'section-title';
+        const title=document.createElement('div'); title.className='section-title';
+        const left=document.createElement('div'); left.textContent=cat;
+        const right=document.createElement('div'); right.className='muted';
+        const total=itemsByCat[cat].length;
+        const cnt=Object.values(checkedByCat[cat]||{}).filter(Boolean).length;
+        right.textContent=total?`${cnt}/${total} 已准备`:'空';
+        title.append(left,right);
 
-        const left = document.createElement('div');
-        left.textContent = cat;
-        const small = document.createElement('div');
-        small.className = 'muted';
-        const total = itemsByCat[cat].length;
-        const checkedCount = Object.values(checkedByCat[cat] || {}).filter(Boolean).length;
-        small.textContent = total ? `${checkedCount}/${total} 已准备` : '空';
+        const items=document.createElement('div'); items.className='items';
+        itemsByCat[cat].forEach(name=>{
+          const row=document.createElement('div');
+          const isChecked=!!(checkedByCat[cat]&&checkedByCat[cat][name]);
+          row.className='item'+(isChecked?' checked':'');
 
-        title.appendChild(left);
-        title.appendChild(small);
-        sec.appendChild(title);
+          const label=document.createElement('label');
+          label.textContent=name;
 
-        const itemsWrap = document.createElement('div');
-        itemsWrap.className = 'items';
-
-        for (const name of itemsByCat[cat]){
-          const row = document.createElement('div');
-          row.className = 'item' + ((checkedByCat[cat] && checkedByCat[cat][name]) ? ' checked' : '');
-
-          const label = document.createElement('label');
-          label.textContent = name;
-
-          const cb = document.createElement('input');
-          cb.type = 'checkbox';
-          cb.checked = !!(checkedByCat[cat] && checkedByCat[cat][name]);
-          cb.addEventListener('change', () => {
-            ensureCatState(cat);
-            checkedByCat[cat][name] = cb.checked;
+          const cb=document.createElement('input');
+          cb.type='checkbox';
+          cb.checked=isChecked;
+          cb.addEventListener('change',()=>{
+            ensure(cat);
+            checkedByCat[cat][name]=cb.checked;
             saveChecked(checkedByCat);
-            // 先给当前行一个更明显的小动画，再重排渲染（否则立刻重渲染看不到动画）
             row.classList.add('moved');
-            setTimeout(() => {
-              sortWithinCategory(cat);
+            setTimeout(()=>{
+              sortCat(cat);
               saveItems(itemsByCat);
               renderList();
-            }, 180);
+            },180);
           });
 
-          row.appendChild(label);
-          row.appendChild(cb);
-          itemsWrap.appendChild(row);
-        }
+          row.append(label,cb);
+          items.appendChild(row);
+        });
 
-        sec.appendChild(itemsWrap);
+        sec.append(title,items);
         root.appendChild(sec);
       }
     }
 
-    function fillCatSelect(){
-      const sel = document.getElementById('catSel');
-      sel.innerHTML = CATEGORIES.map(c => `<option value="${c}">${c}</option>`).join('');
+    function fillCatSel(){
+      const sel=document.getElementById('catSel');
+      sel.innerHTML=CATEGORIES.map(c=>`<option value="${c}">${c}</option>`).join('');
     }
 
     function renderSettings(){
-      const box = document.getElementById('settingsList');
-      box.innerHTML = '';
+      const box=document.getElementById('settingsList');
+      box.innerHTML='';
+      for(const cat of CATEGORIES){
+        ensure(cat);
+        const h=document.createElement('div');
+        h.style.marginTop='12px';h.style.fontWeight='900';h.style.color='rgba(17,24,39,.88)';h.textContent=cat;
+        box.appendChild(h);
 
-      for (const cat of CATEGORIES){
-        ensureCatState(cat);
-        const head = document.createElement('div');
-        head.style.marginTop = '12px';
-        head.style.fontWeight = '900';
-        head.style.color = 'rgba(17,24,39,.88)';
-        head.textContent = cat;
-        box.appendChild(head);
-
-        if (itemsByCat[cat].length === 0){
-          const empty = document.createElement('div');
-          empty.className = 'muted';
-          empty.style.margin = '6px 0 2px';
-          empty.textContent = '（暂无小项）';
-          box.appendChild(empty);
+        if(itemsByCat[cat].length===0){
+          const e=document.createElement('div');
+          e.className='muted';e.style.margin='6px 0 2px';e.textContent='（暂无小项）';
+          box.appendChild(e);
         }
 
-        for (const name of itemsByCat[cat]){
-          const row = document.createElement('div');
-          row.className = 'settings-item';
-
-          const left = document.createElement('div');
-          left.style.fontWeight = '900';
-          left.textContent = name;
-
-          const del = document.createElement('button');
-          del.className = 'mini-btn danger';
-          del.textContent = '🗑 删除';
-          del.addEventListener('click', () => {
-            if (!confirm(`删除「${cat} - ${name}」？`)) return;
-            itemsByCat[cat] = itemsByCat[cat].filter(x => x !== name);
-            if (checkedByCat[cat]) delete checkedByCat[cat][name];
-            saveItems(itemsByCat);
-            saveChecked(checkedByCat);
-            renderSettings();
-            renderList();
+        itemsByCat[cat].forEach(name=>{
+          const row=document.createElement('div'); row.className='settings-item';
+          const l=document.createElement('div'); l.style.fontWeight='900'; l.textContent=name;
+          const del=document.createElement('button'); del.className='mini-btn danger'; del.textContent='🗑 删除';
+          del.addEventListener('click',()=>{
+            if(!confirm(`删除「${cat} - ${name}」？`)) return;
+            itemsByCat[cat]=itemsByCat[cat].filter(x=>x!==name);
+            if(checkedByCat[cat]) delete checkedByCat[cat][name];
+            saveItems(itemsByCat); saveChecked(checkedByCat);
+            renderSettings(); renderList();
           });
-
-          row.appendChild(left);
-          row.appendChild(del);
-          box.appendChild(row);
-        }
+          row.append(l,del); box.appendChild(row);
+        });
       }
     }
 
     function switchTab(which){
-      const tabList = document.getElementById('tabList');
-      const tabSettings = document.getElementById('tabSettings');
-      const viewList = document.getElementById('viewList');
-      const viewSettings = document.getElementById('viewSettings');
-
-      if (which === 'list'){
-        tabList.classList.add('active');
-        tabSettings.classList.remove('active');
-        viewList.style.display = 'block';
-        viewSettings.style.display = 'block';
-        viewSettings.style.display = 'none';
-      } else {
-        tabSettings.classList.add('active');
-        tabList.classList.remove('active');
-        viewList.style.display = 'none';
-        viewSettings.style.display = 'block';
-        fillCatSelect();
-        renderSettings();
+      const tl=document.getElementById('tabList');
+      const ts=document.getElementById('tabSettings');
+      const vl=document.getElementById('viewList');
+      const vs=document.getElementById('viewSettings');
+      if(which==='list'){
+        tl.classList.add('active'); ts.classList.remove('active');
+        vl.style.display='block'; vs.style.display='none';
+      }else{
+        ts.classList.add('active'); tl.classList.remove('active');
+        vl.style.display='none'; vs.style.display='block';
+        fillCatSel(); renderSettings();
       }
     }
 
-    document.getElementById('tabList').addEventListener('click', () => switchTab('list'));
-    document.getElementById('tabSettings').addEventListener('click', () => switchTab('settings'));
+    document.getElementById('tabList').addEventListener('click',()=>switchTab('list'));
+    document.getElementById('tabSettings').addEventListener('click',()=>switchTab('settings'));
 
-    document.getElementById('addBtn').addEventListener('click', () => {
-      const cat = document.getElementById('catSel').value;
-      const name = document.getElementById('newItem').value.trim();
-      if (!name) return;
-      ensureCatState(cat);
-      if (itemsByCat[cat].includes(name)){
-        alert('这个物品已存在～');
-        return;
-      }
+    document.getElementById('addBtn').addEventListener('click',()=>{
+      const cat=document.getElementById('catSel').value;
+      const name=document.getElementById('newItem').value.trim();
+      if(!name) return;
+      ensure(cat);
+      if(itemsByCat[cat].includes(name)){ alert('这个物品已存在～'); return; }
       itemsByCat[cat].push(name);
       saveItems(itemsByCat);
-      document.getElementById('newItem').value = '';
-      renderSettings();
-      renderList();
+      document.getElementById('newItem').value='';
+      renderSettings(); renderList();
     });
 
-    document.getElementById('resetBtn').addEventListener('click', () => {
-      if (!confirm('确定一键重置？（仅清空勾选，不会删除清单项）')) return;
-      checkedByCat = {};
-      saveChecked(checkedByCat);
-      renderList();
+    document.getElementById('resetBtn').addEventListener('click',()=>{
+      if(!confirm('确定一键重置？（仅清空勾选，不会删除清单项）')) return;
+      checkedByCat={}; saveChecked(checkedByCat); renderList();
     });
 
-
-    // init
     renderList();
   </script>
 </body>
