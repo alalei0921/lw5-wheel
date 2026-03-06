@@ -134,10 +134,10 @@
 
     .item{
       width: 100%;
-      display:flex;
-      align-items:center;
-      justify-content: flex-start;
-      gap:10px;
+      display: grid;
+      grid-template-columns: 1fr auto;
+      align-items: center;
+      column-gap: 10px;
       /* 右侧留更少的内边距，让勾选框更贴右 */
       padding: 10px 6px 10px 12px;
       border-radius: 14px;
@@ -168,11 +168,9 @@
     .item .right{
       display:flex;
       align-items:center;
-      margin-left:auto;
       justify-content:flex-end;
-      flex: 0 0 auto;
-      min-width: 44px;
-      padding-right: 0;
+      justify-self: end;
+      width: 28px;
     }
     /* iOS 有时会给 checkbox 预留奇怪的 inline spacing，这里强制贴右 */
     .item .right input{ margin: 0; display:block; }
@@ -184,9 +182,10 @@
     }
 
     input[type="checkbox"]{
-      width: 20px;
-      height: 20px;
+      width: 22px;
+      height: 22px;
       accent-color: #ff7aa2;
+      justify-self: end;
     }
 
     .muted{
