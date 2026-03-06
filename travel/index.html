@@ -134,12 +134,10 @@
 
     .item{
       width: 100%;
-      display: grid;
-      grid-template-columns: 1fr auto;
-      align-items: center;
-      column-gap: 10px;
-      /* 右侧留更少的内边距，让勾选框更贴右 */
-      padding: 10px 6px 10px 12px;
+      position: relative;
+      display: block;
+      /* 右侧预留复选框位置 */
+      padding: 10px 36px 10px 12px;
       border-radius: 14px;
       background: rgba(255,255,255,.72);
       border: 1px solid rgba(255,255,255,.85);
@@ -165,15 +163,15 @@
       user-select:none;
     }
 
-    .item .right{
-      display:flex;
-      align-items:center;
-      justify-content:flex-end;
-      justify-self: end;
-      width: 28px;
+    /* iOS 有时会给 checkbox 预留奇怪占位，直接绝对定位到最右更稳 */
+    .item input[type="checkbox"]{
+      position: absolute;
+      right: 8px;
+      top: 50%;
+      transform: translateY(-50%);
+      margin: 0;
+      display:block;
     }
-    /* iOS 有时会给 checkbox 预留奇怪的 inline spacing，这里强制贴右 */
-    .item .right input{ margin: 0; display:block; }
 
 
     .item.checked label{
@@ -185,7 +183,6 @@
       width: 22px;
       height: 22px;
       accent-color: #ff7aa2;
-      justify-self: end;
     }
 
     .muted{
@@ -371,9 +368,6 @@
           const label = document.createElement('label');
           label.textContent = name;
 
-          const right = document.createElement('div');
-          right.className = 'right';
-
           const cb = document.createElement('input');
           cb.type = 'checkbox';
           cb.checked = !!(checkedByCat[cat] && checkedByCat[cat][name]);
@@ -390,10 +384,8 @@
             }, 180);
           });
 
-          right.appendChild(cb);
-
           row.appendChild(label);
-          row.appendChild(right);
+          row.appendChild(cb);
           itemsWrap.appendChild(row);
         }
 
