@@ -277,6 +277,20 @@
       window.addEventListener('touchstart', kick, { once:true, passive:true });
       window.addEventListener('click', kick, { once:true });
 
+      // 切到后台/锁屏/切应用时自动停音乐；回到前台再按开关状态恢复
+      document.addEventListener('visibilitychange', () => {
+        if (!bgm) return;
+        if (document.hidden) {
+          try { bgm.pause(); } catch(e) {}
+        } else {
+          // 只有在开关为“开”时才尝试恢复
+          if (on === '1') tryPlay();
+        }
+      });
+      window.addEventListener('pagehide', () => {
+        try { bgm.pause(); } catch(e) {}
+      });
+
       // ===== Tool overlay (iframe) =====
       const overlay = document.getElementById('toolOverlay');
       const backdrop = document.getElementById('toolBackdrop');
