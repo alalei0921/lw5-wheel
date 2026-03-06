@@ -266,7 +266,7 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
-    <a class="back-home" href="../" aria-label="返回主页">🏠 返回主页</a>
+    <a class="back-home" id="backHome" href="../" aria-label="返回主页">🏠 返回主页</a>
     <h1>🏠 家庭囤货管理</h1>
     
     <div class="tabs">
@@ -671,6 +671,20 @@
         if (isCloudEnabled()) {
             pullFromCloud();
         }
+
+        // 若在主页壳(iframe)中打开，则用 postMessage 让父页面关闭面板，BGM 不断
+        (function(){
+            const a = document.getElementById('backHome');
+            if (!a) return;
+            a.addEventListener('click', (e) => {
+                try{
+                    if (window.parent && window.parent !== window) {
+                        e.preventDefault();
+                        window.parent.postMessage({ type: 'lw5-close-tool' }, '*');
+                    }
+                } catch(_){}
+            });
+        })();
     </script>
 </body>
 </html>

@@ -87,6 +87,76 @@
     .emoji{font-size:24px}
     .foot{margin-top:14px;font-size:12px;color:#8a7a71}
 
+    /* 工具面板（保持在同一页里，BGM 不断） */
+    .tool-overlay{
+      position: fixed;
+      inset: 0;
+      display: none;
+      z-index: 80;
+    }
+    .tool-overlay.show{ display:block; }
+    .tool-overlay .backdrop{
+      position:absolute;
+      inset:0;
+      background: rgba(0,0,0,.35);
+      backdrop-filter: blur(2px);
+    }
+    .tool-panel{
+      position:absolute;
+      left: 50%;
+      transform: translateX(-50%);
+      width: min(920px, 96vw);
+      background: rgba(255,255,255,.85);
+      border: 1px solid rgba(255,255,255,.75);
+      border-radius: 22px;
+      box-shadow: 0 28px 70px rgba(0,0,0,.22);
+      overflow: hidden;
+    }
+    .tool-panel.full{
+      top: 10px;
+      bottom: 10px;
+    }
+    .tool-panel.sheet{
+      bottom: 10px;
+      height: min(78vh, 720px);
+    }
+    .tool-topbar{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      padding: 12px 12px;
+      background: linear-gradient(180deg, rgba(255,255,255,.92), rgba(255,255,255,.72));
+      border-bottom: 1px solid rgba(0,0,0,.06);
+    }
+    .tool-title{
+      font-weight: 900;
+      color:#7c4a37;
+      font-size: 14px;
+      letter-spacing: .2px;
+    }
+    .cute-close{
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      padding: 10px 12px;
+      border-radius: 999px;
+      border:1px solid rgba(255,255,255,.75);
+      background: rgba(255,255,255,.72);
+      box-shadow: 0 10px 18px rgba(0,0,0,.10);
+      font-weight: 900;
+      color:#111827;
+      cursor:pointer;
+      user-select:none;
+    }
+    .cute-close:active{ transform: scale(.98); }
+
+    .tool-iframe{
+      width: 100%;
+      height: calc(100% - 50px);
+      border: 0;
+      background: #fff;
+    }
+
     .music-btn{
       position: fixed;
       top: max(12px, env(safe-area-inset-top));
@@ -127,18 +197,31 @@
     <p class="sub">你们的小工具主站，慢慢长成一个可爱工具箱 ✨</p>
 
     <section class="grid">
-      <a class="tool-btn wheel" href="./wheel/" aria-label="打开美食转盘">
+      <button class="tool-btn wheel" type="button" data-tool="wheel" aria-label="打开美食转盘">
         <span>美食转盘</span><span class="emoji">🍜🎡</span>
-      </a>
-      <a class="tool-btn stock" href="./stock/" aria-label="打开仓储管理">
+      </button>
+      <button class="tool-btn stock" type="button" data-tool="stock" aria-label="打开仓储管理">
         <span>仓储管理</span><span class="emoji">📦🏠</span>
-      </a>
+      </button>
     </section>
 
     <div class="foot">后续新工具会继续加在这里</div>
   </main>
+
+  <div class="tool-overlay" id="toolOverlay" aria-hidden="true">
+    <div class="backdrop" id="toolBackdrop"></div>
+    <div class="tool-panel" id="toolPanel" role="dialog" aria-modal="true">
+      <div class="tool-topbar">
+        <div class="tool-title" id="toolTitle">小工具</div>
+        <button class="cute-close" id="toolClose" type="button">🐾 返回主页</button>
+      </div>
+      <iframe class="tool-iframe" id="toolFrame" title="Lw&5 小工具" loading="eager"></iframe>
+    </div>
+  </div>
+
   <script>
     (function(){
+      // ===== BGM =====
       const bgm = document.getElementById('homeBgm');
       const btn = document.getElementById('musicBtn');
       const KEY = 'lw5_home_bgm_on_v1';
@@ -178,6 +261,64 @@
       const kick = () => { tryPlay(); };
       window.addEventListener('touchstart', kick, { once:true, passive:true });
       window.addEventListener('click', kick, { once:true });
+
+      // ===== Tool overlay (iframe) =====
+      const overlay = document.getElementById('toolOverlay');
+      const backdrop = document.getElementById('toolBackdrop');
+      const panel = document.getElementById('toolPanel');
+      const frame = document.getElementById('toolFrame');
+      const closeBtn = document.getElementById('toolClose');
+      const titleEl = document.getElementById('toolTitle');
+
+      function openTool(tool){
+        if (!overlay || !panel || !frame) return;
+
+        if (tool === 'wheel'){
+          panel.classList.remove('full');
+          panel.classList.add('sheet');
+          titleEl.textContent = '🍜🎡 美食转盘';
+          frame.src = './wheel/';
+          location.hash = '#wheel';
+        } else if (tool === 'stock'){
+          panel.classList.remove('sheet');
+          panel.classList.add('full');
+          titleEl.textContent = '📦🏠 仓储管理';
+          frame.src = './stock/';
+          location.hash = '#stock';
+        }
+
+        overlay.classList.add('show');
+        overlay.setAttribute('aria-hidden','false');
+      }
+
+      function closeTool(){
+        if (!overlay) return;
+        overlay.classList.remove('show');
+        overlay.setAttribute('aria-hidden','true');
+        // 停留在主页；保留BGM
+        frame.src = 'about:blank';
+        location.hash = '';
+      }
+
+      document.querySelectorAll('[data-tool]').forEach(btnEl => {
+        btnEl.addEventListener('click', () => openTool(btnEl.dataset.tool));
+      });
+
+      closeBtn?.addEventListener('click', closeTool);
+      backdrop?.addEventListener('click', closeTool);
+      window.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') closeTool();
+      });
+
+      // 子页面（iframe内）发消息回主页关闭
+      window.addEventListener('message', (ev) => {
+        if (ev?.data?.type === 'lw5-close-tool') closeTool();
+      });
+
+      // 支持直接打开 hash
+      if (location.hash === '#wheel') openTool('wheel');
+      if (location.hash === '#stock') openTool('stock');
+
     })();
   </script>
 </body>
