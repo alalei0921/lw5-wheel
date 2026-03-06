@@ -226,6 +226,26 @@
             padding: 40px;
             color: #999;
         }
+        .back-home{
+            position: fixed;
+            top: 14px;
+            left: 14px;
+            z-index: 2000;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 12px;
+            border-radius: 999px;
+            border: 1px solid rgba(255,255,255,.9);
+            background: rgba(255,255,255,.7);
+            backdrop-filter: blur(6px);
+            box-shadow: 0 10px 20px rgba(0,0,0,0.10);
+            color: #111827;
+            text-decoration: none;
+            font-weight: 700;
+        }
+        .back-home:active{ transform: scale(.98); }
+
         .cloud-box {
             margin-top: 14px;
             padding: 12px;
@@ -246,6 +266,7 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
+    <a class="back-home" href="../" aria-label="返回主页">🏠 返回主页</a>
     <h1>🏠 家庭囤货管理</h1>
     
     <div class="tabs">

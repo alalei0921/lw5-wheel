@@ -87,6 +87,28 @@
     .emoji{font-size:24px}
     .foot{margin-top:14px;font-size:12px;color:#8a7a71}
 
+    .music-btn{
+      position: fixed;
+      top: max(12px, env(safe-area-inset-top));
+      right: max(12px, env(safe-area-inset-right));
+      z-index: 60;
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      padding: 10px 12px;
+      border-radius: 999px;
+      border:1px solid rgba(255,255,255,.72);
+      background: rgba(255,255,255,.62);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      box-shadow:0 14px 28px rgba(112,76,52,.16);
+      font-weight:800;
+      color:#7c4a37;
+      cursor:pointer;
+      user-select:none;
+    }
+    .music-btn:active{ transform: translateY(1px) scale(.98); }
+
     @media (max-width:420px){
       h1{font-size:30px}
       .tool-btn{font-size:17px;padding:14px 16px}
@@ -94,6 +116,12 @@
   </style>
 </head>
 <body>
+  <button class="music-btn" id="musicBtn" aria-label="背景音乐">🎵 音乐：开</button>
+  <audio id="homeBgm" preload="auto" loop playsinline webkit-playsinline>
+    <source src="./bgm.m4a" type="audio/mp4">
+    <source src="./bgm.mp3" type="audio/mpeg">
+  </audio>
+
   <main class="card">
     <h1>Lw&5之家</h1>
     <p class="sub">你们的小工具主站，慢慢长成一个可爱工具箱 ✨</p>
@@ -109,5 +137,48 @@
 
     <div class="foot">后续新工具会继续加在这里</div>
   </main>
+  <script>
+    (function(){
+      const bgm = document.getElementById('homeBgm');
+      const btn = document.getElementById('musicBtn');
+      const KEY = 'lw5_home_bgm_on_v1';
+      let on = localStorage.getItem(KEY);
+      if (on === null) on = '1'; // 默认开
+
+      function syncBtn(){
+        btn.textContent = on === '1' ? '🎵 音乐：开' : '🔇 音乐：关';
+      }
+
+      async function tryPlay(){
+        if (!bgm || on !== '1') return;
+        try {
+          bgm.volume = 0.55;
+          await bgm.play();
+        } catch (e) {
+          // iOS/微信常见：需要用户手势
+          btn.textContent = '🎵 点我开音乐';
+        }
+      }
+
+      btn.addEventListener('click', async () => {
+        on = (on === '1') ? '0' : '1';
+        localStorage.setItem(KEY, on);
+        syncBtn();
+        if (on === '1') {
+          await tryPlay();
+        } else {
+          try { bgm.pause(); } catch(e) {}
+        }
+      });
+
+      syncBtn();
+      // 尝试自动播放；失败的话用户点按钮即可
+      tryPlay();
+      // 兜底：首次触摸/点击时再 kick 一次
+      const kick = () => { tryPlay(); };
+      window.addEventListener('touchstart', kick, { once:true, passive:true });
+      window.addEventListener('click', kick, { once:true });
+    })();
+  </script>
 </body>
 </html>
