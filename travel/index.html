@@ -29,31 +29,10 @@
       z-index:-1;
     }
 
-    .back-home{
-      position: fixed;
-      top: max(12px, env(safe-area-inset-top));
-      left: max(12px, env(safe-area-inset-left));
-      z-index: 2000;
-      display:inline-flex;
-      align-items:center;
-      gap:8px;
-      padding: 10px 12px;
-      border-radius: 999px;
-      border: 1px solid rgba(255,255,255,.9);
-      background: rgba(255,255,255,.72);
-      backdrop-filter: blur(8px);
-      box-shadow: 0 10px 20px rgba(0,0,0,.10);
-      color: #111827;
-      text-decoration: none;
-      font-weight: 800;
-      user-select:none;
-    }
-    .back-home:active{ transform: scale(.98); }
-
     .wrap{
       max-width: 860px;
       margin: 0 auto;
-      padding: 70px 14px 28px;
+      padding: 22px 14px 28px;
     }
 
     header{
@@ -151,15 +130,16 @@
       gap: 10px;
     }
 
-    .items{ display:flex; flex-direction:column; gap: 8px; padding-bottom: 8px; }
+    .items{ display:flex; flex-direction:column; gap: 8px; padding-bottom: 8px; width:100%; }
 
     .item{
+      width: 100%;
       display:flex;
       align-items:center;
       justify-content: flex-start;
       gap:10px;
       /* 右侧留更少的内边距，让勾选框更贴右 */
-      padding: 10px 8px 10px 12px;
+      padding: 10px 6px 10px 12px;
       border-radius: 14px;
       background: rgba(255,255,255,.72);
       border: 1px solid rgba(255,255,255,.85);
@@ -188,14 +168,14 @@
     .item .right{
       display:flex;
       align-items:center;
-      gap:6px;
       margin-left:auto;
       justify-content:flex-end;
       flex: 0 0 auto;
       min-width: 44px;
       padding-right: 0;
     }
-    .item .right input{ margin: 0; }
+    /* iOS 有时会给 checkbox 预留奇怪的 inline spacing，这里强制贴右 */
+    .item .right input{ margin: 0; display:block; }
 
 
     .item.checked label{
@@ -256,8 +236,6 @@
   </style>
 </head>
 <body>
-  <a class="back-home" id="backHome" href="../" aria-label="返回主页">🏠 返回主页</a>
-
   <div class="wrap">
     <header>
       <div class="title">
@@ -527,18 +505,6 @@
       renderList();
     });
 
-    // iframe 内返回主页：发消息给父页面关闭面板（保持BGM不停）
-    (function(){
-      const a = document.getElementById('backHome');
-      a.addEventListener('click', (e) => {
-        try{
-          if (window.parent && window.parent !== window) {
-            e.preventDefault();
-            window.parent.postMessage({ type: 'lw5-close-tool' }, '*');
-          }
-        }catch(_){ }
-      });
-    })();
 
     // init
     renderList();

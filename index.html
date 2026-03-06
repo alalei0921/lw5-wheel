@@ -333,19 +333,19 @@
           panel.classList.remove('full');
           panel.classList.add('sheet');
           titleEl.textContent = '🍜🎡 美食转盘';
-          frame.src = './wheel/';
+          frame.src = './wheel/?v=' + Date.now();
           location.hash = '#wheel';
         } else if (tool === 'stock'){
           panel.classList.remove('sheet');
           panel.classList.add('full');
           titleEl.textContent = '📦🏠 仓储管理';
-          frame.src = './stock/';
+          frame.src = './stock/?v=' + Date.now();
           location.hash = '#stock';
         } else if (tool === 'travel'){
           panel.classList.remove('sheet');
           panel.classList.add('full');
           titleEl.textContent = '🏝️🧳 去玩咯';
-          frame.src = './travel/';
+          frame.src = './travel/?v=' + Date.now();
           location.hash = '#travel';
         }
 
