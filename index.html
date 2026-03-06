@@ -209,6 +209,9 @@
       <button class="tool-btn stock" type="button" data-tool="stock" aria-label="打开仓储管理">
         <span>仓储管理</span><span class="emoji">📦🏠</span>
       </button>
+      <button class="tool-btn" type="button" data-tool="travel" aria-label="打开旅行备忘录" style="background:linear-gradient(135deg,#fdf2ff,#e0f2fe)">
+        <span>去玩咯</span><span class="emoji">🏝️🧳</span>
+      </button>
     </section>
 
     <div class="foot">后续新工具会继续加在这里</div>
@@ -314,6 +317,12 @@
           titleEl.textContent = '📦🏠 仓储管理';
           frame.src = './stock/';
           location.hash = '#stock';
+        } else if (tool === 'travel'){
+          panel.classList.remove('sheet');
+          panel.classList.add('full');
+          titleEl.textContent = '🏝️🧳 去玩咯';
+          frame.src = './travel/';
+          location.hash = '#travel';
         }
 
         overlay.classList.add('show');
@@ -347,6 +356,7 @@
       // 支持直接打开 hash
       if (location.hash === '#wheel') openTool('wheel');
       if (location.hash === '#stock') openTool('stock');
+      if (location.hash === '#travel') openTool('travel');
 
     })();
   </script>
