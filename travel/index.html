@@ -164,8 +164,12 @@
       border: 1px solid rgba(255,255,255,.85);
       transition: transform .18s ease, background .18s ease, border-color .18s ease;
     }
-    .item.moved{ animation: popDown .22s ease; }
-    @keyframes popDown{ 0%{transform:scale(1)} 50%{transform:scale(0.98)} 100%{transform:scale(1)} }
+    .item.moved{ animation: popDown .34s cubic-bezier(.2,.9,.2,1); }
+    @keyframes popDown{
+      0%{ transform: translateY(0) scale(1); box-shadow: none; }
+      45%{ transform: translateY(6px) scale(0.985); box-shadow: 0 10px 18px rgba(0,0,0,.10); }
+      100%{ transform: translateY(0) scale(1); box-shadow: none; }
+    }
 
     .item.checked{
       background: rgba(255,255,255,.52);
@@ -183,6 +187,9 @@
       display:flex;
       align-items:center;
       gap:10px;
+      margin-left:auto;
+      justify-content:flex-end;
+      min-width: 44px;
     }
 
     .item.checked label{
@@ -391,12 +398,13 @@
             ensureCatState(cat);
             checkedByCat[cat][name] = cb.checked;
             saveChecked(checkedByCat);
-            sortWithinCategory(cat);
-            saveItems(itemsByCat);
-            // 小动画：勾选/取消后轻微 pop 一下
+            // 先给当前行一个更明显的小动画，再重排渲染（否则立刻重渲染看不到动画）
             row.classList.add('moved');
-            setTimeout(() => row.classList.remove('moved'), 260);
-            renderList();
+            setTimeout(() => {
+              sortWithinCategory(cat);
+              saveItems(itemsByCat);
+              renderList();
+            }, 180);
           });
 
           right.appendChild(cb);
