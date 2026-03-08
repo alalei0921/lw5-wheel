@@ -322,21 +322,11 @@
         <div class="add-form">
             <h2>管理物品清单</h2>
             <div class="cloud-box">
-                <h3>☁️ 云端同步（Supabase）</h3>
+                <h3>☁️ 云端同步（自动配置）</h3>
                 <div class="form-row">
-                    <input type="text" id="sb-url" placeholder="Supabase URL">
+                    <button class="btn btn-primary" onclick="cloudDownloadStock()">☁️ 一键云同步</button>
                 </div>
-                <div class="form-row">
-                    <input type="text" id="sb-key" placeholder="Supabase anon key">
-                </div>
-                <div class="form-row">
-                    <input type="text" id="sb-household" placeholder="家庭ID（如：lw5-home）">
-                </div>
-                <div class="form-row">
-                    <button class="btn btn-primary" onclick="saveCloudConfig()">保存云配置</button>
-                    <button class="btn btn-secondary" onclick="pullFromCloud()">从云端拉取</button>
-                </div>
-                <div class="cloud-status" id="cloud-status">当前：本地模式（未连接云端）</div>
+                <div class="cloud-status" id="cloud-status">当前：使用内置云配置（无需手填）</div>
             </div>
             <div id="settings-list"></div>
         </div>
