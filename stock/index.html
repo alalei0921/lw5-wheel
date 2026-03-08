@@ -284,7 +284,8 @@
             <div class="inventory-header">
                 <div class="header-left">
                     <span>共 <strong id="total-items">0</strong> 项</span>
-                    <button class="btn-cloud-mini" onclick="cloudSyncStock()">☁️ 云同步</button>
+                    <button class="btn-cloud-mini" onclick="cloudUploadStock()">☁️ 云上传</button>
+                    <button class="btn-cloud-mini" onclick="cloudDownloadStock()">☁️ 云下载</button>
                 </div>
                 <span id="warning-count"></span>
             </div>
@@ -425,9 +426,11 @@
                     .upsert(rows, { onConflict: 'household_id,item_name' });
 
                 if (error) throw error;
-                setCloudStatus('当前：云端已连接（自动同步中）');
+                setCloudStatus('云上传成功 ✅');
+                return true;
             } catch (e) {
-                setCloudStatus('云同步失败：' + (e.message || '请检查配置/表结构'));
+                setCloudStatus('云上传失败：' + (e.message || '请检查配置/表结构'));
+                return false;
             }
         }
 
@@ -449,12 +452,14 @@
                     renderInventory();
                     renderSettings();
                     setCloudStatus('已从云端拉取最新数据');
+                    return true;
                 } else {
-                    await saveData();
-                    setCloudStatus('云端无历史数据，已上传当前本地数据');
+                    setCloudStatus('云端暂无数据（本地数据未改动）');
+                    return false;
                 }
             } catch (e) {
                 setCloudStatus('拉取失败：' + (e.message || '请检查配置/网络'));
+                return false;
             }
         }
 
@@ -482,12 +487,16 @@
             pullFromCloud();
         }
 
-        async function cloudSyncStock() {
+        async function cloudUploadStock() {
+            ensureCloudConfig();
+            fillCloudConfigForm();
+            await saveData();
+        }
+
+        async function cloudDownloadStock() {
             ensureCloudConfig();
             fillCloudConfigForm();
             await pullFromCloud();
-            await saveData();
-            setCloudStatus('仓储云同步完成 ✅');
         }
 
         function fillCloudConfigForm() {
