@@ -22,7 +22,8 @@
     .tabs{display:flex;gap:10px;margin:10px 0 14px;align-items:center;flex-wrap:wrap}
     .tab{padding:10px 14px;border-radius:999px;border:1px solid rgba(255,255,255,.82);background:rgba(255,255,255,.62);backdrop-filter:blur(8px);font-weight:900;cursor:pointer}
     .tab.active{background:rgba(255,255,255,.82);border-color:rgba(255,255,255,.95);box-shadow:0 10px 18px rgba(0,0,0,.10)}
-    .cloud-btn{padding:10px 14px;border-radius:999px;border:1px solid #bfdbfe;background:#eff6ff;color:#1d4ed8;font-weight:900;cursor:pointer}
+    .cloud-btn{padding:10px 14px;border-radius:999px;border:1px solid #fbcfe8;background:linear-gradient(135deg,#fdf2f8,#eff6ff);color:#7c3aed;font-weight:900;cursor:pointer;box-shadow:0 6px 14px rgba(124,58,237,.12)}
+    .cloud-btn:hover{transform:translateY(-1px);box-shadow:0 8px 18px rgba(124,58,237,.18)}
 
     .panel{background:rgba(255,255,255,.30);border:1px solid rgba(255,255,255,.52);border-radius:18px;box-shadow:0 18px 45px rgba(0,0,0,.12);backdrop-filter:blur(5px);overflow:hidden}
     .section{padding:14px 14px 8px;border-bottom:1px solid rgba(0,0,0,.06)}
@@ -76,7 +77,8 @@
     <div class="tabs">
       <button class="tab active" id="tabList" type="button">清单</button>
       <button class="tab" id="tabSettings" type="button">设置</button>
-      <button class="cloud-btn" id="cloudSyncBtn" type="button">☁️ 云同步</button>
+      <button class="cloud-btn" id="cloudUploadBtn" type="button">☁️ 云上传</button>
+      <button class="cloud-btn" id="cloudDownloadBtn" type="button">☁️ 云下载</button>
     </div>
 
     <div id="viewList" class="panel"></div>
@@ -172,7 +174,23 @@
       saveChecked(checkedByCat);
     }
 
-    async function cloudSyncTravel(){
+    async function cloudUploadTravel(){
+      if(!cloudReady()){
+        alert('请先在仓储页完成云配置（URL/Key/householdId）');
+        return;
+      }
+      const sb=getTravelSb();
+      try{
+        const rows=travelRowsFromLocal();
+        const {error}=await sb.from('travel_items').upsert(rows,{onConflict:'household_id,category,item_name'});
+        if(error) throw error;
+        alert('☁️ 旅行清单云上传成功');
+      }catch(e){
+        alert('⚠️ 旅行清单云上传失败：'+(e.message||'请检查网络/SQL表'));
+      }
+    }
+
+    async function cloudDownloadTravel(){
       if(!cloudReady()){
         alert('请先在仓储页完成云配置（URL/Key/householdId）');
         return;
@@ -180,18 +198,14 @@
       const sb=getTravelSb();
       const c=getCloudConfig();
       try{
-        const rows=travelRowsFromLocal();
-        const {error:upErr}=await sb.from('travel_items').upsert(rows,{onConflict:'household_id,category,item_name'});
-        if(upErr) throw upErr;
-
         const {data,error}=await sb.from('travel_items').select('category,item_name,checked').eq('household_id',c.householdId);
         if(error) throw error;
         applyRowsToLocal(data||[]);
         renderList();
         if(document.getElementById('viewSettings').style.display!=='none') renderSettings();
-        alert('旅行清单云同步完成 ✅');
+        alert('☁️ 旅行清单云下载成功，已刷新');
       }catch(e){
-        alert('旅行清单云同步失败：'+(e.message||'请检查网络/SQL表'));
+        alert('⚠️ 旅行清单云下载失败：'+(e.message||'请检查网络/SQL表'));
       }
     }
 
@@ -306,7 +320,8 @@
 
     document.getElementById('tabList').addEventListener('click',()=>switchTab('list'));
     document.getElementById('tabSettings').addEventListener('click',()=>switchTab('settings'));
-    document.getElementById('cloudSyncBtn').addEventListener('click',cloudSyncTravel);
+    document.getElementById('cloudUploadBtn').addEventListener('click',cloudUploadTravel);
+    document.getElementById('cloudDownloadBtn').addEventListener('click',cloudDownloadTravel);
 
     document.getElementById('addBtn').addEventListener('click',()=>{
       const cat=document.getElementById('catSel').value;

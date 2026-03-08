@@ -116,14 +116,19 @@
             gap: 8px;
         }
         .btn-cloud-mini {
-            padding: 8px 12px;
+            padding: 8px 14px;
             border-radius: 999px;
-            border: 1px solid #bfdbfe;
-            background: #eff6ff;
-            color: #1d4ed8;
+            border: 1px solid #fbcfe8;
+            background: linear-gradient(135deg, #fdf2f8, #eff6ff);
+            color: #7c3aed;
             font-size: 13px;
             font-weight: 900;
             cursor: pointer;
+            box-shadow: 0 6px 14px rgba(124, 58, 237, 0.12);
+        }
+        .btn-cloud-mini:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 8px 18px rgba(124, 58, 237, 0.18);
         }
         .inventory-item {
             display: flex;
@@ -490,13 +495,15 @@
         async function cloudUploadStock() {
             ensureCloudConfig();
             fillCloudConfigForm();
-            await saveData();
+            const ok = await saveData();
+            alert(ok ? '☁️ 云上传成功' : '⚠️ 云上传失败，请看状态提示');
         }
 
         async function cloudDownloadStock() {
             ensureCloudConfig();
             fillCloudConfigForm();
-            await pullFromCloud();
+            const ok = await pullFromCloud();
+            alert(ok ? '☁️ 云下载成功，已刷新本地数据' : '☁️ 云端暂无可下载数据（或拉取失败）');
         }
 
         function fillCloudConfigForm() {
