@@ -422,6 +422,7 @@
 
         function saveData() {
             localStorage.setItem('inventory', JSON.stringify(inventory));
+            setCloudStatus('本地已保存（未上传云端）');
             return true;
         }
 
@@ -738,9 +739,6 @@
         // 初始化
         renderInventory();
         fillCloudConfigForm();
-        if (isCloudEnabled()) {
-            pullFromCloud();
-        }
 
     </script>
 </body>
