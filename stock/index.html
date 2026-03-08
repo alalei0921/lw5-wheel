@@ -409,15 +409,23 @@
             }));
         }
 
+        function normName(v) {
+            return String(v || '').trim();
+        }
+
         function applyStockRows(rows) {
             if (!Array.isArray(rows)) return;
-            const qtyByName = new Map(rows.map(r => [r.item_name, Number(r.qty || 0)]));
+            const qtyByName = new Map(rows.map(r => [normName(r.item_name), Number(r.qty || 0)]));
 
-            inventory = inventory.map(item => ({
-                ...item,
-                qty: qtyByName.has(item.name) ? qtyByName.get(item.name) : Number(item.qty || 0),
-                lastUpdated: item.lastUpdated || null
-            }));
+            inventory = inventory.map(item => {
+                const k = normName(item.name);
+                const cloudQty = qtyByName.has(k) ? qtyByName.get(k) : 0;
+                return {
+                    ...item,
+                    qty: Number(cloudQty || 0),
+                    lastUpdated: item.lastUpdated || null
+                };
+            });
         }
 
         // 本地持久化（绝不触发云写）
@@ -499,7 +507,8 @@
         async function cloudDownloadStock() {
             ensureCloudConfig();
             const ok = await pullFromCloud();
-            alert(ok ? '☁️ 云下载成功，已刷新本地数据' : '☁️ 云端暂无可下载数据（或拉取失败）');
+            const ts = new Date().toLocaleString('zh-CN', { hour12: false });
+            alert(ok ? `☁️ 云下载成功，已刷新本地数据\n下载时间：${ts}` : '☁️ 云端暂无可下载数据（或拉取失败）');
         }
 
         // 计算预计用完日期
