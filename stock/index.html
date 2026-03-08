@@ -420,7 +420,8 @@
 
             inventory = inventory.map(item => ({
                 ...item,
-                qty: qtyByName.has(item.name) ? qtyByName.get(item.name) : Number(item.qty || 0)
+                qty: qtyByName.has(item.name) ? qtyByName.get(item.name) : Number(item.qty || 0),
+                lastUpdated: item.lastUpdated || null
             }));
         }
 
@@ -543,6 +544,13 @@
             };
         }
 
+        function formatRecordedAt(ts) {
+            if (!ts) return '未录入';
+            const d = new Date(ts);
+            if (Number.isNaN(d.getTime())) return '未录入';
+            return d.toLocaleString('zh-CN', { hour12: false });
+        }
+
         // 获取库存状态
         function getStockStatus(daysLeft) {
             if (daysLeft === null || daysLeft <= 0) return { class: 'stock-danger', text: '已用完' };
@@ -573,7 +581,7 @@
                     <div class="inventory-item">
                         <div class="item-info">
                             <div class="item-name">${item.name}</div>
-                            <div class="item-details">${item.qty} ${item.unit} | 每${item.daysPerUnit}天消耗1${item.unit}</div>
+                            <div class="item-details">${item.qty} ${item.unit} | 每${item.daysPerUnit}天消耗1${item.unit} | 录入时间：${formatRecordedAt(item.lastUpdated)}</div>
                         </div>
                         <div class="item-stock ${status.class}">${status.text}</div>
                         ${exhaust ? `<div style="font-size:12px;color:#999;">预计${exhaust.date}用完</div>` : ''}
@@ -607,6 +615,7 @@
             }
 
             inventory[index].qty = qty;
+            inventory[index].lastUpdated = new Date().toISOString();
             saveData();
             renderInventory();
             document.getElementById('restock-qty').value = '';
@@ -620,6 +629,7 @@
                 return;
             }
             inventory[index].qty = qty;
+            inventory[index].lastUpdated = new Date().toISOString();
             saveData();
             renderInventory();
         }
@@ -636,7 +646,7 @@
                 return;
             }
 
-            inventory.push({ name, unit, daysPerUnit, qty });
+            inventory.push({ name, unit, daysPerUnit, qty, lastUpdated: qty > 0 ? new Date().toISOString() : null });
             saveData();
             renderInventory();
             switchTab('inventory');
