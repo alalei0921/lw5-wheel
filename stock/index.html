@@ -267,6 +267,16 @@
             font-size: 13px;
             color: #0369a1;
         }
+        .cloud-meta {
+            margin-top: 8px;
+            font-size: 12px;
+            color: #374151;
+            line-height: 1.6;
+            background: #fff;
+            border: 1px dashed #d1d5db;
+            border-radius: 8px;
+            padding: 8px 10px;
+        }
     </style>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
@@ -332,6 +342,7 @@
                     <button class="btn btn-success" onclick="cloudDownloadStock()">☁️ 云下载</button>
                 </div>
                 <div class="cloud-status" id="cloud-status">当前：使用内置云配置（无需手填）</div>
+                <div class="cloud-meta" id="cloud-meta">云存档时间：--<br>下载时间：--</div>
             </div>
             <div id="settings-list"></div>
         </div>
@@ -372,6 +383,7 @@
 
         let supabaseClient = null;
         let cloudConfig = JSON.parse(localStorage.getItem('cloudConfig') || '{}');
+        let cloudMeta = JSON.parse(localStorage.getItem('cloudMeta') || '{}');
 
         const DEFAULT_CLOUD_CONFIG = {
             url: 'https://lrtglriomkxjxmxpzivj.supabase.co',
@@ -386,6 +398,23 @@
         function setCloudStatus(text) {
             const el = getCloudStatusEl();
             if (el) el.textContent = text;
+        }
+
+        function fmtSecond(ts) {
+            if (!ts) return '--';
+            const d = new Date(ts);
+            if (Number.isNaN(d.getTime())) return '--';
+            return d.toLocaleString('zh-CN', { hour12: false });
+        }
+
+        function saveCloudMeta() {
+            localStorage.setItem('cloudMeta', JSON.stringify(cloudMeta));
+        }
+
+        function renderCloudMeta() {
+            const el = document.getElementById('cloud-meta');
+            if (!el) return;
+            el.innerHTML = `云存档时间：${fmtSecond(cloudMeta.lastUploadAt)}<br>下载时间：${fmtSecond(cloudMeta.lastDownloadAt)}`;
         }
 
         function isCloudEnabled() {
@@ -452,6 +481,9 @@
                     .upsert(rows, { onConflict: 'household_id,item_name' });
 
                 if (error) throw error;
+                cloudMeta.lastUploadAt = new Date().toISOString();
+                saveCloudMeta();
+                renderCloudMeta();
                 setCloudStatus('云上传成功 ✅');
                 return true;
             } catch (e) {
@@ -468,7 +500,7 @@
                 const sb = getSupabaseClient();
                 const { data, error } = await sb
                     .from('stock_items')
-                    .select('item_name,qty')
+                    .select('item_name,qty,updated_at')
                     .eq('household_id', cloudConfig.householdId);
 
                 if (error) throw error;
@@ -477,9 +509,17 @@
                     localStorage.setItem('inventory', JSON.stringify(inventory));
                     renderInventory();
                     renderSettings();
+                    const latest = data.map(x => x.updated_at).filter(Boolean).sort().pop();
+                    cloudMeta.lastUploadAt = latest || cloudMeta.lastUploadAt;
+                    cloudMeta.lastDownloadAt = new Date().toISOString();
+                    saveCloudMeta();
+                    renderCloudMeta();
                     setCloudStatus('已从云端拉取最新数据');
                     return true;
                 } else {
+                    cloudMeta.lastDownloadAt = new Date().toISOString();
+                    saveCloudMeta();
+                    renderCloudMeta();
                     setCloudStatus('云端暂无数据（本地数据未改动）');
                     return false;
                 }
@@ -716,7 +756,8 @@
         // 初始化
         ensureCloudConfig();
         renderInventory();
-        setCloudStatus('当前：本地保存模式（仅点击“云上传”才会写入云端）｜build 2026-03-09-LOCALONLY');
+        renderCloudMeta();
+        setCloudStatus('当前：本地保存模式（仅点击“云上传”才会写入云端）｜build 2026-03-09-ARCHIVE-META');
 
     </script>
 </body>
