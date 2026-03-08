@@ -110,6 +110,21 @@
             background: #f8f8f8;
             border-bottom: 1px solid #eee;
         }
+        .header-left {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .btn-cloud-mini {
+            border: 1px solid #dbeafe;
+            background: #eff6ff;
+            color: #1d4ed8;
+            border-radius: 999px;
+            padding: 4px 10px;
+            font-size: 12px;
+            font-weight: 700;
+            cursor: pointer;
+        }
         .inventory-item {
             display: flex;
             align-items: center;
@@ -267,7 +282,10 @@
         
         <div class="inventory">
             <div class="inventory-header">
-                <span>共 <strong id="total-items">0</strong> 项</span>
+                <div class="header-left">
+                    <span>共 <strong id="total-items">0</strong> 项</span>
+                    <button class="btn-cloud-mini" onclick="openCloudSyncSettings()">☁️ 云同步</button>
+                </div>
                 <span id="warning-count"></span>
             </div>
             <div id="inventory-list"></div>
@@ -622,6 +640,12 @@
                     </div>
                 </div>
             `).join('');
+        }
+
+        function openCloudSyncSettings() {
+            switchTab('settings');
+            const box = document.querySelector('.cloud-box');
+            if (box) box.scrollIntoView({ behavior: 'smooth', block: 'start' });
         }
 
         // 切换标签页

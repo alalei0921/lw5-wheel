@@ -19,9 +19,10 @@
     .btn{border:1px solid rgba(255,255,255,.85);background:rgba(255,255,255,.70);backdrop-filter:blur(8px);border-radius:999px;padding:10px 12px;font-size:14px;font-weight:900;cursor:pointer;box-shadow:0 12px 22px rgba(0,0,0,.10);color:#111827}
     .btn:active{transform:scale(.98)}
 
-    .tabs{display:flex;gap:10px;margin:10px 0 14px}
+    .tabs{display:flex;gap:10px;margin:10px 0 14px;align-items:center;flex-wrap:wrap}
     .tab{padding:10px 14px;border-radius:999px;border:1px solid rgba(255,255,255,.82);background:rgba(255,255,255,.62);backdrop-filter:blur(8px);font-weight:900;cursor:pointer}
     .tab.active{background:rgba(255,255,255,.82);border-color:rgba(255,255,255,.95);box-shadow:0 10px 18px rgba(0,0,0,.10)}
+    .cloud-btn{padding:10px 14px;border-radius:999px;border:1px solid #bfdbfe;background:#eff6ff;color:#1d4ed8;font-weight:900;cursor:pointer}
 
     .panel{background:rgba(255,255,255,.30);border:1px solid rgba(255,255,255,.52);border-radius:18px;box-shadow:0 18px 45px rgba(0,0,0,.12);backdrop-filter:blur(5px);overflow:hidden}
     .section{padding:14px 14px 8px;border-bottom:1px solid rgba(0,0,0,.06)}
@@ -75,6 +76,7 @@
     <div class="tabs">
       <button class="tab active" id="tabList" type="button">清单</button>
       <button class="tab" id="tabSettings" type="button">设置</button>
+      <button class="cloud-btn" id="cloudSyncBtn" type="button">☁️ 云同步</button>
     </div>
 
     <div id="viewList" class="panel"></div>
@@ -93,6 +95,7 @@
     </div>
   </div>
 
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script>
     const KEY_ITEMS='lw5_travel_items_v1';
     const KEY_CHECKED='lw5_travel_checked_v1';
@@ -116,6 +119,81 @@
 
     let itemsByCat=loadItems();
     let checkedByCat=loadChecked();
+    let travelSbClient=null;
+
+    function getCloudConfig(){
+      try{return JSON.parse(localStorage.getItem('cloudConfig')||'{}')}catch(_){return {}}
+    }
+    function cloudReady(){
+      const c=getCloudConfig();
+      return !!(c.url&&c.key&&c.householdId);
+    }
+    function getTravelSb(){
+      if(!cloudReady()) return null;
+      const c=getCloudConfig();
+      if(!travelSbClient||travelSbClient.__url!==c.url||travelSbClient.__key!==c.key){
+        travelSbClient=window.supabase.createClient(c.url,c.key);
+        travelSbClient.__url=c.url;travelSbClient.__key=c.key;
+      }
+      return travelSbClient;
+    }
+
+    function travelRowsFromLocal(){
+      const c=getCloudConfig();
+      const hid=c.householdId;
+      const rows=[];
+      for(const cat of CATEGORIES){
+        ensure(cat);
+        for(const name of itemsByCat[cat]){
+          rows.push({
+            household_id:hid,
+            category:cat,
+            item_name:name,
+            checked:!!(checkedByCat[cat]&&checkedByCat[cat][name]),
+            updated_at:new Date().toISOString()
+          });
+        }
+      }
+      return rows;
+    }
+
+    function applyRowsToLocal(rows){
+      const nextItems={};
+      const nextChecked={};
+      CATEGORIES.forEach(c=>{nextItems[c]=[];nextChecked[c]={};});
+      for(const r of rows){
+        const cat=CATEGORIES.includes(r.category)?r.category:'其他类';
+        if(!nextItems[cat].includes(r.item_name)) nextItems[cat].push(r.item_name);
+        nextChecked[cat][r.item_name]=!!r.checked;
+      }
+      itemsByCat=nextItems;
+      checkedByCat=nextChecked;
+      saveItems(itemsByCat);
+      saveChecked(checkedByCat);
+    }
+
+    async function cloudSyncTravel(){
+      if(!cloudReady()){
+        alert('请先在仓储页完成云配置（URL/Key/householdId）');
+        return;
+      }
+      const sb=getTravelSb();
+      const c=getCloudConfig();
+      try{
+        const rows=travelRowsFromLocal();
+        const {error:upErr}=await sb.from('travel_items').upsert(rows,{onConflict:'household_id,category,item_name'});
+        if(upErr) throw upErr;
+
+        const {data,error}=await sb.from('travel_items').select('category,item_name,checked').eq('household_id',c.householdId);
+        if(error) throw error;
+        applyRowsToLocal(data||[]);
+        renderList();
+        if(document.getElementById('viewSettings').style.display!=='none') renderSettings();
+        alert('旅行清单云同步完成 ✅');
+      }catch(e){
+        alert('旅行清单云同步失败：'+(e.message||'请检查网络/SQL表'));
+      }
+    }
 
     function ensure(cat){ if(!itemsByCat[cat])itemsByCat[cat]=[]; if(!checkedByCat[cat])checkedByCat[cat]={}; }
     function sortCat(cat){
@@ -228,6 +306,7 @@
 
     document.getElementById('tabList').addEventListener('click',()=>switchTab('list'));
     document.getElementById('tabSettings').addEventListener('click',()=>switchTab('settings'));
+    document.getElementById('cloudSyncBtn').addEventListener('click',cloudSyncTravel);
 
     document.getElementById('addBtn').addEventListener('click',()=>{
       const cat=document.getElementById('catSel').value;
