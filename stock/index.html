@@ -334,7 +334,13 @@
 
     <div id="tab-settings" style="display: none;">
         <div class="add-form">
-            <h2>管理物品清单</h2>
+            <h2>消耗设置</h2>
+            <div class="form-row" style="margin:10px 0 6px; gap:10px; flex-wrap:wrap;">
+                <button class="btn btn-primary" onclick="saveSettingsLocal()">本地保存</button>
+                <button class="btn btn-success" onclick="uploadSettingsCloud()">上传云端</button>
+                <button class="btn btn-secondary" onclick="downloadSettingsCloudOverwrite()">从云端下载</button>
+                <span id="settings-dirty" style="font-size:12px; color:#b45309; align-self:center;"></span>
+            </div>
             <div id="settings-list"></div>
         </div>
     </div>
@@ -694,7 +700,7 @@
         function deleteItem(index) {
             if (confirm(`确定要删除"${inventory[index].name}"吗？`)) {
                 inventory.splice(index, 1);
-                saveLocalOnly();
+                markSettingsDirty(true);
                 renderInventory();
                 renderSettings();
             }
@@ -723,11 +729,41 @@
                 return;
             }
             inventory[editingIndex].daysPerUnit = daysPerUnit;
-            saveLocalOnly();
+            markSettingsDirty(true);
             closeModal();
             renderInventory();
             renderSettings();
-            alert('已保存到本地（未上传云端）');
+        }
+
+        // 消耗设置页：仅三种保存相关操作
+        let settingsDirty = false;
+
+        function markSettingsDirty(dirty) {
+            settingsDirty = !!dirty;
+            const el = document.getElementById('settings-dirty');
+            if (el) {
+                el.textContent = settingsDirty ? '有未保存的本地改动（请点“本地保存”）' : '';
+            }
+        }
+
+        function saveSettingsLocal() {
+            saveLocalOnly();
+            markSettingsDirty(false);
+            alert('已本地保存');
+        }
+
+        async function uploadSettingsCloud() {
+            // 为了避免“看起来上传了但刷新丢失”，上传前先落一次本地
+            if (settingsDirty) saveLocalOnly();
+            markSettingsDirty(false);
+            await cloudUploadStock();
+        }
+
+        async function downloadSettingsCloudOverwrite() {
+            const ok = confirm('将从云端下载并覆盖本地数据，确定继续？');
+            if (!ok) return;
+            await cloudDownloadStock();
+            markSettingsDirty(false);
         }
 
         // 渲染设置页面
