@@ -106,14 +106,18 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
+            flex-wrap: nowrap;
             padding: 15px 20px;
             background: #f8f8f8;
             border-bottom: 1px solid #eee;
+            gap: 10px;
         }
         .header-left {
             display: inline-flex;
             align-items: center;
             gap: 8px;
+            flex-wrap: nowrap;
+            white-space: nowrap;
         }
         .btn-cloud-mini {
             padding: 8px 14px;
@@ -125,6 +129,7 @@
             font-weight: 900;
             cursor: pointer;
             box-shadow: 0 6px 14px rgba(124, 58, 237, 0.12);
+            white-space: nowrap;
         }
         .btn-cloud-mini:hover {
             transform: translateY(-1px);
@@ -585,10 +590,10 @@
             document.getElementById('total-items').textContent = inventory.length;
             const warningItems = inventory.filter(item => {
                 const exhaust = calculateExhaustDate(item.qty, item.daysPerUnit);
-                return exhaust && exhaust.daysLeft <= 30;
+                return exhaust && exhaust.daysLeft <= 7;
             });
             document.getElementById('warning-count').textContent = warningItems.length > 0 
-                ? `⚠️ ${warningItems.length}项即将用完` : '';
+                ? `⚠️ ${warningItems.length}项7天内用完` : '';
         }
 
         // 录入库存
