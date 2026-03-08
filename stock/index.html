@@ -388,19 +388,35 @@
             return supabaseClient;
         }
 
+        function toStockRows() {
+            return inventory.map(item => ({
+                household_id: cloudConfig.householdId,
+                item_name: item.name,
+                qty: Number(item.qty || 0),
+                updated_at: new Date().toISOString()
+            }));
+        }
+
+        function applyStockRows(rows) {
+            if (!Array.isArray(rows)) return;
+            const qtyByName = new Map(rows.map(r => [r.item_name, Number(r.qty || 0)]));
+
+            inventory = inventory.map(item => ({
+                ...item,
+                qty: qtyByName.has(item.name) ? qtyByName.get(item.name) : Number(item.qty || 0)
+            }));
+        }
+
         async function saveData() {
             localStorage.setItem('inventory', JSON.stringify(inventory));
             if (!isCloudEnabled()) return;
 
             try {
                 const sb = getSupabaseClient();
+                const rows = toStockRows();
                 const { error } = await sb
-                    .from('household_inventory')
-                    .upsert({
-                        household_id: cloudConfig.householdId,
-                        inventory,
-                        updated_at: new Date().toISOString()
-                    }, { onConflict: 'household_id' });
+                    .from('stock_items')
+                    .upsert(rows, { onConflict: 'household_id,item_name' });
 
                 if (error) throw error;
                 setCloudStatus('当前：云端已连接（自动同步中）');
@@ -417,14 +433,13 @@
             try {
                 const sb = getSupabaseClient();
                 const { data, error } = await sb
-                    .from('household_inventory')
-                    .select('inventory')
-                    .eq('household_id', cloudConfig.householdId)
-                    .maybeSingle();
+                    .from('stock_items')
+                    .select('item_name,qty')
+                    .eq('household_id', cloudConfig.householdId);
 
                 if (error) throw error;
-                if (data?.inventory && Array.isArray(data.inventory)) {
-                    inventory = data.inventory;
+                if (Array.isArray(data) && data.length > 0) {
+                    applyStockRows(data);
                     localStorage.setItem('inventory', JSON.stringify(inventory));
                     renderInventory();
                     renderSettings();
