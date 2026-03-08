@@ -419,10 +419,15 @@
             }));
         }
 
-        async function saveData() {
+        function saveData() {
             localStorage.setItem('inventory', JSON.stringify(inventory));
-            if (!isCloudEnabled()) return;
+            return true;
+        }
 
+        async function uploadStockToCloud() {
+            if (!isCloudEnabled()) {
+                ensureCloudConfig();
+            }
             try {
                 const sb = getSupabaseClient();
                 const rows = toStockRows();
@@ -495,7 +500,7 @@
         async function cloudUploadStock() {
             ensureCloudConfig();
             fillCloudConfigForm();
-            const ok = await saveData();
+            const ok = await uploadStockToCloud();
             alert(ok ? '☁️ 云上传成功' : '⚠️ 云上传失败，请看状态提示');
         }
 
