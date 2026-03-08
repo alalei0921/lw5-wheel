@@ -426,7 +426,12 @@
             return true;
         }
 
-        async function uploadStockToCloud() {
+        async function uploadStockToCloud(explicit = false) {
+            // 硬保护：只有“云上传”按钮显式触发，才允许写云端
+            if (!explicit) {
+                setCloudStatus('已拦截：非显式云上传请求（仅本地保存）');
+                return false;
+            }
             if (!isCloudEnabled()) {
                 ensureCloudConfig();
             }
@@ -503,7 +508,7 @@
             if (!confirm('确认要把当前本地数据上传并覆盖云端吗？')) return;
             ensureCloudConfig();
             fillCloudConfigForm();
-            const ok = await uploadStockToCloud();
+            const ok = await uploadStockToCloud(true);
             alert(ok ? '☁️ 云上传成功' : '⚠️ 云上传失败，请看状态提示');
         }
 
