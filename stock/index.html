@@ -315,6 +315,10 @@
                 <input type="number" id="new-item-qty" placeholder="当前数量" min="0">
             </div>
             <button class="btn btn-success" onclick="addNewItem()">添加物品</button>
+            <div class="form-row" style="margin-top:10px;">
+                <button class="btn btn-primary" onclick="cloudUploadStock()">☁️ 云上传</button>
+                <button class="btn btn-secondary" onclick="cloudDownloadStock()">☁️ 云下载</button>
+            </div>
         </div>
     </div>
 
@@ -324,7 +328,8 @@
             <div class="cloud-box">
                 <h3>☁️ 云端同步（自动配置）</h3>
                 <div class="form-row">
-                    <button class="btn btn-primary" onclick="cloudDownloadStock()">☁️ 一键云同步</button>
+                    <button class="btn btn-primary" onclick="cloudUploadStock()">☁️ 云上传</button>
+                    <button class="btn btn-secondary" onclick="cloudDownloadStock()">☁️ 云下载</button>
                 </div>
                 <div class="cloud-status" id="cloud-status">当前：使用内置云配置（无需手填）</div>
             </div>
