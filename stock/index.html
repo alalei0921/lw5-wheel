@@ -500,6 +500,7 @@
         }
 
         async function cloudUploadStock() {
+            if (!confirm('确认要把当前本地数据上传并覆盖云端吗？')) return;
             ensureCloudConfig();
             fillCloudConfigForm();
             const ok = await uploadStockToCloud();
@@ -691,6 +692,7 @@
             closeModal();
             renderInventory();
             renderSettings();
+            alert('已保存到本地（未上传云端）');
         }
 
         // 渲染设置页面
