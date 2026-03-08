@@ -420,7 +420,8 @@
             }));
         }
 
-        function saveData() {
+        // 本地持久化（绝不触发云写）
+        function saveLocalOnly() {
             localStorage.setItem('inventory', JSON.stringify(inventory));
             setCloudStatus('本地已保存（未上传云端）');
             return true;
@@ -585,7 +586,7 @@
 
             inventory[index].qty = qty;
             inventory[index].lastUpdated = new Date().toISOString();
-            saveData();
+            saveLocalOnly();
             renderInventory();
             document.getElementById('restock-qty').value = '';
         }
@@ -599,7 +600,7 @@
             }
             inventory[index].qty = qty;
             inventory[index].lastUpdated = new Date().toISOString();
-            saveData();
+            saveLocalOnly();
             renderInventory();
         }
 
@@ -616,7 +617,7 @@
             }
 
             inventory.push({ name, unit, daysPerUnit, qty, lastUpdated: qty > 0 ? new Date().toISOString() : null });
-            saveData();
+            saveLocalOnly();
             renderInventory();
             switchTab('inventory');
             
@@ -631,7 +632,7 @@
         function deleteItem(index) {
             if (confirm(`确定要删除"${inventory[index].name}"吗？`)) {
                 inventory.splice(index, 1);
-                saveData();
+                saveLocalOnly();
                 renderInventory();
                 renderSettings();
             }
@@ -660,7 +661,7 @@
                 return;
             }
             inventory[editingIndex].daysPerUnit = daysPerUnit;
-            saveData();
+            saveLocalOnly();
             closeModal();
             renderInventory();
             renderSettings();
@@ -706,7 +707,7 @@
         // 初始化
         ensureCloudConfig();
         renderInventory();
-        setCloudStatus('当前：本地保存模式（仅点击“云上传”才会写入云端）');
+        setCloudStatus('当前：本地保存模式（仅点击“云上传”才会写入云端）｜build 2026-03-09-LOCALONLY');
 
     </script>
 </body>
