@@ -116,13 +116,13 @@
             gap: 8px;
         }
         .btn-cloud-mini {
-            border: 1px solid #dbeafe;
+            padding: 8px 12px;
+            border-radius: 999px;
+            border: 1px solid #bfdbfe;
             background: #eff6ff;
             color: #1d4ed8;
-            border-radius: 999px;
-            padding: 4px 10px;
-            font-size: 12px;
-            font-weight: 700;
+            font-size: 13px;
+            font-weight: 900;
             cursor: pointer;
         }
         .inventory-item {
@@ -284,7 +284,7 @@
             <div class="inventory-header">
                 <div class="header-left">
                     <span>共 <strong id="total-items">0</strong> 项</span>
-                    <button class="btn-cloud-mini" onclick="openCloudSyncSettings()">☁️ 云同步</button>
+                    <button class="btn-cloud-mini" onclick="cloudSyncStock()">☁️ 云同步</button>
                 </div>
                 <span id="warning-count"></span>
             </div>
@@ -367,6 +367,12 @@
         let supabaseClient = null;
         let cloudConfig = JSON.parse(localStorage.getItem('cloudConfig') || '{}');
 
+        const DEFAULT_CLOUD_CONFIG = {
+            url: 'https://lrtglriomkxjxmxpzivj.supabase.co',
+            key: 'sb_publishable_0Lah9n6HEd-KYcJS1D5F1Q_jJsoQBEJ',
+            householdId: 'lw5-home'
+        };
+
         function getCloudStatusEl() {
             return document.getElementById('cloud-status');
         }
@@ -427,8 +433,7 @@
 
         async function pullFromCloud() {
             if (!isCloudEnabled()) {
-                alert('请先填写并保存云配置');
-                return;
+                ensureCloudConfig();
             }
             try {
                 const sb = getSupabaseClient();
@@ -453,20 +458,36 @@
             }
         }
 
+        function ensureCloudConfig() {
+            if (!cloudConfig.url || !cloudConfig.key || !cloudConfig.householdId) {
+                cloudConfig = { ...DEFAULT_CLOUD_CONFIG };
+                supabaseClient = null;
+                localStorage.setItem('cloudConfig', JSON.stringify(cloudConfig));
+            }
+        }
+
         function saveCloudConfig() {
             const url = document.getElementById('sb-url').value.trim();
             const key = document.getElementById('sb-key').value.trim();
             const householdId = document.getElementById('sb-household').value.trim();
             if (!url || !key || !householdId) {
-                alert('请填写完整 Supabase 配置');
-                return;
+                ensureCloudConfig();
+                fillCloudConfigForm();
+            } else {
+                cloudConfig = { url, key, householdId };
+                supabaseClient = null;
+                localStorage.setItem('cloudConfig', JSON.stringify(cloudConfig));
             }
-
-            cloudConfig = { url, key, householdId };
-            supabaseClient = null;
-            localStorage.setItem('cloudConfig', JSON.stringify(cloudConfig));
             setCloudStatus('配置已保存，正在连接云端...');
             pullFromCloud();
+        }
+
+        async function cloudSyncStock() {
+            ensureCloudConfig();
+            fillCloudConfigForm();
+            await pullFromCloud();
+            await saveData();
+            setCloudStatus('仓储云同步完成 ✅');
         }
 
         function fillCloudConfigForm() {
