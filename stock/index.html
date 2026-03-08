@@ -488,50 +488,17 @@
             }
         }
 
-        function saveCloudConfig() {
-            const url = document.getElementById('sb-url').value.trim();
-            const key = document.getElementById('sb-key').value.trim();
-            const householdId = document.getElementById('sb-household').value.trim();
-            if (!url || !key || !householdId) {
-                ensureCloudConfig();
-                fillCloudConfigForm();
-            } else {
-                cloudConfig = { url, key, householdId };
-                supabaseClient = null;
-                localStorage.setItem('cloudConfig', JSON.stringify(cloudConfig));
-            }
-            setCloudStatus('配置已保存，正在连接云端...');
-            pullFromCloud();
-        }
-
         async function cloudUploadStock() {
             if (!confirm('确认要把当前本地数据上传并覆盖云端吗？')) return;
             ensureCloudConfig();
-            fillCloudConfigForm();
             const ok = await uploadStockToCloud(true);
             alert(ok ? '☁️ 云上传成功' : '⚠️ 云上传失败，请看状态提示');
         }
 
         async function cloudDownloadStock() {
             ensureCloudConfig();
-            fillCloudConfigForm();
             const ok = await pullFromCloud();
             alert(ok ? '☁️ 云下载成功，已刷新本地数据' : '☁️ 云端暂无可下载数据（或拉取失败）');
-        }
-
-        function fillCloudConfigForm() {
-            const urlEl = document.getElementById('sb-url');
-            const keyEl = document.getElementById('sb-key');
-            const householdEl = document.getElementById('sb-household');
-            if (urlEl) urlEl.value = cloudConfig.url || '';
-            if (keyEl) keyEl.value = cloudConfig.key || '';
-            if (householdEl) householdEl.value = cloudConfig.householdId || '';
-
-            if (isCloudEnabled()) {
-                setCloudStatus('当前：已保存云配置，点击“从云端拉取”可同步');
-            } else {
-                setCloudStatus('当前：本地模式（未连接云端）');
-            }
         }
 
         // 计算预计用完日期
@@ -717,12 +684,6 @@
             `).join('');
         }
 
-        function openCloudSyncSettings() {
-            switchTab('settings');
-            const box = document.querySelector('.cloud-box');
-            if (box) box.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        }
-
         // 切换标签页
         function switchTab(tab, btn = null) {
             document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
@@ -739,13 +700,13 @@
             
             if (tab === 'settings') {
                 renderSettings();
-                fillCloudConfigForm();
             }
         }
 
         // 初始化
+        ensureCloudConfig();
         renderInventory();
-        fillCloudConfigForm();
+        setCloudStatus('当前：本地保存模式（仅点击“云上传”才会写入云端）');
 
     </script>
 </body>
