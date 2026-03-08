@@ -384,6 +384,7 @@
         let supabaseClient = null;
         let cloudConfig = JSON.parse(localStorage.getItem('cloudConfig') || '{}');
         let cloudMeta = JSON.parse(localStorage.getItem('cloudMeta') || '{}');
+        let cloudWritePermit = false;
 
         const DEFAULT_CLOUD_CONFIG = {
             url: 'https://lrtglriomkxjxmxpzivj.supabase.co',
@@ -424,7 +425,25 @@
         function getSupabaseClient() {
             if (!isCloudEnabled()) return null;
             if (!supabaseClient) {
-                supabaseClient = window.supabase.createClient(cloudConfig.url, cloudConfig.key);
+                const raw = window.supabase.createClient(cloudConfig.url, cloudConfig.key);
+                supabaseClient = {
+                    from(table) {
+                        const q = raw.from(table);
+                        const denyWrite = () => {
+                            const err = new Error('仅点击“云上传”按钮才允许写云端');
+                            return Promise.resolve({ data: null, error: err });
+                        };
+                        return {
+                            select: (...args) => q.select(...args),
+                            eq: (...args) => q.eq(...args),
+                            maybeSingle: (...args) => q.maybeSingle(...args),
+                            upsert: (...args) => cloudWritePermit ? q.upsert(...args) : denyWrite(),
+                            insert: (...args) => cloudWritePermit ? q.insert(...args) : denyWrite(),
+                            update: (...args) => cloudWritePermit ? q.update(...args) : denyWrite(),
+                            delete: (...args) => cloudWritePermit ? q.delete(...args) : denyWrite(),
+                        };
+                    }
+                };
             }
             return supabaseClient;
         }
@@ -476,9 +495,11 @@
             try {
                 const sb = getSupabaseClient();
                 const rows = toStockRows();
+                cloudWritePermit = true;
                 const { error } = await sb
                     .from('stock_items')
                     .upsert(rows, { onConflict: 'household_id,item_name' });
+                cloudWritePermit = false;
 
                 if (error) throw error;
                 cloudMeta.lastUploadAt = new Date().toISOString();
@@ -487,6 +508,7 @@
                 setCloudStatus('云上传成功 ✅');
                 return true;
             } catch (e) {
+                cloudWritePermit = false;
                 setCloudStatus('云上传失败：' + (e.message || '请检查配置/表结构'));
                 return false;
             }
