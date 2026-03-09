@@ -438,14 +438,28 @@
 
         function applyStockRows(rows) {
             if (!Array.isArray(rows)) return;
-            const qtyByName = new Map(rows.map(r => [normName(r.item_name), Number(r.qty || 0)]));
+
+            // 云端若存在同名重复记录：以 updated_at 最新的一条为准，并且保持确定性
+            // 说明：select 默认不保证顺序；如果有重复数据，Map "最后覆盖" 的结果会随机。
+            const latestByName = new Map();
+            for (const r of rows) {
+                const k = normName(r.item_name);
+                if (!k) continue;
+                if (latestByName.has(k)) continue; // rows 应为按 updated_at desc 排序后的结果
+                latestByName.set(k, {
+                    qty: Number(r.qty || 0),
+                    updated_at: r.updated_at || null,
+                });
+            }
 
             inventory = inventory.map(item => {
                 const k = normName(item.name);
-                const cloudQty = qtyByName.has(k) ? qtyByName.get(k) : 0;
+                const cloud = latestByName.get(k);
+                const cloudQty = cloud ? cloud.qty : 0;
                 return {
                     ...item,
                     qty: Number(cloudQty || 0),
+                    // qty 由云端覆盖；lastUpdated 仍保留本地录入时间（不被云端刷新）
                     lastUpdated: item.lastUpdated || null
                 };
             });
@@ -467,7 +481,8 @@
                 const { data, error } = await sb
                     .from('stock_items')
                     .select('item_name,qty,updated_at')
-                    .eq('household_id', cloudConfig.householdId);
+                    .eq('household_id', cloudConfig.householdId)
+                    .order('updated_at', { ascending: false });
 
                 if (error) throw error;
                 if (Array.isArray(data) && data.length > 0) {
