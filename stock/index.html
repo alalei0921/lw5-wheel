@@ -106,7 +106,7 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
-            flex-wrap: nowrap;
+            flex-wrap: wrap;
             padding: 15px 20px;
             background: #f8f8f8;
             border-bottom: 1px solid #eee;
@@ -122,7 +122,9 @@
         }
         #warning-count {
             white-space: nowrap;
-            margin-left: auto;
+            width: 100%;
+            margin-left: 0;
+            text-align: right;
         }
         .btn-cloud-mini {
             padding: 8px 14px;
@@ -344,7 +346,7 @@
             <h2>消耗设置</h2>
             <div class="form-row" style="margin:10px 0 6px; gap:10px; flex-wrap:nowrap;">
                 <button class="btn btn-primary" onclick="uploadSettingsCloud()">☁️ 云上传</button>
-                <button class="btn btn-secondary" onclick="downloadSettingsCloudOverwrite()">☁️ 云下载</button>
+                <button class="btn btn-primary" onclick="downloadSettingsCloudOverwrite()">☁️ 云下载</button>
                 <span id="settings-dirty" style="font-size:12px; color:#b45309; align-self:center;"></span>
             </div>
             <div id="settings-list"></div>
