@@ -304,6 +304,7 @@
             <div class="inventory-header">
                 <div class="header-left">
                     <span>共 <strong id="total-items">0</strong> 项</span>
+                    <button class="btn-cloud-mini" onclick="saveInventoryLocal()">本地保存</button>
                     <button class="btn-cloud-mini" onclick="cloudUploadStock()">☁️ 云上传</button>
                     <button class="btn-cloud-mini" onclick="cloudDownloadStock()">☁️ 云下载</button>
                 </div>
@@ -336,6 +337,7 @@
         <div class="add-form">
             <h2>消耗设置</h2>
             <div class="form-row" style="margin:10px 0 6px; gap:10px; flex-wrap:wrap;">
+                <button class="btn btn-success" onclick="saveSettingsLocal()">本地保存</button>
                 <button class="btn btn-primary" onclick="uploadSettingsCloud()">☁️ 云上传</button>
                 <button class="btn btn-secondary" onclick="downloadSettingsCloudOverwrite()">☁️ 云下载</button>
                 <span id="settings-dirty" style="font-size:12px; color:#b45309; align-self:center;"></span>
@@ -432,58 +434,54 @@
             return supabaseClient;
         }
 
-        function toStockRows(full = true) {
-            return inventory.map(item => {
-                const base = {
-                    household_id: cloudConfig.householdId,
-                    item_name: item.name,
-                    qty: Number(item.qty || 0),
-                    updated_at: new Date().toISOString()
-                };
-                if (!full) return base;
-                return {
-                    ...base,
-                    unit: item.unit,
-                    days_per_unit: Number(item.daysPerUnit || 0)
-                };
-            });
+        function cloudArchiveId(kind) {
+            const root = cloudConfig.householdId || DEFAULT_CLOUD_CONFIG.householdId;
+            return `${root}:${kind}`;
+        }
+
+        function toInventoryCloudRows() {
+            return inventory.map(item => ({
+                household_id: cloudArchiveId('inventory'),
+                item_name: item.name,
+                qty: Number(item.qty || 0),
+                updated_at: new Date().toISOString()
+            }));
+        }
+
+        function toSettingsCloudRows() {
+            return inventory.map(item => ({
+                household_id: cloudArchiveId('settings'),
+                item_name: item.name,
+                qty: Number(item.daysPerUnit || 0),
+                updated_at: new Date().toISOString()
+            }));
         }
 
         function normName(v) {
             return String(v || '').trim();
         }
 
-        function applyStockRows(rows) {
+        function applyInventoryRows(rows) {
             if (!Array.isArray(rows)) return;
-
-            const hasFullFields = rows.some(r => r && (r.unit !== undefined || r.days_per_unit !== undefined));
-
-            // 新表结构：云下载覆盖整个页面
-            if (hasFullFields) {
-                const unique = new Map();
-                for (const r of rows) {
-                    const name = normName(r.item_name);
-                    if (!name) continue;
-                    unique.set(name, {
-                        name,
-                        unit: r.unit || '个',
-                        daysPerUnit: Number(r.days_per_unit || 1),
-                        qty: Number(r.qty || 0),
-                        lastUpdated: null
-                    });
-                }
-                inventory = Array.from(unique.values());
-                return;
-            }
-
-            // 老表结构兼容：仅覆盖数量，保留本地 unit/daysPerUnit
             const qtyByName = new Map(rows.map(r => [normName(r.item_name), Number(r.qty || 0)]));
             inventory = inventory.map(item => {
                 const k = normName(item.name);
-                const cloudQty = qtyByName.has(k) ? qtyByName.get(k) : 0;
                 return {
                     ...item,
-                    qty: Number(cloudQty || 0),
+                    qty: qtyByName.has(k) ? Number(qtyByName.get(k)) : 0,
+                    lastUpdated: item.lastUpdated || null
+                };
+            });
+        }
+
+        function applySettingsRows(rows) {
+            if (!Array.isArray(rows)) return;
+            const daysByName = new Map(rows.map(r => [normName(r.item_name), Number(r.qty || 0)]));
+            inventory = inventory.map(item => {
+                const k = normName(item.name);
+                return {
+                    ...item,
+                    daysPerUnit: daysByName.has(k) ? Number(daysByName.get(k)) : item.daysPerUnit,
                     lastUpdated: item.lastUpdated || null
                 };
             });
@@ -496,128 +494,110 @@
             return true;
         }
 
-        async function uploadStockToCloud(explicit = false) {
-            // 硬保护：只有“云上传”按钮显式触发，才允许写云端
+        async function uploadInventoryToCloud(explicit = false) {
             if (!explicit) {
                 setCloudStatus('已拦截：非显式云上传请求（仅本地保存）');
                 return false;
             }
-            if (!isCloudEnabled()) {
-                ensureCloudConfig();
-            }
-            const sb = getSupabaseClient();
-
-            // 先尝试“全量字段”上传（支持消耗设置整页覆盖）
+            if (!isCloudEnabled()) ensureCloudConfig();
             try {
+                const sb = getSupabaseClient();
                 cloudWritePermit = true;
                 const { error } = await sb
                     .from('stock_items')
-                    .upsert(toStockRows(true), { onConflict: 'household_id,item_name' });
+                    .upsert(toInventoryCloudRows(), { onConflict: 'household_id,item_name' });
                 cloudWritePermit = false;
                 if (error) throw error;
-
                 cloudMeta.lastUploadAt = new Date().toISOString();
                 saveCloudMeta();
                 renderCloudMeta();
-                setCloudStatus('云上传成功 ✅（全量字段）');
+                setCloudStatus('库存列表云上传成功 ✅');
                 return true;
             } catch (e) {
                 cloudWritePermit = false;
-                const msg = String((e && e.message) || e || '');
-
-                // 向后兼容：老表结构没有 unit/days_per_unit 时，回退为 qty-only 上传
-                if (msg.includes('days_per_unit') || msg.includes("'unit' column") || msg.includes('schema cache')) {
-                    try {
-                        cloudWritePermit = true;
-                        const { error } = await sb
-                            .from('stock_items')
-                            .upsert(toStockRows(false), { onConflict: 'household_id,item_name' });
-                        cloudWritePermit = false;
-                        if (error) throw error;
-
-                        cloudMeta.lastUploadAt = new Date().toISOString();
-                        saveCloudMeta();
-                        renderCloudMeta();
-                        setCloudStatus('云上传成功（兼容模式：仅数量）。若要同步“消耗设置”，需先升级云表字段');
-                        return true;
-                    } catch (e2) {
-                        cloudWritePermit = false;
-                        setCloudStatus('云上传失败：' + ((e2 && e2.message) || '请检查配置/表结构'));
-                        return false;
-                    }
-                }
-
-                setCloudStatus('云上传失败：' + ((e && e.message) || '请检查配置/表结构'));
+                setCloudStatus('库存列表云上传失败：' + ((e && e.message) || '请检查配置/表结构'));
                 return false;
             }
         }
 
-        async function pullFromCloud() {
-            if (!isCloudEnabled()) {
-                ensureCloudConfig();
-            }
-            const sb = getSupabaseClient();
+        async function pullInventoryFromCloud() {
+            if (!isCloudEnabled()) ensureCloudConfig();
             try {
+                const sb = getSupabaseClient();
                 const { data, error } = await sb
                     .from('stock_items')
-                    .select('item_name,unit,days_per_unit,qty,updated_at')
-                    .eq('household_id', cloudConfig.householdId);
+                    .select('item_name,qty,updated_at')
+                    .eq('household_id', cloudArchiveId('inventory'));
                 if (error) throw error;
-
-                if (Array.isArray(data) && data.length > 0) {
-                    applyStockRows(data);
-                    localStorage.setItem('inventory', JSON.stringify(inventory));
-                    renderInventory();
-                    renderSettings();
-                    const latest = data.map(x => x.updated_at).filter(Boolean).sort().pop();
-                    cloudMeta.lastUploadAt = latest || cloudMeta.lastUploadAt;
-                    cloudMeta.lastDownloadAt = new Date().toISOString();
-                    saveCloudMeta();
-                    renderCloudMeta();
-                    setCloudStatus('已从云端拉取最新数据（全量字段）');
-                    return true;
+                if (!Array.isArray(data) || data.length === 0) {
+                    setCloudStatus('库存列表云端暂无数据（本地数据未改动）');
+                    return false;
                 }
-
+                applyInventoryRows(data);
+                saveLocalOnly();
+                renderInventory();
+                renderSettings();
                 cloudMeta.lastDownloadAt = new Date().toISOString();
                 saveCloudMeta();
                 renderCloudMeta();
-                setCloudStatus('云端暂无数据（本地数据未改动）');
-                return false;
+                setCloudStatus('库存列表云下载成功 ✅');
+                return true;
             } catch (e) {
-                const msg = String((e && e.message) || e || '');
-                if (msg.includes('days_per_unit') || msg.includes("'unit' column") || msg.includes('schema cache')) {
-                    // 老表结构回退：仅拉 qty
-                    try {
-                        const { data, error } = await sb
-                            .from('stock_items')
-                            .select('item_name,qty,updated_at')
-                            .eq('household_id', cloudConfig.householdId);
-                        if (error) throw error;
-                        if (Array.isArray(data) && data.length > 0) {
-                            applyStockRows(data);
-                            localStorage.setItem('inventory', JSON.stringify(inventory));
-                            renderInventory();
-                            renderSettings();
-                            const latest = data.map(x => x.updated_at).filter(Boolean).sort().pop();
-                            cloudMeta.lastUploadAt = latest || cloudMeta.lastUploadAt;
-                            cloudMeta.lastDownloadAt = new Date().toISOString();
-                            saveCloudMeta();
-                            renderCloudMeta();
-                            setCloudStatus('云下载成功（兼容模式：仅数量）。若要覆盖消耗设置，请先升级云表字段');
-                            return true;
-                        }
-                        cloudMeta.lastDownloadAt = new Date().toISOString();
-                        saveCloudMeta();
-                        renderCloudMeta();
-                        setCloudStatus('云端暂无数据（本地数据未改动）');
-                        return false;
-                    } catch (e2) {
-                        setCloudStatus('拉取失败：' + ((e2 && e2.message) || '请检查配置/网络'));
-                        return false;
-                    }
-                }
+                setCloudStatus('库存列表云下载失败：' + ((e && e.message) || '请检查配置/网络'));
+                return false;
+            }
+        }
 
-                setCloudStatus('拉取失败：' + ((e && e.message) || '请检查配置/网络'));
+        async function uploadSettingsToCloud(explicit = false) {
+            if (!explicit) {
+                setCloudStatus('已拦截：非显式云上传请求（仅本地保存）');
+                return false;
+            }
+            if (!isCloudEnabled()) ensureCloudConfig();
+            try {
+                const sb = getSupabaseClient();
+                cloudWritePermit = true;
+                const { error } = await sb
+                    .from('stock_items')
+                    .upsert(toSettingsCloudRows(), { onConflict: 'household_id,item_name' });
+                cloudWritePermit = false;
+                if (error) throw error;
+                cloudMeta.lastUploadAt = new Date().toISOString();
+                saveCloudMeta();
+                renderCloudMeta();
+                setCloudStatus('消耗设置云上传成功 ✅');
+                return true;
+            } catch (e) {
+                cloudWritePermit = false;
+                setCloudStatus('消耗设置云上传失败：' + ((e && e.message) || '请检查配置/表结构'));
+                return false;
+            }
+        }
+
+        async function pullSettingsFromCloud() {
+            if (!isCloudEnabled()) ensureCloudConfig();
+            try {
+                const sb = getSupabaseClient();
+                const { data, error } = await sb
+                    .from('stock_items')
+                    .select('item_name,qty,updated_at')
+                    .eq('household_id', cloudArchiveId('settings'));
+                if (error) throw error;
+                if (!Array.isArray(data) || data.length === 0) {
+                    setCloudStatus('消耗设置云端暂无数据（本地数据未改动）');
+                    return false;
+                }
+                applySettingsRows(data);
+                saveLocalOnly();
+                renderInventory();
+                renderSettings();
+                cloudMeta.lastDownloadAt = new Date().toISOString();
+                saveCloudMeta();
+                renderCloudMeta();
+                setCloudStatus('消耗设置云下载成功 ✅');
+                return true;
+            } catch (e) {
+                setCloudStatus('消耗设置云下载失败：' + ((e && e.message) || '请检查配置/网络'));
                 return false;
             }
         }
@@ -630,19 +610,30 @@
             }
         }
 
+        function saveInventoryLocal() {
+            saveLocalOnly();
+            alert('库存列表已本地保存');
+        }
+
+        function saveSettingsLocal() {
+            saveLocalOnly();
+            markSettingsDirty(false);
+            alert('消耗设置已本地保存');
+        }
+
         async function cloudUploadStock() {
-            if (!confirm('确认要把当前本地数据上传并覆盖云端吗？')) return false;
+            if (!confirm('确认要把“库存列表”当前数据上传并覆盖云端吗？')) return false;
             ensureCloudConfig();
-            const ok = await uploadStockToCloud(true);
-            alert(ok ? '☁️ 云上传成功' : '⚠️ 云上传失败，请看状态提示');
+            const ok = await uploadInventoryToCloud(true);
+            alert(ok ? '☁️ 库存列表云上传成功' : '⚠️ 库存列表云上传失败，请看状态提示');
             return ok;
         }
 
         async function cloudDownloadStock() {
             ensureCloudConfig();
-            const ok = await pullFromCloud();
+            const ok = await pullInventoryFromCloud();
             const ts = new Date().toLocaleString('zh-CN', { hour12: false });
-            alert(ok ? `☁️ 云下载成功，已刷新本地数据\n下载时间：${ts}` : '☁️ 云端暂无可下载数据（或拉取失败）');
+            alert(ok ? `☁️ 库存列表云下载成功，已刷新本地数据\n下载时间：${ts}` : '☁️ 库存列表云端暂无可下载数据（或拉取失败）');
         }
 
         // 计算预计用完日期
@@ -812,15 +803,19 @@
                 if (!ok) return;
                 saveLocalOnly();
             }
-            const ok = await cloudUploadStock();
+            if (!confirm('确认要把“消耗设置”当前数据上传并覆盖云端吗？')) return;
+            const ok = await uploadSettingsToCloud(true);
             if (ok !== false) markSettingsDirty(false);
+            alert(ok ? '☁️ 消耗设置云上传成功' : '⚠️ 消耗设置云上传失败，请看状态提示');
         }
 
         async function downloadSettingsCloudOverwrite() {
-            const ok = confirm('将从云端下载并覆盖当前页面数据，确定继续？');
+            const ok = confirm('将从云端下载并覆盖“消耗设置”数据，确定继续？');
             if (!ok) return;
-            await cloudDownloadStock();
-            markSettingsDirty(false);
+            const done = await pullSettingsFromCloud();
+            if (done) markSettingsDirty(false);
+            const ts = new Date().toLocaleString('zh-CN', { hour12: false });
+            alert(done ? `☁️ 消耗设置云下载成功\n下载时间：${ts}` : '☁️ 消耗设置云端暂无可下载数据（或拉取失败）');
         }
 
         // 渲染设置页面
