@@ -432,15 +432,21 @@
             return supabaseClient;
         }
 
-        function toStockRows() {
-            return inventory.map(item => ({
-                household_id: cloudConfig.householdId,
-                item_name: item.name,
-                unit: item.unit,
-                days_per_unit: Number(item.daysPerUnit || 0),
-                qty: Number(item.qty || 0),
-                updated_at: new Date().toISOString()
-            }));
+        function toStockRows(full = true) {
+            return inventory.map(item => {
+                const base = {
+                    household_id: cloudConfig.householdId,
+                    item_name: item.name,
+                    qty: Number(item.qty || 0),
+                    updated_at: new Date().toISOString()
+                };
+                if (!full) return base;
+                return {
+                    ...base,
+                    unit: item.unit,
+                    days_per_unit: Number(item.daysPerUnit || 0)
+                };
+            });
         }
 
         function normName(v) {
@@ -450,21 +456,37 @@
         function applyStockRows(rows) {
             if (!Array.isArray(rows)) return;
 
-            // 云下载覆盖整个页面数据：以云端为准重建 inventory
-            const unique = new Map();
-            for (const r of rows) {
-                const name = normName(r.item_name);
-                if (!name) continue;
-                unique.set(name, {
-                    name,
-                    unit: r.unit || '个',
-                    daysPerUnit: Number(r.days_per_unit || 1),
-                    qty: Number(r.qty || 0),
-                    lastUpdated: null
-                });
+            const hasFullFields = rows.some(r => r && (r.unit !== undefined || r.days_per_unit !== undefined));
+
+            // 新表结构：云下载覆盖整个页面
+            if (hasFullFields) {
+                const unique = new Map();
+                for (const r of rows) {
+                    const name = normName(r.item_name);
+                    if (!name) continue;
+                    unique.set(name, {
+                        name,
+                        unit: r.unit || '个',
+                        daysPerUnit: Number(r.days_per_unit || 1),
+                        qty: Number(r.qty || 0),
+                        lastUpdated: null
+                    });
+                }
+                inventory = Array.from(unique.values());
+                return;
             }
 
-            inventory = Array.from(unique.values());
+            // 老表结构兼容：仅覆盖数量，保留本地 unit/daysPerUnit
+            const qtyByName = new Map(rows.map(r => [normName(r.item_name), Number(r.qty || 0)]));
+            inventory = inventory.map(item => {
+                const k = normName(item.name);
+                const cloudQty = qtyByName.has(k) ? qtyByName.get(k) : 0;
+                return {
+                    ...item,
+                    qty: Number(cloudQty || 0),
+                    lastUpdated: item.lastUpdated || null
+                };
+            });
         }
 
         // 本地持久化（绝不触发云写）
@@ -483,24 +505,49 @@
             if (!isCloudEnabled()) {
                 ensureCloudConfig();
             }
+            const sb = getSupabaseClient();
+
+            // 先尝试“全量字段”上传（支持消耗设置整页覆盖）
             try {
-                const sb = getSupabaseClient();
-                const rows = toStockRows();
                 cloudWritePermit = true;
                 const { error } = await sb
                     .from('stock_items')
-                    .upsert(rows, { onConflict: 'household_id,item_name' });
+                    .upsert(toStockRows(true), { onConflict: 'household_id,item_name' });
                 cloudWritePermit = false;
-
                 if (error) throw error;
+
                 cloudMeta.lastUploadAt = new Date().toISOString();
                 saveCloudMeta();
                 renderCloudMeta();
-                setCloudStatus('云上传成功 ✅');
+                setCloudStatus('云上传成功 ✅（全量字段）');
                 return true;
             } catch (e) {
                 cloudWritePermit = false;
-                setCloudStatus('云上传失败：' + (e.message || '请检查配置/表结构'));
+                const msg = String((e && e.message) || e || '');
+
+                // 向后兼容：老表结构没有 unit/days_per_unit 时，回退为 qty-only 上传
+                if (msg.includes('days_per_unit') || msg.includes("'unit' column") || msg.includes('schema cache')) {
+                    try {
+                        cloudWritePermit = true;
+                        const { error } = await sb
+                            .from('stock_items')
+                            .upsert(toStockRows(false), { onConflict: 'household_id,item_name' });
+                        cloudWritePermit = false;
+                        if (error) throw error;
+
+                        cloudMeta.lastUploadAt = new Date().toISOString();
+                        saveCloudMeta();
+                        renderCloudMeta();
+                        setCloudStatus('云上传成功（兼容模式：仅数量）。若要同步“消耗设置”，需先升级云表字段');
+                        return true;
+                    } catch (e2) {
+                        cloudWritePermit = false;
+                        setCloudStatus('云上传失败：' + ((e2 && e2.message) || '请检查配置/表结构'));
+                        return false;
+                    }
+                }
+
+                setCloudStatus('云上传失败：' + ((e && e.message) || '请检查配置/表结构'));
                 return false;
             }
         }
@@ -509,14 +556,14 @@
             if (!isCloudEnabled()) {
                 ensureCloudConfig();
             }
+            const sb = getSupabaseClient();
             try {
-                const sb = getSupabaseClient();
                 const { data, error } = await sb
                     .from('stock_items')
                     .select('item_name,unit,days_per_unit,qty,updated_at')
                     .eq('household_id', cloudConfig.householdId);
-
                 if (error) throw error;
+
                 if (Array.isArray(data) && data.length > 0) {
                     applyStockRows(data);
                     localStorage.setItem('inventory', JSON.stringify(inventory));
@@ -527,17 +574,50 @@
                     cloudMeta.lastDownloadAt = new Date().toISOString();
                     saveCloudMeta();
                     renderCloudMeta();
-                    setCloudStatus('已从云端拉取最新数据');
+                    setCloudStatus('已从云端拉取最新数据（全量字段）');
                     return true;
-                } else {
-                    cloudMeta.lastDownloadAt = new Date().toISOString();
-                    saveCloudMeta();
-                    renderCloudMeta();
-                    setCloudStatus('云端暂无数据（本地数据未改动）');
-                    return false;
                 }
+
+                cloudMeta.lastDownloadAt = new Date().toISOString();
+                saveCloudMeta();
+                renderCloudMeta();
+                setCloudStatus('云端暂无数据（本地数据未改动）');
+                return false;
             } catch (e) {
-                setCloudStatus('拉取失败：' + (e.message || '请检查配置/网络'));
+                const msg = String((e && e.message) || e || '');
+                if (msg.includes('days_per_unit') || msg.includes("'unit' column") || msg.includes('schema cache')) {
+                    // 老表结构回退：仅拉 qty
+                    try {
+                        const { data, error } = await sb
+                            .from('stock_items')
+                            .select('item_name,qty,updated_at')
+                            .eq('household_id', cloudConfig.householdId);
+                        if (error) throw error;
+                        if (Array.isArray(data) && data.length > 0) {
+                            applyStockRows(data);
+                            localStorage.setItem('inventory', JSON.stringify(inventory));
+                            renderInventory();
+                            renderSettings();
+                            const latest = data.map(x => x.updated_at).filter(Boolean).sort().pop();
+                            cloudMeta.lastUploadAt = latest || cloudMeta.lastUploadAt;
+                            cloudMeta.lastDownloadAt = new Date().toISOString();
+                            saveCloudMeta();
+                            renderCloudMeta();
+                            setCloudStatus('云下载成功（兼容模式：仅数量）。若要覆盖消耗设置，请先升级云表字段');
+                            return true;
+                        }
+                        cloudMeta.lastDownloadAt = new Date().toISOString();
+                        saveCloudMeta();
+                        renderCloudMeta();
+                        setCloudStatus('云端暂无数据（本地数据未改动）');
+                        return false;
+                    } catch (e2) {
+                        setCloudStatus('拉取失败：' + ((e2 && e2.message) || '请检查配置/网络'));
+                        return false;
+                    }
+                }
+
+                setCloudStatus('拉取失败：' + ((e && e.message) || '请检查配置/网络'));
                 return false;
             }
         }
