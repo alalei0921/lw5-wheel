@@ -669,10 +669,13 @@
                 return;
             }
             inventory[editingIndex].daysPerUnit = daysPerUnit;
-            markSettingsDirty(true);
+            // 主人要求：这里的“保存”必须是本地保存（不触发任何云逻辑）
+            saveLocalOnly();
+            markSettingsDirty(false);
             closeModal();
             renderInventory();
             renderSettings();
+            alert('已本地保存');
         }
 
         // 消耗设置页：仅三种保存相关操作
