@@ -118,6 +118,11 @@
             gap: 8px;
             flex-wrap: nowrap;
             white-space: nowrap;
+            flex-shrink: 0;
+        }
+        #warning-count {
+            white-space: nowrap;
+            margin-left: auto;
         }
         .btn-cloud-mini {
             padding: 8px 14px;
@@ -183,6 +188,8 @@
             display: flex;
             gap: 8px;
             align-items: center;
+            flex-wrap: nowrap;
+            white-space: nowrap;
         }
         .item-actions input {
             width: 80px;
@@ -304,7 +311,6 @@
             <div class="inventory-header">
                 <div class="header-left">
                     <span>共 <strong id="total-items">0</strong> 项</span>
-                    <button class="btn-cloud-mini" onclick="saveInventoryLocal()">本地保存</button>
                     <button class="btn-cloud-mini" onclick="cloudUploadStock()">☁️ 云上传</button>
                     <button class="btn-cloud-mini" onclick="cloudDownloadStock()">☁️ 云下载</button>
                 </div>
@@ -336,8 +342,7 @@
     <div id="tab-settings" style="display: none;">
         <div class="add-form">
             <h2>消耗设置</h2>
-            <div class="form-row" style="margin:10px 0 6px; gap:10px; flex-wrap:wrap;">
-                <button class="btn btn-success" onclick="saveSettingsLocal()">本地保存</button>
+            <div class="form-row" style="margin:10px 0 6px; gap:10px; flex-wrap:nowrap;">
                 <button class="btn btn-primary" onclick="uploadSettingsCloud()">☁️ 云上传</button>
                 <button class="btn btn-secondary" onclick="downloadSettingsCloudOverwrite()">☁️ 云下载</button>
                 <span id="settings-dirty" style="font-size:12px; color:#b45309; align-self:center;"></span>
@@ -608,17 +613,6 @@
                 supabaseClient = null;
                 localStorage.setItem('cloudConfig', JSON.stringify(cloudConfig));
             }
-        }
-
-        function saveInventoryLocal() {
-            saveLocalOnly();
-            alert('库存列表已本地保存');
-        }
-
-        function saveSettingsLocal() {
-            saveLocalOnly();
-            markSettingsDirty(false);
-            alert('消耗设置已本地保存');
         }
 
         async function cloudUploadStock() {
