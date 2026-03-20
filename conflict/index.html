@@ -1,0 +1,491 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>分歧终端机</title>
+  <style>
+    *{box-sizing:border-box}
+    html,body{height:100%;margin:0;padding:0}
+    body{
+      font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","SF Pro Display","Helvetica Neue",Arial,sans-serif;
+      color:#2d2d2d;
+      min-height:100vh;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      padding:20px;
+      background: linear-gradient(135deg, #fff5f5 0%, #fff0f5 50%, #f5f0ff 100%);
+    }
+    .container{
+      width:100%;
+      max-width:420px;
+      background:rgba(255,255,255,0.85);
+      backdrop-filter:blur(12px);
+      border-radius:24px;
+      padding:28px 20px;
+      box-shadow:0 16px 48px rgba(180,100,120,0.15);
+    }
+    h1{
+      text-align:center;
+      color:#d46a8e;
+      margin:0 0 8px;
+      font-size:24px;
+    }
+    .subtitle{
+      text-align:center;
+      color:#999;
+      font-size:13px;
+      margin-bottom:24px;
+    }
+    .page{display:none}
+    .page.active{display:block}
+    
+    .question{
+      font-size:16px;
+      font-weight:600;
+      color:#333;
+      margin-bottom:16px;
+      line-height:1.5;
+    }
+    .input-group{margin-bottom:14px}
+    .input-group label{
+      display:block;
+      font-size:13px;
+      color:#666;
+      margin-bottom:6px;
+    }
+    .input-group input,.input-group textarea{
+      width:100%;
+      padding:12px 14px;
+      border:1px solid #e8e8e8;
+      border-radius:12px;
+      font-size:15px;
+      background:#fafafa;
+      transition:border-color .2s,box-shadow .2s;
+    }
+    .input-group input:focus,.input-group textarea:focus{
+      outline:none;
+      border-color:#d46a8e;
+      box-shadow:0 0 0 3px rgba(212,106,142,0.1);
+    }
+    .example{
+      font-size:12px;
+      color:#999;
+      margin-top:6px;
+      padding:10px;
+      background:#f9f9f9;
+      border-radius:8px;
+    }
+    .example .layer{color:#d46a8e;font-weight:600}
+    
+    .btn{
+      display:block;
+      width:100%;
+      padding:14px 20px;
+      border:none;
+      border-radius:14px;
+      font-size:16px;
+      font-weight:700;
+      cursor:pointer;
+      text-align:center;
+      transition:transform .15s,box-shadow .15s;
+      margin-top:20px;
+    }
+    .btn:active{transform:scale(0.98)}
+    .btn-primary{
+      background:linear-gradient(135deg,#d46a8e,#e8a0b0);
+      color:#fff;
+      box-shadow:0 8px 20px rgba(212,106,142,0.3);
+    }
+    .btn-primary:hover{box-shadow:0 10px 24px rgba(212,106,142,0.4)}
+    .btn-secondary{
+      background:linear-gradient(135deg,#7c9ae8,#a8c0f0);
+      color:#fff;
+      box-shadow:0 8px 20px rgba(124,154,232,0.3);
+    }
+    .btn-secondary:hover{box-shadow:0 10px 24px rgba(124,154,232,0.4)}
+    
+    .answer-card{
+      background:#fafafa;
+      border-radius:12px;
+      padding:14px;
+      margin-bottom:12px;
+    }
+    .answer-card h4{
+      margin:0 0 8px;
+      font-size:13px;
+      color:#999;
+    }
+    .answer-card p{
+      margin:4px 0;
+      font-size:14px;
+      color:#333;
+    }
+    .note{
+      font-size:12px;
+      color:#999;
+      margin-top:8px;
+      padding:10px;
+      background:#fff9f9;
+      border-radius:8px;
+      border-left:3px solid #d46a8e;
+    }
+    .tip{
+      font-size:12px;
+      color:#888;
+      margin-top:4px;
+    }
+    .tip.bad{color:#e88}
+    .tip.good{color:#4a4}
+    
+    .snapshot-preview{
+      background:#fff;
+      border:1px solid #eee;
+      border-radius:12px;
+      padding:16px;
+      margin-top:16px;
+      font-size:13px;
+      line-height:1.8;
+    }
+    .snapshot-preview h3{
+      text-align:center;
+      color:#d46a8e;
+      margin:0 0 16px;
+      font-size:18px;
+    }
+    .snapshot-preview .section{
+      margin-bottom:16px;
+      padding-bottom:16px;
+      border-bottom:1px dashed #eee;
+    }
+    .snapshot-preview .section:last-child{border:none}
+    .snapshot-preview .label{color:#999;font-size:11px}
+    .snapshot-preview .content{color:#333}
+    
+    .page-indicator{
+      display:flex;
+      justify-content:center;
+      gap:6px;
+      margin-bottom:20px;
+    }
+    .page-indicator .dot{
+      width:8px;
+      height:8px;
+      border-radius:50%;
+      background:#e0e0e0;
+    }
+    .page-indicator .dot.active{
+      background:#d46a8e;
+    }
+    
+    .close-btn{
+      position:fixed;
+      top:max(12px,env(safe-area-inset-top));
+      right:max(12px,env(safe-area-inset-right));
+      z-index:60;
+      padding:10px 14px;
+      border-radius:999px;
+      border:none;
+      background:rgba(255,255,255,0.8);
+      backdrop-filter:blur(10px);
+      font-weight:700;
+      color:#666;
+      cursor:pointer;
+    }
+  </style>
+</head>
+<body>
+  <button class="close-btn" onclick="window.parent.postMessage({type:'lw5-close-tool'},'*')">✕ 关闭</button>
+
+  <div class="container">
+    <div class="page-indicator">
+      <div class="dot active" data-page="1"></div>
+      <div class="dot" data-page="2"></div>
+      <div class="dot" data-page="3"></div>
+      <div class="dot" data-page="4"></div>
+      <div class="dot" data-page="5"></div>
+    </div>
+
+    <!-- 第1页：核心诉求 -->
+    <div class="page active" id="page1">
+      <h1>分歧终端机</h1>
+      <p class="subtitle">冷静沟通，化解分歧</p>
+      
+      <div class="question">(1/2) 你的核心诉求是什么？</div>
+      <div class="input-group">
+        <input type="text" id="myDemand1" placeholder="诉求 1">
+      </div>
+      <div class="input-group">
+        <input type="text" id="myDemand2" placeholder="诉求 2（可选）">
+      </div>
+      <div class="input-group">
+        <input type="text" id="myDemand3" placeholder="诉求 3（可选）">
+      </div>
+      
+      <div class="question">(2/2) 你认为对方的核心诉求是什么？</div>
+      <div class="input-group">
+        <input type="text" id="theirDemand1" placeholder="诉求 1">
+      </div>
+      <div class="input-group">
+        <input type="text" id="theirDemand2" placeholder="诉求 2（可选）">
+      </div>
+      <div class="input-group">
+        <input type="text" id="theirDemand3" placeholder="诉求 3（可选）">
+      </div>
+      
+      <button class="btn btn-primary" onclick="goToPage(2)">下一步 →</button>
+    </div>
+
+    <!-- 第2页：深层恐惧 -->
+    <div class="page" id="page2">
+      <h1>往下挖一层</h1>
+      <p class="subtitle">探索真正的内心</p>
+      
+      <div class="question">
+        你刚才说的，是「表层需求」<br>
+        我想再往下问一层——<br>
+        <strong>如果这个需求长期得不到满足，你最害怕的是什么？</strong>
+      </div>
+      
+      <div class="example">
+        💡 <span class="layer">举例</span>：<br>
+        表层：你不回我消息<br>
+        深层：我怕你不在乎我
+      </div>
+      
+      <div class="input-group" style="margin-top:16px">
+        <input type="text" id="myFear1" placeholder="深层恐惧 1">
+      </div>
+      <div class="input-group">
+        <input type="text" id="myFear2" placeholder="深层恐惧 2（可选）">
+      </div>
+      <div class="input-group">
+        <input type="text" id="myFear3" placeholder="深层恐惧 3（可选）">
+      </div>
+      
+      <button class="btn btn-secondary" onclick="goToPage(3)">📱 交换手机</button>
+    </div>
+
+    <!-- 第3页：答案展示 -->
+    <div class="page" id="page3">
+      <h1>答案展示</h1>
+      <p class="subtitle">交换手机，看看对方怎么想</p>
+      
+      <div class="answer-card">
+        <h4>🎯 你的核心诉求</h4>
+        <p id="displayMyDemand"></p>
+      </div>
+      
+      <div class="answer-card">
+        <h4>🎯 你认为Ta的核心诉求</h4>
+        <p id="displayTheirDemand"></p>
+      </div>
+      
+      <div class="answer-card">
+        <h4>😰 你的深层恐惧</h4>
+        <p id="displayMyFear"></p>
+      </div>
+      
+      <button class="btn btn-primary" onclick="goToPage(4)">继续 →</button>
+    </div>
+
+    <!-- 第4页：行动落地 -->
+    <div class="page" id="page4">
+      <h1>行动落地</h1>
+      <p class="subtitle">从改变开始</p>
+      
+      <div class="question">
+        如果只改一件小事情，让关系好一点，你愿意做什么？
+      </div>
+      
+      <div class="note">
+        必须是一件具体的小事，不能是空话<br><br>
+        ❌ 空话：「我会少情绪一点」<br>
+        ✅ 具体化：「当我有情绪的时候，我不会直接指责你，我会先说：<span style="color:#d46a8e">我现在有点情绪，但我不是在怪你</span>」
+      </div>
+      
+      <div class="input-group" style="margin-top:16px">
+        <textarea id="myAction" rows="3" placeholder="我会..."></textarea>
+      </div>
+      
+      <div class="question" style="margin-top:20px">
+        这个改变，你能坚持多久？
+      </div>
+      
+      <div class="input-group">
+        <input type="text" id="duration" placeholder="比如：1周、1个月、永远...">
+      </div>
+      
+      <button class="btn btn-secondary" onclick="goToPage(5)">📱 换Ta手机</button>
+    </div>
+
+    <!-- 第5页：爱的反馈 -->
+    <div class="page" id="page5">
+      <h1>爱的5夜</h1>
+      <p class="subtitle">看到Ta的改变，给你什么感受？</p>
+      
+      <div class="answer-card">
+        <h4>💝 Ta愿意为你的改变</h4>
+        <p id="displayTheirAction"></p>
+        <p id="displayTheirDuration" style="color:#999;font-size:13px"></p>
+      </div>
+      
+      <div class="question">
+        当你看到对方愿意为你做的改变，你会给他什么样的正反馈？
+      </div>
+      
+      <div class="input-group">
+        <textarea id="myFeedback" rows="3" placeholder="我想对Ta说..."></textarea>
+      </div>
+      
+      <button class="btn btn-primary" onclick="generateSnapshot()">📸 生成快照</button>
+    </div>
+  </div>
+
+  <script>
+    let currentPage = 1;
+    const totalPages = 5;
+    
+    // 数据存储
+    const data = {
+      myDemand: [],
+      theirDemand: [],
+      myFear: [],
+      theirAction: '',
+      theirDuration: '',
+      myFeedback: ''
+    };
+    
+    function goToPage(page) {
+      // 保存当前页数据
+      saveCurrentPage();
+      
+      // 验证
+      if (page === 2) {
+        const d1 = document.getElementById('myDemand1').value.trim();
+        if (!d1) {
+          alert('请至少填写一个你的核心诉求');
+          return;
+        }
+      }
+      
+      if (page === 3) {
+        // 展示答案
+        document.getElementById('displayMyDemand').textContent = getMyDemandText();
+        document.getElementById('displayTheirDemand').textContent = getTheirDemandText();
+        document.getElementById('displayMyFear').textContent = getMyFearText();
+      }
+      
+      if (page === 4) {
+        const action = document.getElementById('myAction').value.trim();
+        if (!action) {
+          alert('请填写你愿意做的改变');
+          return;
+        }
+      }
+      
+      if (page === 5) {
+        // 展示对方的行动
+        document.getElementById('displayTheirAction').textContent = document.getElementById('myAction').value || '（未填写）';
+        document.getElementById('displayTheirDuration').textContent = '承诺时长：' + (document.getElementById('duration').value || '（未填写）');
+      }
+      
+      // 切换页面
+      document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+      document.getElementById('page' + page).classList.add('active');
+      
+      // 更新指示器
+      document.querySelectorAll('.dot').forEach((d, i) => {
+        d.classList.toggle('active', i + 1 === page);
+      });
+      
+      currentPage = page;
+    }
+    
+    function saveCurrentPage() {
+      // Page 1
+      data.myDemand = [
+        document.getElementById('myDemand1').value.trim(),
+        document.getElementById('myDemand2').value.trim(),
+        document.getElementById('myDemand3').value.trim()
+      ].filter(v => v);
+      
+      data.theirDemand = [
+        document.getElementById('theirDemand1').value.trim(),
+        document.getElementById('theirDemand2').value.trim(),
+        document.getElementById('theirDemand3').value.trim()
+      ].filter(v => v);
+      
+      // Page 2
+      data.myFear = [
+        document.getElementById('myFear1').value.trim(),
+        document.getElementById('myFear2').value.trim(),
+        document.getElementById('myFear3').value.trim()
+      ].filter(v => v);
+      
+      // Page 4
+      data.theirAction = document.getElementById('myAction').value.trim();
+      data.theirDuration = document.getElementById('duration').value.trim();
+      data.myFeedback = document.getElementById('myFeedback').value.trim();
+    }
+    
+    function getMyDemandText() {
+      return data.myDemand.length ? data.myDemand.join('；') : '（未填写）';
+    }
+    
+    function getTheirDemandText() {
+      return data.theirDemand.length ? data.theirDemand.join('；') : '（未填写）';
+    }
+    
+    function getMyFearText() {
+      return data.myFear.length ? data.myFear.join('；') : '（未填写）';
+    }
+    
+    function generateSnapshot() {
+      saveCurrentPage();
+      
+      const html = `
+<div style="font-family:-apple-system,PingFang SC,sans-serif;padding:20px;max-width:400px;margin:0 auto;background:#fffafc;border-radius:16px;">
+  <h2 style="text-align:center;color:#d46a8e;margin:0 0 20px;">💕 分歧终端机 · 沟通纪要</h2>
+  
+  <div style="margin-bottom:16px;padding-bottom:16px;border-bottom:1px dashed #eee;">
+    <div style="color:#999;font-size:12px;margin-bottom:4px;">🎯 我的核心诉求</div>
+    <div style="color:#333;">${getMyDemandText()}</div>
+  </div>
+  
+  <div style="margin-bottom:16px;padding-bottom:16px;border-bottom:1px dashed #eee;">
+    <div style="color:#999;font-size:12px;margin-bottom:4px;">🎯 我认为Ta的核心诉求</div>
+    <div style="color:#333;">${getTheirDemandText()}</div>
+  </div>
+  
+  <div style="margin-bottom:16px;padding-bottom:16px;border-bottom:1px dashed #eee;">
+    <div style="color:#999;font-size:12px;margin-bottom:4px;">😰 我的深层恐惧</div>
+    <div style="color:#333;">${getMyFearText()}</div>
+  </div>
+  
+  <div style="margin-bottom:16px;padding-bottom:16px;border-bottom:1px dashed #eee;">
+    <div style="color:#999;font-size:12px;margin-bottom:4px;">💝 我愿意为Ta做的改变</div>
+    <div style="color:#333;">${data.theirAction || '（未填写）'}</div>
+    <div style="color:#999;font-size:12px;margin-top:4px;">⏱️ 承诺时长：${data.theirDuration || '（未填写）'}</div>
+  </div>
+  
+  <div style="margin-bottom:16px;">
+    <div style="color:#999;font-size:12px;margin-bottom:4px;">💖 我想对Ta说的话</div>
+    <div style="color:#d46a8e;font-weight:600;">${data.myFeedback || '（未填写）'}</div>
+  </div>
+  
+  <div style="text-align:center;color:#ccc;font-size:11px;margin-top:20px;">
+    生成于 ${new Date().toLocaleString('zh-CN')}
+  </div>
+</div>
+      `;
+      
+      // 打开新窗口展示
+      const win = window.open('', '_blank');
+      win.document.write(html);
+      win.document.close();
+    }
+  </script>
+</body>
+</html>
