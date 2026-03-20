@@ -222,10 +222,71 @@
       <div class="dot" data-page="3"></div>
       <div class="dot" data-page="4"></div>
       <div class="dot" data-page="5"></div>
+      <div class="dot" data-page="6"></div>
     </div>
 
-    <!-- 第1页：核心诉求 -->
-    <div class="page active" id="page1">
+    <!-- 第0页：说明 -->
+    <div class="page active" id="page0">
+      <h1>💕 分歧终端机</h1>
+      <p class="subtitle">冷静沟通，化解分歧</p>
+      
+      <div style="text-align:left;padding:10px 20px;line-height:1.8;color:#555;font-size:14px;">
+        <p>有时候吵架不是因为事情本身，而是因为我们没有理解对方真正的想法。</p>
+        <p>这个工具会帮你：</p>
+        <p>1️⃣ 明确自己的核心诉求</p>
+        <p>2️⃣ 挖掘深层的内心恐惧</p>
+        <p>3️⃣ 找到具体可执行的改变</p>
+        <p>4️⃣ 给对方正向反馈</p>
+        <p style="margin-top:20px;color:#d46a8e;">💡 <strong>Tip</strong>：建议在双方都冷静的时候使用效果最好</p>
+      </div>
+      
+      <button class="btn btn-primary" onclick="goToPage(1)">开始 →</button>
+    </div>
+
+    <!-- 第1页：情绪温度计 -->
+    <div class="page" id="page1">
+      <h1>现在感觉怎么样？</h1>
+      <p class="subtitle">给自己现在的情绪打个分</p>
+      
+      <div style="padding:20px 10px;">
+        <div style="display:flex;justify-content:space-between;margin-bottom:10px;">
+          <span style="color:#e88;font-size:12px;">很糟糕</span>
+          <span style="color:#4a4;font-size:12px;">超棒</span>
+        </div>
+        <input type="range" id="emotionScore" min="1" max="10" value="5" 
+          style="width:100%;height:40px;-webkit-appearance:none;background:linear-gradient(to right,#f66,#ff0,#6f6);border-radius:20px;">
+        <div style="text-align:center;margin-top:15px;font-size:28px;font-weight:700;color:#d46a8e;" id="scoreDisplay">5分</div>
+      </div>
+      
+      <div id="emotionTip" style="padding:12px;background:#fff9f9;border-radius:10px;font-size:13px;color:#666;text-align:center;margin:10px 0;">
+        可以开始，但如果过程中情绪升温，建议暂停
+      </div>
+      
+      <button class="btn btn-primary" onclick="goToPage(2)">继续 →</button>
+      
+      <script>
+        document.getElementById('emotionScore').addEventListener('input', function(e){
+          var score = parseInt(e.target.value);
+          document.getElementById('scoreDisplay').textContent = score + '分';
+          
+          var tip = document.getElementById('emotionTip');
+          if(score <= 3){
+            tip.textContent = '看起来你情绪比较强烈，建议先深呼吸，等冷静下来再用';
+            tip.style.background = '#fff0f0';
+          }else if(score <= 6){
+            tip.textContent = '可以开始，但如果过程中情绪升温，建议暂停';
+            tip.style.background = '#fff9f0';
+          }else{
+            tip.textContent = '状态不错，沟通效果会更好！';
+            tip.style.background = '#f0fff0';
+          }
+        });
+      </script>
+    </div>
+
+    <!-- 第2页：核心诉求（原来的第1页） -->
+    <div class="page" id="page2">
+      <button class="back-btn" onclick="goToPage(1)">← 返回</button>
       <h1>分歧终端机</h1>
       <p class="subtitle">冷静沟通，化解分歧</p>
       
@@ -251,7 +312,7 @@
         <input type="text" id="theirDemand3" placeholder="诉求 3（可选）">
       </div>
       
-      <button class="btn btn-primary" onclick="goToPage(2)">下一步 →</button>
+      <button class="btn btn-primary" onclick="goToPage(3)">下一步 →</button>
     </div>
 
     <!-- 第2页：深层恐惧 -->
@@ -282,12 +343,12 @@
         <input type="text" id="myFear3" placeholder="深层恐惧 3（可选）">
       </div>
       
-      <button class="btn btn-secondary" onclick="goToPage(3)">📱 交换手机</button>
+      <button class="btn btn-secondary" onclick="goToPage(4)">📱 交换手机</button>
     </div>
 
     <!-- 第3页：答案展示 -->
     <div class="page" id="page3">
-      <button class="back-btn" onclick="goToPage(2)">← 返回</button>
+      <button class="back-btn" onclick="goToPage(3)">← 返回</button>
       <h1>答案展示</h1>
       <p class="subtitle">交换手机，看看对方怎么想</p>
       
@@ -306,12 +367,12 @@
         <p id="displayMyFear"></p>
       </div>
       
-      <button class="btn btn-primary" onclick="goToPage(4)">继续 →</button>
+      <button class="btn btn-primary" onclick="goToPage(5)">继续 →</button>
     </div>
 
     <!-- 第4页：行动落地 -->
     <div class="page" id="page4">
-      <button class="back-btn" onclick="goToPage(3)">← 返回</button>
+      <button class="back-btn" onclick="goToPage(4)">← 返回</button>
       <h1>行动落地</h1>
       <p class="subtitle">从改变开始</p>
       
@@ -337,12 +398,12 @@
         <input type="text" id="duration" placeholder="比如：1周、1个月、永远...">
       </div>
       
-      <button class="btn btn-secondary" onclick="goToPage(5)">📱 换Ta手机</button>
+      <button class="btn btn-secondary" onclick="goToPage(6)">📱 换Ta手机</button>
     </div>
 
     <!-- 第5页：爱的反馈 -->
     <div class="page" id="page5">
-      <button class="back-btn" onclick="goToPage(4)">← 返回</button>
+      <button class="back-btn" onclick="goToPage(5)">← 返回</button>
       <h1>爱的5夜</h1>
       <p class="subtitle">看到Ta的改变，给你什么感受？</p>
       
@@ -368,7 +429,7 @@
 
   <script>
     let currentPage = 1;
-    const totalPages = 5;
+    const totalPages = 6;
     
     // 数据存储
     const data = {
@@ -385,7 +446,7 @@
       saveCurrentPage();
       
       // 验证
-      if (page === 2) {
+      if (page === 3) {
         const d1 = document.getElementById('myDemand1').value.trim();
         if (!d1) {
           alert('请至少填写一个你的核心诉求');
@@ -393,14 +454,14 @@
         }
       }
       
-      if (page === 3) {
+      if (page === 4) {
         // 展示答案
         document.getElementById('displayMyDemand').textContent = getMyDemandText();
         document.getElementById('displayTheirDemand').textContent = getTheirDemandText();
         document.getElementById('displayMyFear').textContent = getMyFearText();
       }
       
-      if (page === 5) {
+      if (page === 6) {
         const action = document.getElementById('myAction').value.trim();
         if (!action) {
           alert('请填写你愿意做的改变');
@@ -411,7 +472,7 @@
         document.getElementById('displayTheirDuration').textContent = '承诺时长：' + (document.getElementById('duration').value || '（未填写）');
       }
       
-      if (page === 6) {
+      if (page === 7) {
         // 展示对方的行动
         document.getElementById('displayTheirAction').textContent = document.getElementById('myAction').value || '（未填写）';
         document.getElementById('displayTheirDuration').textContent = '承诺时长：' + (document.getElementById('duration').value || '（未填写）');
