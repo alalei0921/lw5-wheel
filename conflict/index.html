@@ -377,7 +377,7 @@
         document.getElementById('displayMyFear').textContent = getMyFearText();
       }
       
-      if (page === 4) {
+      if (page === 5) {
         const action = document.getElementById('myAction').value.trim();
         if (!action) {
           alert('请填写你愿意做的改变');
@@ -385,7 +385,7 @@
         }
       }
       
-      if (page === 5) {
+      if (page === 6) {
         // 展示对方的行动
         document.getElementById('displayTheirAction').textContent = document.getElementById('myAction').value || '（未填写）';
         document.getElementById('displayTheirDuration').textContent = '承诺时长：' + (document.getElementById('duration').value || '（未填写）');
