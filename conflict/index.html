@@ -255,6 +255,7 @@
 
     <!-- 第1页：情绪温度计 -->
     <div class="page" id="page1">
+      <button class="back-btn" onclick="goToPage(0)">← 返回</button>
       <h1>现在感觉怎么样？</h1>
       <p class="subtitle">给自己现在的情绪打个分</p>
       
@@ -326,8 +327,8 @@
     </div>
 
     <!-- 第2页：深层恐惧 -->
-    <div class="page" id="page2">
-      <button class="back-btn" onclick="goToPage(1)">← 返回</button>
+    <div class="page" id="page3">
+      <button class="back-btn" onclick="goToPage(2)">← 返回</button>
       <h1>往下挖一层 <span style="font-size:16px;color:#999;">(2/5)</span></h1>
       <p class="subtitle">探索真正的内心</p>
       
@@ -357,7 +358,7 @@
     </div>
 
     <!-- 第3页：答案展示 -->
-    <div class="page" id="page3">
+    <div class="page" id="page4">
       <button class="back-btn" onclick="goToPage(3)">← 返回</button>
       <h1>答案展示 <span style="font-size:16px;color:#999;">(3/5)</span></h1>
       <p class="subtitle">交换手机，看看对方怎么想</p>
@@ -381,7 +382,7 @@
     </div>
 
     <!-- 第4页：行动落地 -->
-    <div class="page" id="page4">
+    <div class="page" id="page5">
       <button class="back-btn" onclick="goToPage(4)">← 返回</button>
       <h1>行动落地 <span style="font-size:16px;color:#999;">(4/5)</span></h1>
       <p class="subtitle">从改变开始</p>
@@ -412,7 +413,7 @@
     </div>
 
     <!-- 第5页：爱的反馈 -->
-    <div class="page" id="page5">
+    <div class="page" id="page6">
       <button class="back-btn" onclick="goToPage(5)">← 返回</button>
       <h1>爱的5夜 <span style="font-size:16px;color:#999;">(5/5)</span></h1>
       <p class="subtitle">看到Ta的改变，给你什么感受？</p>
@@ -456,7 +457,7 @@
       saveCurrentPage();
       
       // 验证
-      if (page === 3) {
+      if (page === 2) {
         const d1 = document.getElementById('myDemand1').value.trim();
         if (!d1) {
           alert('请至少填写一个你的核心诉求');
@@ -464,25 +465,25 @@
         }
       }
       
-      if (page === 4) {
+      if (page === 3) {
         // 展示答案
         document.getElementById('displayMyDemand').textContent = getMyDemandText();
         document.getElementById('displayTheirDemand').textContent = getTheirDemandText();
         document.getElementById('displayMyFear').textContent = getMyFearText();
       }
       
-      if (page === 6) {
+      if (page === 5) {
         const action = document.getElementById('myAction').value.trim();
         if (!action) {
           alert('请填写你愿意做的改变');
           return;
         }
-        // 展示对方的行动（也就是第4页填写的内容）
+        // 展示对方的行动（也就是第5页填写的内容）
         document.getElementById('displayTheirAction').textContent = action;
         document.getElementById('displayTheirDuration').textContent = '承诺时长：' + (document.getElementById('duration').value || '（未填写）');
       }
       
-      if (page === 7) {
+      if (page === 6) {
         // 展示对方的行动
         document.getElementById('displayTheirAction').textContent = document.getElementById('myAction').value || '（未填写）';
         document.getElementById('displayTheirDuration').textContent = '承诺时长：' + (document.getElementById('duration').value || '（未填写）');
