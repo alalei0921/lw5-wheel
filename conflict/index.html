@@ -340,6 +340,11 @@
       </div>
       
       <button class="btn btn-primary" onclick="generateSnapshot()">📸 生成快照</button>
+      
+      <div style="display:flex;gap:10px;margin-top:12px">
+        <button class="btn btn-secondary" style="flex:1;margin-top:0" onclick="saveSnapshot()">📷 截图保存</button>
+        <button class="btn btn-secondary" style="flex:1;margin-top:0;background:linear-gradient(135deg,#8e9eab,#eef2f3)" onclick="goHome()">🏠 返回主菜单</button>
+      </div>
     </div>
   </div>
 
@@ -448,46 +453,67 @@
     function generateSnapshot() {
       saveCurrentPage();
       
-      const html = `
-<div style="font-family:-apple-system,PingFang SC,sans-serif;padding:20px;max-width:400px;margin:0 auto;background:#fffafc;border-radius:16px;">
-  <h2 style="text-align:center;color:#d46a8e;margin:0 0 20px;">💕 分歧终端机 · 沟通纪要</h2>
-  
-  <div style="margin-bottom:16px;padding-bottom:16px;border-bottom:1px dashed #eee;">
-    <div style="color:#999;font-size:12px;margin-bottom:4px;">🎯 我的核心诉求</div>
-    <div style="color:#333;">${getMyDemandText()}</div>
-  </div>
-  
-  <div style="margin-bottom:16px;padding-bottom:16px;border-bottom:1px dashed #eee;">
-    <div style="color:#999;font-size:12px;margin-bottom:4px;">🎯 我认为Ta的核心诉求</div>
-    <div style="color:#333;">${getTheirDemandText()}</div>
-  </div>
-  
-  <div style="margin-bottom:16px;padding-bottom:16px;border-bottom:1px dashed #eee;">
-    <div style="color:#999;font-size:12px;margin-bottom:4px;">😰 我的深层恐惧</div>
-    <div style="color:#333;">${getMyFearText()}</div>
-  </div>
-  
-  <div style="margin-bottom:16px;padding-bottom:16px;border-bottom:1px dashed #eee;">
-    <div style="color:#999;font-size:12px;margin-bottom:4px;">💝 我愿意为Ta做的改变</div>
-    <div style="color:#333;">${data.theirAction || '（未填写）'}</div>
-    <div style="color:#999;font-size:12px;margin-top:4px;">⏱️ 承诺时长：${data.theirDuration || '（未填写）'}</div>
-  </div>
-  
-  <div style="margin-bottom:16px;">
-    <div style="color:#999;font-size:12px;margin-bottom:4px;">💖 我想对Ta说的话</div>
-    <div style="color:#d46a8e;font-weight:600;">${data.myFeedback || '（未填写）'}</div>
-  </div>
-  
-  <div style="text-align:center;color:#ccc;font-size:11px;margin-top:20px;">
-    生成于 ${new Date().toLocaleString('zh-CN')}
+      // 在当前页面显示快照
+      const snapshotHtml = `
+<div id="snapshot-modal" style="position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:999;display:flex;align-items:center;justify-content:center;padding:20px;">
+  <div style="background:#fffafc;border-radius:20px;padding:24px;max-width:420px;width:100%;max-height:85vh;overflow-y:auto;">
+    <h2 style="text-align:center;color:#d46a8e;margin:0 0 20px;font-size:22px;">💕 分歧终端机 · 沟通纪要</h2>
+    
+    <div style="margin-bottom:16px;padding-bottom:12px;border-bottom:1px dashed #eee;">
+      <div style="color:#999;font-size:12px;margin-bottom:4px;">🎯 我的核心诉求</div>
+      <div style="color:#333;font-size:15px;">${getMyDemandText()}</div>
+    </div>
+    
+    <div style="margin-bottom:16px;padding-bottom:12px;border-bottom:1px dashed #eee;">
+      <div style="color:#999;font-size:12px;margin-bottom:4px;">🎯 我认为Ta的核心诉求</div>
+      <div style="color:#333;font-size:15px;">${getTheirDemandText()}</div>
+    </div>
+    
+    <div style="margin-bottom:16px;padding-bottom:12px;border-bottom:1px dashed #eee;">
+      <div style="color:#999;font-size:12px;margin-bottom:4px;">😰 我的深层恐惧</div>
+      <div style="color:#333;font-size:15px;">${getMyFearText()}</div>
+    </div>
+    
+    <div style="margin-bottom:16px;padding-bottom:12px;border-bottom:1px dashed #eee;">
+      <div style="color:#999;font-size:12px;margin-bottom:4px;">💝 我愿意为Ta做的改变</div>
+      <div style="color:#333;font-size:15px;">${data.theirAction || '（未填写）'}</div>
+      <div style="color:#999;font-size:12px;margin-top:4px;">⏱️ 承诺时长：${data.theirDuration || '（未填写）'}</div>
+    </div>
+    
+    <div style="margin-bottom:16px;">
+      <div style="color:#999;font-size:12px;margin-bottom:4px;">💖 我想对Ta说的话</div>
+      <div style="color:#d46a8e;font-weight:600;font-size:15px;">${data.myFeedback || '（未填写）'}</div>
+    </div>
+    
+    <div style="text-align:center;color:#ccc;font-size:11px;margin-top:16px;">
+      生成于 ${new Date().toLocaleString('zh-CN')}
+    </div>
+    
+    <button onclick="this.closest('#snapshot-modal').remove()" style="display:block;width:100%;padding:14px;margin-top:16px;border:none;border-radius:12px;background:#f0f0f0;color:#666;font-size:15px;font-weight:600;">关 闭</button>
   </div>
 </div>
       `;
       
-      // 打开新窗口展示
-      const win = window.open('', '_blank');
-      win.document.write(html);
-      win.document.close();
+      // 移除之前的modal
+      const old = document.getElementById('snapshot-modal');
+      if (old) old.remove();
+      
+      // 添加新的modal
+      document.body.insertAdjacentHTML('beforeend', snapshotHtml);
+    }
+    
+    function saveSnapshot() {
+      saveCurrentPage();
+      
+      // 生成图片并提示用户截图
+      alert('📷 请截图保存当前页面\n\n如果需要保存为图片，可以使用手机截屏功能～');
+      
+      // 同时打开快照
+      generateSnapshot();
+    }
+    
+    function goHome() {
+      window.parent.postMessage({type:'lw5-close-tool'}, '*');
     }
   </script>
 </body>
