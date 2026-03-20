@@ -473,34 +473,34 @@
       
       // 在当前页面显示快照
       const snapshotHtml = `
-<div id="snapshot-modal" style="position:fixed;inset:0;background:linear-gradient(rgba(255,248,240,0.15),rgba(255,248,240,0.15)),url('./bg-snapshot.jpg') center/cover no-repeat;z-index:999;display:flex;align-items:center;justify-content:center;padding:20px;">
-  <div style="background:rgba(255,255,255,0.72);backdrop-filter:blur(12px);border-radius:20px;padding:24px;max-width:420px;width:100%;max-height:85vh;overflow-y:auto;box-shadow:0 16px 48px rgba(0,0,0,0.15);border:1px solid rgba(255,255,255,0.6);">
-    <h2 style="text-align:center;color:#d46a8e;margin:0 0 20px;font-size:22px;">💕 沟通纪要</h2>
+<div id="snapshot-modal" style="position:fixed;inset:0;background:linear-gradient(rgba(255,255,255,0.25),rgba(255,255,255,0.35)),url('./bg-snapshot.jpg') center/cover no-repeat;z-index:999;display:flex;align-items:center;justify-content:center;padding:20px;">
+  <div style="background:rgba(255,255,255,0.88);backdrop-filter:blur(8px);border-radius:20px;padding:24px;max-width:420px;width:100%;max-height:85vh;overflow-y:auto;box-shadow:0 16px 48px rgba(0,0,0,0.12);border:1px solid rgba(255,255,255,0.9);">
+    <h2 style="text-align:center;color:#d46a8e;margin:0 0 20px;font-size:22px;text-shadow:0 1px 2px rgba(255,255,255,0.8);">💕 沟通纪要</h2>
     
     <div style="margin-bottom:16px;padding-bottom:12px;border-bottom:1px dashed #eee;">
-      <div style="color:#999;font-size:12px;margin-bottom:4px;">🎯 我的核心诉求</div>
-      <div style="color:#333;font-size:15px;">${getMyDemandText()}</div>
+      <div style="color:#666;font-size:12px;margin-bottom:4px;">🎯 我的核心诉求</div>
+      <div style="color:#222;font-size:15px;font-weight:500;">${getMyDemandText()}</div>
     </div>
     
     <div style="margin-bottom:16px;padding-bottom:12px;border-bottom:1px dashed #eee;">
-      <div style="color:#999;font-size:12px;margin-bottom:4px;">🎯 我认为Ta的核心诉求</div>
-      <div style="color:#333;font-size:15px;">${getTheirDemandText()}</div>
+      <div style="color:#666;font-size:12px;margin-bottom:4px;">🎯 我认为Ta的核心诉求</div>
+      <div style="color:#222;font-size:15px;font-weight:500;">${getTheirDemandText()}</div>
     </div>
     
     <div style="margin-bottom:16px;padding-bottom:12px;border-bottom:1px dashed #eee;">
-      <div style="color:#999;font-size:12px;margin-bottom:4px;">😰 我的深层恐惧</div>
-      <div style="color:#333;font-size:15px;">${getMyFearText()}</div>
+      <div style="color:#666;font-size:12px;margin-bottom:4px;">😰 我的深层恐惧</div>
+      <div style="color:#222;font-size:15px;font-weight:500;">${getMyFearText()}</div>
     </div>
     
     <div style="margin-bottom:16px;padding-bottom:12px;border-bottom:1px dashed #eee;">
-      <div style="color:#999;font-size:12px;margin-bottom:4px;">💝 我愿意为Ta做的改变</div>
-      <div style="color:#333;font-size:15px;">${data.theirAction || '（未填写）'}</div>
-      <div style="color:#999;font-size:12px;margin-top:4px;">⏱️ 承诺时长：${data.theirDuration || '（未填写）'}</div>
+      <div style="color:#666;font-size:12px;margin-bottom:4px;">💝 我愿意为Ta做的改变</div>
+      <div style="color:#222;font-size:15px;font-weight:500;">${data.theirAction || '（未填写）'}</div>
+      <div style="color:#888;font-size:12px;margin-top:4px;">⏱️ 承诺时长：${data.theirDuration || '（未填写）'}</div>
     </div>
     
     <div style="margin-bottom:16px;">
-      <div style="color:#999;font-size:12px;margin-bottom:4px;">💖 我想对Ta说的话</div>
-      <div style="color:#d46a8e;font-weight:600;font-size:15px;">${data.myFeedback || '（未填写）'}</div>
+      <div style="color:#666;font-size:12px;margin-bottom:4px;">💖 我想对Ta说的话</div>
+      <div style="color:#c94a7a;font-weight:600;font-size:15px;">${data.myFeedback || '（未填写）'}</div>
     </div>
     
     <div style="text-align:center;color:#ccc;font-size:11px;margin-top:16px;">
