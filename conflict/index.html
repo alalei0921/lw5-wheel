@@ -24,7 +24,9 @@
       backdrop-filter:blur(12px);
       border-radius:24px;
       padding:28px 20px;
+      padding-top:48px;
       box-shadow:0 16px 48px rgba(180,100,120,0.15);
+      position:relative;
     }
     h1{
       text-align:center;
@@ -193,6 +195,21 @@
       color:#666;
       cursor:pointer;
     }
+    .back-btn{
+      position:absolute;
+      top:12px;
+      left:12px;
+      z-index:30;
+      padding:8px 12px;
+      border-radius:999px;
+      border:none;
+      background:rgba(255,255,255,0.8);
+      backdrop-filter:blur(10px);
+      font-weight:700;
+      color:#666;
+      cursor:pointer;
+      font-size:14px;
+    }
   </style>
 </head>
 <body>
@@ -239,6 +256,7 @@
 
     <!-- 第2页：深层恐惧 -->
     <div class="page" id="page2">
+      <button class="back-btn" onclick="goToPage(1)">← 返回</button>
       <h1>往下挖一层</h1>
       <p class="subtitle">探索真正的内心</p>
       
@@ -269,6 +287,7 @@
 
     <!-- 第3页：答案展示 -->
     <div class="page" id="page3">
+      <button class="back-btn" onclick="goToPage(2)">← 返回</button>
       <h1>答案展示</h1>
       <p class="subtitle">交换手机，看看对方怎么想</p>
       
@@ -292,6 +311,7 @@
 
     <!-- 第4页：行动落地 -->
     <div class="page" id="page4">
+      <button class="back-btn" onclick="goToPage(3)">← 返回</button>
       <h1>行动落地</h1>
       <p class="subtitle">从改变开始</p>
       
@@ -322,6 +342,7 @@
 
     <!-- 第5页：爱的反馈 -->
     <div class="page" id="page5">
+      <button class="back-btn" onclick="goToPage(4)">← 返回</button>
       <h1>爱的5夜</h1>
       <p class="subtitle">看到Ta的改变，给你什么感受？</p>
       
@@ -454,8 +475,7 @@
       const snapshotHtml = `
 <div id="snapshot-modal" style="position:fixed;inset:0;background:url('./bg-snapshot.jpg') center/cover no-repeat;z-index:999;display:flex;align-items:center;justify-content:center;padding:20px;">
   <div style="background:rgba(255,255,255,0.92);border-radius:20px;padding:24px;max-width:420px;width:100%;max-height:85vh;overflow-y:auto;box-shadow:0 16px 48px rgba(0,0,0,0.2);">
-    <h2 style="text-align:center;color:#d46a8e;margin:0 0 20px;font-size:22px;">💕 分歧终端机 · 沟通纪要</h2>
-    <h2 style="text-align:center;color:#d46a8e;margin:0 0 20px;font-size:22px;">💕 分歧终端机 · 沟通纪要</h2>
+    <h2 style="text-align:center;color:#d46a8e;margin:0 0 20px;font-size:22px;">💕 沟通纪要</h2>
     
     <div style="margin-bottom:16px;padding-bottom:12px;border-bottom:1px dashed #eee;">
       <div style="color:#999;font-size:12px;margin-bottom:4px;">🎯 我的核心诉求</div>
@@ -498,16 +518,6 @@
       
       // 添加新的modal
       document.body.insertAdjacentHTML('beforeend', snapshotHtml);
-    }
-    
-    function saveSnapshot() {
-      saveCurrentPage();
-      
-      // 生成图片并提示用户截图
-      alert('📷 请截图保存当前页面\n\n如果需要保存为图片，可以使用手机截屏功能～');
-      
-      // 同时打开快照
-      generateSnapshot();
     }
     
     function goHome() {
