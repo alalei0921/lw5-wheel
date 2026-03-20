@@ -456,8 +456,8 @@
       // 保存当前页数据
       saveCurrentPage();
       
-      // 验证
-      if (page === 2) {
+      // 验证 - 去核心诉求页时验证
+      if (page === 3) {
         const d1 = document.getElementById('myDemand1').value.trim();
         if (!d1) {
           alert('请至少填写一个你的核心诉求');
@@ -465,14 +465,15 @@
         }
       }
       
-      if (page === 3) {
-        // 展示答案
+      // 展示答案 - 去答案展示页时
+      if (page === 4) {
         document.getElementById('displayMyDemand').textContent = getMyDemandText();
         document.getElementById('displayTheirDemand').textContent = getTheirDemandText();
         document.getElementById('displayMyFear').textContent = getMyFearText();
       }
       
-      if (page === 5) {
+      // 验证 - 去爱的反馈页时验证行动
+      if (page === 6) {
         const action = document.getElementById('myAction').value.trim();
         if (!action) {
           alert('请填写你愿意做的改变');
