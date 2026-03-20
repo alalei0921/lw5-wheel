@@ -383,6 +383,9 @@
           alert('请填写你愿意做的改变');
           return;
         }
+        // 展示对方的行动（也就是第4页填写的内容）
+        document.getElementById('displayTheirAction').textContent = action;
+        document.getElementById('displayTheirDuration').textContent = '承诺时长：' + (document.getElementById('duration').value || '（未填写）');
       }
       
       if (page === 6) {
