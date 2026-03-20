@@ -478,9 +478,9 @@
       
       // 展示答案 - 去答案展示页时
       if (page === 4) {
-        document.getElementById('displayMyDemand').textContent = getMyDemandText();
-        document.getElementById('displayTheirDemand').textContent = getTheirDemandText();
-        document.getElementById('displayMyFear').textContent = getMyFearText();
+        document.getElementById('displayMyDemand').innerHTML = getMyDemandText();
+        document.getElementById('displayTheirDemand').innerHTML = getTheirDemandText();
+        document.getElementById('displayMyFear').innerHTML = getMyFearText();
       }
       
       // 验证 - 去爱的反馈页时验证行动
@@ -541,15 +541,15 @@
     }
     
     function getMyDemandText() {
-      return data.myDemand.length ? data.myDemand.join('；') : '（未填写）';
+      return data.myDemand.length ? data.myDemand.map((t,i) => (i+1) + '. ' + t).join('<br>') : '（未填写）';
     }
     
     function getTheirDemandText() {
-      return data.theirDemand.length ? data.theirDemand.join('；') : '（未填写）';
+      return data.theirDemand.length ? data.theirDemand.map((t,i) => (i+1) + '. ' + t).join('<br>') : '（未填写）';
     }
     
     function getMyFearText() {
-      return data.myFear.length ? data.myFear.join('；') : '（未填写）';
+      return data.myFear.length ? data.myFear.map((t,i) => (i+1) + '. ' + t).join('<br>') : '（未填写）';
     }
     
     function generateSnapshot() {
