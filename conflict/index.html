@@ -220,6 +220,12 @@
       box-shadow:0 4px 10px rgba(0,0,0,0.2);
       cursor:pointer;
     }
+    .textarea.auto-expand{
+      resize:none;
+      overflow:hidden;
+      min-height:44px;
+      transition:height 0.2s;
+    }
   </style>
 </head>
 <body>
@@ -303,24 +309,24 @@
       
       <div class="question">(1/2) 你的核心诉求是什么？</div>
       <div class="input-group">
-        <input type="text" id="myDemand1" placeholder="诉求 1">
+        <textarea id="myDemand1" rows="1" placeholder="诉求 1" class="auto-expand" oninput="autoExpand(this)"></textarea>
       </div>
       <div class="input-group">
-        <input type="text" id="myDemand2" placeholder="诉求 2（可选）">
+        <textarea id="myDemand2" rows="1" placeholder="诉求 2（可选）" class="auto-expand" oninput="autoExpand(this)"></textarea>
       </div>
       <div class="input-group">
-        <input type="text" id="myDemand3" placeholder="诉求 3（可选）">
+        <textarea id="myDemand3" rows="1" placeholder="诉求 3（可选）" class="auto-expand" oninput="autoExpand(this)"></textarea>
       </div>
       
       <div class="question">(2/2) 你认为对方的核心诉求是什么？</div>
       <div class="input-group">
-        <input type="text" id="theirDemand1" placeholder="诉求 1">
+        <textarea id="theirDemand1" rows="1" placeholder="诉求 1" class="auto-expand" oninput="autoExpand(this)"></textarea>
       </div>
       <div class="input-group">
-        <input type="text" id="theirDemand2" placeholder="诉求 2（可选）">
+        <textarea id="theirDemand2" rows="1" placeholder="诉求 2（可选）" class="auto-expand" oninput="autoExpand(this)"></textarea>
       </div>
       <div class="input-group">
-        <input type="text" id="theirDemand3" placeholder="诉求 3（可选）">
+        <textarea id="theirDemand3" rows="1" placeholder="诉求 3（可选）" class="auto-expand" oninput="autoExpand(this)"></textarea>
       </div>
       
       <button class="btn btn-primary" onclick="goToPage(3)">下一步 →</button>
@@ -345,13 +351,13 @@
       </div>
       
       <div class="input-group" style="margin-top:16px">
-        <input type="text" id="myFear1" placeholder="深层恐惧 1">
+        <textarea id="myFear1" rows="1" placeholder="深层恐惧 1" class="auto-expand" oninput="autoExpand(this)"></textarea>
       </div>
       <div class="input-group">
-        <input type="text" id="myFear2" placeholder="深层恐惧 2（可选）">
+        <textarea id="myFear2" rows="1" placeholder="深层恐惧 2（可选）" class="auto-expand" oninput="autoExpand(this)"></textarea>
       </div>
       <div class="input-group">
-        <input type="text" id="myFear3" placeholder="深层恐惧 3（可选）">
+        <textarea id="myFear3" rows="1" placeholder="深层恐惧 3（可选）" class="auto-expand" oninput="autoExpand(this)"></textarea>
       </div>
       
       <button class="btn btn-secondary" onclick="goToPage(4)">📱 交换手机</button>
@@ -451,6 +457,11 @@
       theirDuration: '',
       myFeedback: ''
     };
+    
+    function autoExpand(el) {
+      el.style.height = "auto";
+      el.style.height = (el.scrollHeight) + "px";
+    }
     
     function goToPage(page) {
       // 保存当前页数据
