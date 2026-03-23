@@ -107,6 +107,14 @@
       box-shadow:0 8px 20px rgba(124,154,232,0.3);
     }
     .btn-secondary:hover{box-shadow:0 10px 24px rgba(124,154,232,0.4)}
+    .btn-cooloff{
+      background:linear-gradient(135deg,#708090,#a0a0a0);
+      color:#fff;
+      box-shadow:0 6px 16px rgba(112,128,144,0.3);
+      font-size:14px;
+      padding:12px 16px;
+    }
+    .btn-cooloff:hover{box-shadow:0 8px 20px rgba(112,128,144,0.4)}
     
     .answer-card{
       background:#fafafa;
@@ -438,6 +446,27 @@
         <textarea id="myFeedback" rows="3" placeholder="我想对Ta说..."></textarea>
       </div>
       
+      <!-- 冷静期读档点 -->
+      <button class="btn btn-cooloff" onclick="toggleCooloffPanel()">🖨️ 冷静期读档点</button>
+      
+      <div id="cooloffPanel" style="display:none;margin-top:16px;padding:16px;background:#f8f8f8;border-radius:12px;border:1px solid #e8e8e8">
+        <div class="question" style="font-size:14px;margin-bottom:12px">是否需要冷静期？</div>
+        <div style="display:flex;gap:10px;margin-bottom:16px">
+          <button class="btn" style="margin:0;flex:1;padding:10px;background:#4CAF50;color:#fff" onclick="showCooloffInputs()">是</button>
+          <button class="btn" style="margin:0;flex:1;padding:10px;background:#999;color:#fff" onclick="setNoCooloff()">否</button>
+        </div>
+        <div id="cooloffInputs" style="display:none">
+          <div class="input-group">
+            <label>冷静期结束时间（精确到小时）</label>
+            <input type="datetime-local" id="cooloffEndTime">
+          </div>
+          <div class="input-group">
+            <label>发起人</label>
+            <input type="text" id="cooloffInitiator" placeholder="谁发起的冷静期？">
+          </div>
+        </div>
+      </div>
+
       <button class="btn btn-primary" onclick="generateSnapshot()">📸 生成快照</button>
       
       <button class="btn btn-secondary" style="margin-top:12px;background:linear-gradient(135deg,#8e9eab,#eef2f3)" onclick="goHome()">🏠 返回主菜单</button>
@@ -455,7 +484,10 @@
       myFear: [],
       theirAction: '',
       theirDuration: '',
-      myFeedback: ''
+      myFeedback: '',
+      cooloffStatus: null,
+      cooloffEndTime: '',
+      cooloffInitiator: ''
     };
     
     function autoExpand(el) {
@@ -538,6 +570,10 @@
       data.theirAction = document.getElementById('myAction').value.trim();
       data.theirDuration = document.getElementById('duration').value.trim();
       data.myFeedback = document.getElementById('myFeedback').value.trim();
+      // 冷静期
+      data.cooloffStatus = cooloffStatus;
+      data.cooloffEndTime = document.getElementById('cooloffEndTime').value;
+      data.cooloffInitiator = document.getElementById('cooloffInitiator').value.trim();
     }
     
     function getMyDemandText() {
@@ -552,6 +588,42 @@
       return data.myFear.length ? data.myFear.map((t,i) => (i+1) + '. ' + t).join('<br>') : '（未填写）';
     }
     
+    // 冷静期相关函数
+    let cooloffStatus = null; // null=未选择, 'yes'=需要, 'no'=不需要
+    
+    function toggleCooloffPanel() {
+      const panel = document.getElementById('cooloffPanel');
+      panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
+    }
+    
+    function showCooloffInputs() {
+      cooloffStatus = 'yes';
+      document.getElementById('cooloffInputs').style.display = 'block';
+    }
+    
+    function setNoCooloff() {
+      cooloffStatus = 'no';
+      document.getElementById('cooloffInputs').style.display = 'none';
+      document.getElementById('cooloffEndTime').value = '';
+      document.getElementById('cooloffInitiator').value = '';
+    }
+    
+    function getCooloffText() {
+      const status = cooloffStatus || data.cooloffStatus;
+      const endTime = document.getElementById('cooloffEndTime').value || data.cooloffEndTime;
+      const initiator = document.getElementById('cooloffInitiator').value || data.cooloffInitiator;
+      
+      if (status === 'yes') {
+        if (endTime && initiator) {
+          const formattedTime = new Date(endTime).toLocaleString('zh-CN', {year:'numeric', month:'numeric', day:'numeric', hour:'2-digit', minute:'2-digit'});
+          return `✅ 需要冷静期，截止到 ${formattedTime}，由 ${initiator} 发起`;
+        }
+      } else if (status === 'no') {
+        return '❌ 不需要冷静期';
+      }
+      return '';
+    }
+    
     function generateSnapshot() {
       saveCurrentPage();
       
@@ -561,7 +633,8 @@
 <div id="snapshot-modal" style="position:fixed;inset:0;background:linear-gradient(rgba(255,255,255,0.15),rgba(255,255,255,0.2)),url('./bg-snapshot.jpg') center/cover no-repeat;z-index:999;display:flex;align-items:center;justify-content:center;padding:20px;">
   <div style="background:rgba(255,255,255,0.65);backdrop-filter:blur(2px);border-radius:20px;padding:24px;max-width:420px;width:100%;max-height:85vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,0.1);border:1px solid rgba(255,255,255,0.5);">
     <h2 style="text-align:center;color:#d46a8e;margin:0 0 10px;font-size:24px;font-weight:700;">📸 快照 ${today}</h2>
-    <div id="snapshotEmotion" style="text-align:center;font-size:14px;color:#888;margin-bottom:20px;">情绪温度：${document.getElementById('emotionScore')?.value || 5}分</div>
+    <div id="snapshotEmotion" style="text-align:center;font-size:14px;color:#888;margin-bottom:12px;">情绪温度：${document.getElementById('emotionScore')?.value || 5}分</div>
+    ${getCooloffText() ? `<div style="text-align:center;font-size:13px;color:#708090;margin-bottom:16px;padding:8px;background:#f5f5f5;border-radius:8px;">🖨️ ${getCooloffText()}</div>` : ''}
     
     <div style="margin-bottom:16px;padding-bottom:12px;border-bottom:1px dashed #eee;">
       <div style="color:#666;font-size:12px;margin-bottom:4px;">🎯 我的核心诉求</div>
