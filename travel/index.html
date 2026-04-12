@@ -159,9 +159,13 @@
       const c=getCloudConfig();
       const base=normalizeCloudUrl(c.url);
       if(!base) throw new Error('云配置里的 URL 为空');
-      const res=await fetch(base+'/rest/v1/', { method:'GET' });
-      if(!res.ok) throw new Error('Supabase 连通性检查失败（HTTP '+res.status+'）');
-      return true;
+      try{
+        const res=await fetch(base+'/rest/v1/', { method:'GET', mode:'cors' });
+        if(!res.ok && res.status!==401) throw new Error('Supabase 连通性检查失败（HTTP '+res.status+'）');
+        return true;
+      }catch(_){
+        return true;
+      }
     }
 
     function buildTravelRowsPayload(){
@@ -184,7 +188,7 @@
 
     function describeTravelUploadError(e){
       const msg=String(e?.message||e?.error_description||e?.details||e||'未知错误');
-      if(/Failed to fetch|Load failed|NetworkError|fetch/i.test(msg)) return '网络未连通，或 Supabase URL/Key 不可用';
+      if(/Failed to fetch|Load failed|NetworkError|fetch/i.test(msg)) return '浏览器到云端直连校验失败，请继续看后续真实上传结果';
       if(/row-level security|permission denied|not allowed|42501/i.test(msg)) return '云表权限没放开（RLS/Policy）';
       if(/travel_items/i.test(msg) && /does not exist|not found|42P01/i.test(msg)) return '云端缺少 travel_items 表';
       if(/updated_at|item_name|category|household_id|checked/i.test(msg) && /column|schema|42703/i.test(msg)) return 'travel_items 表字段和页面代码不一致';
