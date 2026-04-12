@@ -123,8 +123,19 @@
     let checkedByCat=loadChecked();
     let travelSbClient=null;
 
+    const DEFAULT_CLOUD_CONFIG={
+      url:'https://lrtglriomkxjxmxpzivj.supabase.co',
+      key:'sb_publishable_0Lah9n6HEd-KYcJS1D5F1Q_jJsoQBEJ',
+      householdId:'lw5-home'
+    };
+
     function getCloudConfig(){
-      try{return JSON.parse(localStorage.getItem('cloudConfig')||'{}')}catch(_){return {}}
+      let saved={};
+      try{saved=JSON.parse(localStorage.getItem('cloudConfig')||'{}')||{}}catch(_){saved={}}
+      const merged={...DEFAULT_CLOUD_CONFIG,...saved};
+      const changed=merged.url!==saved.url||merged.key!==saved.key||merged.householdId!==saved.householdId;
+      if(changed) localStorage.setItem('cloudConfig',JSON.stringify(merged));
+      return merged;
     }
     function cloudReady(){
       const c=getCloudConfig();
