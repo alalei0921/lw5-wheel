@@ -435,6 +435,10 @@
             };
         }
 
+        function nowZh(){
+            return new Date().toLocaleString('zh-CN', { hour12: false });
+        }
+
         function getCloudStatusEl() {
             return document.getElementById('cloud-status');
         }
@@ -677,6 +681,7 @@
             const ok = await uploadInventoryToCloud(true);
             if (ok) { haptic(25); done('is-ok','✅ 已上传',900); }
             else { haptic(40); done('is-err','❌ 上传失败',1100); }
+            if(ok) setCloudStatus('库存列表云上传成功 ✅｜'+nowZh());
             alert(ok ? '☁️ 库存列表云上传成功' : '⚠️ 库存列表云上传失败，请看状态提示');
             return ok;
         }
@@ -691,6 +696,7 @@
             const ts = new Date().toLocaleString('zh-CN', { hour12: false });
             if (ok) { haptic(25); done('is-ok','✅ 已下载',900); }
             else { haptic(40); done('is-err','❌ 下载失败',1100); }
+            if(ok) setCloudStatus('库存列表云下载成功 ✅｜'+ts);
             alert(ok ? `☁️ 库存列表云下载成功，已刷新本地数据\n下载时间：${ts}` : '☁️ 库存列表云端暂无可下载数据（或拉取失败）');
         }
 

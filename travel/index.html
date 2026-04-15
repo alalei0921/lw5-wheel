@@ -22,7 +22,11 @@
 
     .tabs{display:flex;gap:10px;margin:10px 0 14px;align-items:center;flex-wrap:wrap}
     .tab{padding:10px 14px;border-radius:999px;border:1px solid rgba(255,255,255,.82);background:rgba(255,255,255,.62);backdrop-filter:blur(8px);font-weight:900;cursor:pointer}
-    .tab.active{background:rgba(255,255,255,.82);border-color:rgba(255,255,255,.95);box-shadow:0 10px 18px rgba(0,0,0,.10)}
+    .tab.active{background:rgba(255,255,255,.90);border-color:rgba(124,58,237,.25);box-shadow:0 12px 22px rgba(124,58,237,.18);color:#5b21b6}
+
+    .tagline{margin-top:6px;font-size:12px;color:rgba(107,114,128,.92);font-weight:800}
+    .cloud-meta{margin-top:4px;font-size:12px;color:rgba(107,114,128,.92);font-weight:800}
+    .cloud-meta b{color:#111827}
     .cloud-btn{padding:10px 14px;border-radius:999px;border:1px solid #fbcfe8;background:linear-gradient(135deg,#fdf2f8,#eff6ff);color:#7c3aed;font-weight:900;cursor:pointer;box-shadow:0 6px 14px rgba(124,58,237,.12)}
     .cloud-btn:hover{transform:translateY(-1px);box-shadow:0 8px 18px rgba(124,58,237,.18)}
     .cloud-btn.is-loading{opacity:.85;filter:saturate(1.1);position:relative}
@@ -93,6 +97,10 @@
       <button class="tab" id="tabSettings" type="button">设置</button>
       <button class="cloud-btn" id="cloudUploadBtn" type="button">☁️ 云上传</button>
       <button class="cloud-btn" id="cloudDownloadBtn" type="button">☁️ 云下载</button>
+    </div>
+
+    <div class="wrap" style="padding-top:0;padding-bottom:0">
+      <div id="travelCloudMeta" class="cloud-meta">上次上传：<b>--</b> ｜ 上次下载：<b>--</b></div>
     </div>
 
     <div id="viewList" class="panel"></div>
@@ -182,6 +190,20 @@
       const changed=merged.url!==saved.url||merged.key!==saved.key||merged.householdId!==saved.householdId;
       if(changed) localStorage.setItem('cloudConfig',JSON.stringify(merged));
       return merged;
+    }
+
+    function fmtTs(ts){
+      if(!ts) return '--';
+      const d=new Date(ts);
+      if(Number.isNaN(d.getTime())) return '--';
+      return d.toLocaleString('zh-CN',{hour12:false});
+    }
+    function renderTravelCloudMeta(){
+      const el=document.getElementById('travelCloudMeta');
+      if(!el) return;
+      let meta={};
+      try{ meta=JSON.parse(localStorage.getItem('travelCloudMeta')||'{}')||{} }catch(_){ meta={} }
+      el.innerHTML = `上次上传：<b>${fmtTs(meta.lastUploadAt)}</b> ｜ 上次下载：<b>${fmtTs(meta.lastDownloadAt)}</b>`;
     }
     function cloudReady(){
       const c=getCloudConfig();
@@ -303,6 +325,13 @@
         }
         st.set('success');
         haptic(25);
+        try{
+          localStorage.setItem('travelCloudMeta', JSON.stringify({
+            ...(JSON.parse(localStorage.getItem('travelCloudMeta')||'{}')||{}),
+            lastUploadAt: new Date().toISOString()
+          }));
+        }catch(_){ }
+        renderTravelCloudMeta();
         setTimeout(()=>st.reset(),900);
         alert('☁️ 旅行清单云上传成功');
       }catch(e){
@@ -337,6 +366,13 @@
         if(document.getElementById('viewSettings').style.display!=='none') renderSettings();
         st.set('success');
         haptic(25);
+        try{
+          localStorage.setItem('travelCloudMeta', JSON.stringify({
+            ...(JSON.parse(localStorage.getItem('travelCloudMeta')||'{}')||{}),
+            lastDownloadAt: new Date().toISOString()
+          }));
+        }catch(_){ }
+        renderTravelCloudMeta();
         setTimeout(()=>st.reset(),900);
         alert('☁️ 旅行清单云下载成功，已刷新');
       }catch(e){
@@ -484,6 +520,7 @@
       checkedByCat={}; saveChecked(checkedByCat); renderList();
     });
 
+    renderTravelCloudMeta();
     renderList();
   </script>
 </body>
