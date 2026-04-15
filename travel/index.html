@@ -31,6 +31,14 @@
     .cloud-btn.is-err{border-color:#fecaca;color:#991b1b;background:linear-gradient(135deg,#fef2f2,#fff7ed)}
     @keyframes spin{to{transform:rotate(360deg)}}
 
+    /* iOS fallback: visual tap flash */
+    .tap-flash{animation:tapFlash .26s ease-out}
+    @keyframes tapFlash{
+      0%{box-shadow:0 0 0 rgba(124,58,237,0);filter:brightness(1)}
+      40%{box-shadow:0 0 0 6px rgba(124,58,237,.18);filter:brightness(1.08)}
+      100%{box-shadow:0 0 0 rgba(124,58,237,0);filter:brightness(1)}
+    }
+
     .panel{background:rgba(255,255,255,.30);border:1px solid rgba(255,255,255,.52);border-radius:18px;box-shadow:0 18px 45px rgba(0,0,0,.12);backdrop-filter:blur(5px);overflow:hidden}
     .section{padding:14px 14px 8px;border-bottom:1px solid rgba(0,0,0,.06)}
     .section:last-child{border-bottom:none}
@@ -108,6 +116,14 @@
     // ===== UX helpers (tap feedback) =====
     function haptic(ms=18){
       try{ if(navigator.vibrate) navigator.vibrate(ms); }catch(_){ }
+    }
+    function flashTap(el){
+      if(!el) return;
+      el.classList.remove('tap-flash');
+      // reflow
+      void el.offsetWidth;
+      el.classList.add('tap-flash');
+      setTimeout(()=>el.classList.remove('tap-flash'), 260);
     }
     function withBtnState(btn, states){
       // states: {loading, success, error}
@@ -273,6 +289,7 @@
         error:{text:'❌ 上传失败',disabled:true},
       });
       haptic(20);
+      flashTap(document.getElementById('cloudUploadBtn'));
       st.set('loading');
       try{
         await checkSupabaseReachable();
@@ -310,6 +327,7 @@
         error:{text:'❌ 下载失败',disabled:true},
       });
       haptic(20);
+      flashTap(document.getElementById('cloudDownloadBtn'));
       st.set('loading');
       try{
         const {data,error}=await sb.from('travel_items').select('category,item_name,checked').eq('household_id',c.householdId);
@@ -438,13 +456,15 @@
       }
     }
 
-    document.getElementById('tabList').addEventListener('click',()=>{ haptic(12); switchTab('list'); });
-    document.getElementById('tabSettings').addEventListener('click',()=>{ haptic(12); switchTab('settings'); });
+    document.getElementById('tabList').addEventListener('click',()=>{ const el=document.getElementById('tabList'); haptic(12); flashTap(el); switchTab('list'); });
+    document.getElementById('tabSettings').addEventListener('click',()=>{ const el=document.getElementById('tabSettings'); haptic(12); flashTap(el); switchTab('settings'); });
     document.getElementById('cloudUploadBtn').addEventListener('click',cloudUploadTravel);
     document.getElementById('cloudDownloadBtn').addEventListener('click',cloudDownloadTravel);
 
     document.getElementById('addBtn').addEventListener('click',()=>{
+      const el=document.getElementById('addBtn');
       haptic(15);
+      flashTap(el);
       const cat=document.getElementById('catSel').value;
       const name=document.getElementById('newItem').value.trim();
       if(!name) return;
@@ -457,7 +477,9 @@
     });
 
     document.getElementById('resetBtn').addEventListener('click',()=>{
+      const el=document.getElementById('resetBtn');
       haptic(20);
+      flashTap(el);
       if(!confirm('确定一键重置？（仅清空勾选，不会删除清单项）')) return;
       checkedByCat={}; saveChecked(checkedByCat); renderList();
     });

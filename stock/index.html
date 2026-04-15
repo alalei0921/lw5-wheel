@@ -150,6 +150,14 @@
         .btn-cloud-mini.is-ok{border-color:#86efac;color:#166534;background:linear-gradient(135deg,#f0fdf4,#ecfeff)}
         .btn-cloud-mini.is-err{border-color:#fecaca;color:#991b1b;background:linear-gradient(135deg,#fef2f2,#fff7ed)}
         @keyframes spin{to{transform:rotate(360deg)}}
+
+        /* iOS fallback: visual tap flash */
+        .tap-flash{animation:tapFlash .26s ease-out}
+        @keyframes tapFlash{
+            0%{box-shadow:0 0 0 rgba(124,58,237,0);filter:brightness(1)}
+            40%{box-shadow:0 0 0 6px rgba(124,58,237,.18);filter:brightness(1.08)}
+            100%{box-shadow:0 0 0 rgba(124,58,237,0);filter:brightness(1)}
+        }
         .inventory-item {
             display: flex;
             align-items: center;
@@ -396,6 +404,13 @@
         // ===== UX helpers (tap feedback) =====
         function haptic(ms=18){
             try{ if(navigator.vibrate) navigator.vibrate(ms); }catch(_){ }
+        }
+        function flashTap(el){
+            if(!el) return;
+            el.classList.remove('tap-flash');
+            void el.offsetWidth;
+            el.classList.add('tap-flash');
+            setTimeout(()=>el.classList.remove('tap-flash'), 260);
         }
         function flashBtn(btn, kind){
             if(!btn) return;
@@ -655,6 +670,7 @@
         async function cloudUploadStock() {
             const btn = (typeof event !== 'undefined' && event && event.currentTarget) ? event.currentTarget : null;
             haptic(20);
+            flashTap(btn);
             const done = setBtnLoading(btn, '☁️ 上传中…');
             if (!confirm('确认要把“库存列表”当前数据上传并覆盖云端吗？')) return false;
             ensureCloudConfig();
@@ -668,6 +684,7 @@
         async function cloudDownloadStock() {
             const btn = (typeof event !== 'undefined' && event && event.currentTarget) ? event.currentTarget : null;
             haptic(20);
+            flashTap(btn);
             const done = setBtnLoading(btn, '☁️ 下载中…');
             ensureCloudConfig();
             const ok = await pullInventoryFromCloud();
