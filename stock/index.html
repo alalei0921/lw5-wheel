@@ -142,6 +142,14 @@
             transform: translateY(-1px);
             box-shadow: 0 8px 18px rgba(124, 58, 237, 0.18);
         }
+
+        /* Button tap feedback + cloud button states */
+        .btn:active,.tab-btn:active,.btn-cloud-mini:active{transform:scale(.98)}
+        .btn-cloud-mini.is-loading{opacity:.85;position:relative}
+        .btn-cloud-mini.is-loading::after{content:"";display:inline-block;width:12px;height:12px;margin-left:8px;border:2px solid rgba(124,58,237,.25);border-top-color:rgba(124,58,237,.95);border-radius:50%;animation:spin .8s linear infinite;vertical-align:-2px}
+        .btn-cloud-mini.is-ok{border-color:#86efac;color:#166534;background:linear-gradient(135deg,#f0fdf4,#ecfeff)}
+        .btn-cloud-mini.is-err{border-color:#fecaca;color:#991b1b;background:linear-gradient(135deg,#fef2f2,#fff7ed)}
+        @keyframes spin{to{transform:rotate(360deg)}}
         .inventory-item {
             display: flex;
             align-items: center;
@@ -385,6 +393,33 @@
             householdId: 'lw5-home'
         };
 
+        // ===== UX helpers (tap feedback) =====
+        function haptic(ms=18){
+            try{ if(navigator.vibrate) navigator.vibrate(ms); }catch(_){ }
+        }
+        function flashBtn(btn, kind){
+            if(!btn) return;
+            btn.classList.remove('is-loading','is-ok','is-err');
+            if(kind) btn.classList.add(kind);
+        }
+        function setBtnLoading(btn, text){
+            if(!btn) return () => {};
+            const orig = btn.dataset.origText || btn.textContent;
+            btn.dataset.origText = orig;
+            btn.disabled = true;
+            btn.textContent = text || orig;
+            flashBtn(btn,'is-loading');
+            return (finalKind, finalText, ms=900) => {
+                if(finalText) btn.textContent = finalText;
+                flashBtn(btn, finalKind);
+                setTimeout(()=>{
+                    btn.textContent = orig;
+                    btn.disabled = false;
+                    flashBtn(btn, null);
+                }, ms);
+            };
+        }
+
         function getCloudStatusEl() {
             return document.getElementById('cloud-status');
         }
@@ -618,17 +653,27 @@
         }
 
         async function cloudUploadStock() {
+            const btn = (typeof event !== 'undefined' && event && event.currentTarget) ? event.currentTarget : null;
+            haptic(20);
+            const done = setBtnLoading(btn, '☁️ 上传中…');
             if (!confirm('确认要把“库存列表”当前数据上传并覆盖云端吗？')) return false;
             ensureCloudConfig();
             const ok = await uploadInventoryToCloud(true);
+            if (ok) { haptic(25); done('is-ok','✅ 已上传',900); }
+            else { haptic(40); done('is-err','❌ 上传失败',1100); }
             alert(ok ? '☁️ 库存列表云上传成功' : '⚠️ 库存列表云上传失败，请看状态提示');
             return ok;
         }
 
         async function cloudDownloadStock() {
+            const btn = (typeof event !== 'undefined' && event && event.currentTarget) ? event.currentTarget : null;
+            haptic(20);
+            const done = setBtnLoading(btn, '☁️ 下载中…');
             ensureCloudConfig();
             const ok = await pullInventoryFromCloud();
             const ts = new Date().toLocaleString('zh-CN', { hour12: false });
+            if (ok) { haptic(25); done('is-ok','✅ 已下载',900); }
+            else { haptic(40); done('is-err','❌ 下载失败',1100); }
             alert(ok ? `☁️ 库存列表云下载成功，已刷新本地数据\n下载时间：${ts}` : '☁️ 库存列表云端暂无可下载数据（或拉取失败）');
         }
 
