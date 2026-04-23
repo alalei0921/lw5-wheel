@@ -264,6 +264,14 @@
       return msg;
     }
 
+    const SUPABASE_RESUME_URL='https://supabase.com/dashboard/project/lrtglriomkxjxmxpzivj';
+    function showCloudFailure(msg){
+      const tip = `${msg}\n\n如果是 Supabase 项目 paused：\n打开链接 → 点 Resume 即可恢复：\n${SUPABASE_RESUME_URL}`;
+      if(confirm(tip + "\n\n点【确定】复制链接，点【取消】不复制")){
+        try{ navigator.clipboard && navigator.clipboard.writeText(SUPABASE_RESUME_URL); }catch(_){ }
+      }
+    }
+
     function travelRowsFromLocal(){
       const c=getCloudConfig();
       const hid=c.householdId;
@@ -339,7 +347,7 @@
         st.set('error');
         haptic(40);
         setTimeout(()=>st.reset(),1100);
-        alert('⚠️ 旅行清单云上传失败：'+describeTravelUploadError(e));
+        showCloudFailure('⚠️ 旅行清单云上传失败：'+describeTravelUploadError(e));
       }
     }
 
@@ -379,7 +387,7 @@
         st.set('error');
         haptic(40);
         setTimeout(()=>st.reset(),1100);
-        alert('⚠️ 旅行清单云下载失败：'+(e.message||'请检查网络/SQL表'));
+        showCloudFailure('⚠️ 旅行清单云下载失败：'+(e.message||'请检查网络/SQL表'));
       }
     }
 
