@@ -1,0 +1,161 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <meta name="theme-color" content="#eaf6ff" />
+  <title>雪之宁芙 喀俄涅</title>
+  <style>
+    *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+    html{min-height:100%;background:#dcecf7}
+    body{margin:0;min-height:100vh;color:#111827;font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","SF Pro Display","Helvetica Neue",Arial,sans-serif;overflow-x:hidden;background:transparent}
+    body::before{content:"";position:fixed;inset:0;z-index:-1;background:linear-gradient(rgba(242,250,255,.015),rgba(242,250,255,.015)),url('./chione-bg.jpg') center/cover no-repeat}
+    .shell{width:min(760px,100%);margin:0 auto;padding:18px 14px 30px}
+    header,.panel,.card{border:1px solid rgba(255,255,255,.58);background:rgba(255,255,255,.20);backdrop-filter:blur(3px);-webkit-backdrop-filter:blur(3px);box-shadow:0 14px 32px rgba(40,68,96,.12)}
+    header{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:12px;padding:14px;border-radius:18px}
+    h1{margin:0;font-size:28px;line-height:1.08;color:#111827;text-shadow:0 2px 10px rgba(255,255,255,.72);letter-spacing:0}
+    .status{margin-top:4px;font-size:14px;font-weight:800;color:rgba(17,24,39,.74)}
+    .home-btn,.local-btn,button{min-height:48px;border:1px solid rgba(255,255,255,.72);border-radius:999px;background:rgba(255,255,255,.50);color:#111827;font:inherit;font-weight:850;text-decoration:none;display:grid;place-items:center;box-shadow:0 12px 24px rgba(40,68,96,.10)}
+    .home-btn,.local-btn{padding:0 18px;white-space:nowrap}
+    .local-btn{background:rgba(255,255,255,.64)}
+    .local-btn.connected{background:rgba(52,142,166,.76);color:#fff;border-color:rgba(255,255,255,.86);box-shadow:0 14px 28px rgba(33,94,118,.22)}
+    button{cursor:pointer}
+    .panel{border-radius:18px;padding:14px;margin-bottom:12px}
+    .grid{display:grid;grid-template-columns:1fr;gap:10px}
+    .card{border-radius:16px;padding:14px}
+    .card-toggle{width:100%;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:0;border:0;background:transparent;box-shadow:none;text-align:left}
+    .name{font-size:19px;font-weight:900;overflow-wrap:anywhere}
+    .room{margin-top:3px;font-size:13px;font-weight:800;color:rgba(17,24,39,.66)}
+    .chevron{display:grid;place-items:center;flex:0 0 auto;width:36px;height:36px;border-radius:50%;background:rgba(255,255,255,.48);font-size:24px;color:rgba(17,24,39,.62);transition:transform .16s ease}
+    .card.open .chevron{transform:rotate(90deg)}
+    .controls{display:none;gap:9px;margin-top:12px;padding-top:12px;border-top:1px solid rgba(255,255,255,.52)}
+    .card.open .controls{display:grid}
+    .row{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+    .mode{background:rgba(220,242,255,.56);color:#134e68}
+    .temp{background:rgba(236,248,255,.58);color:#0b5792}
+    .fan{background:rgba(226,250,248,.56);color:#176064}
+    .power{background:rgba(45,65,90,.68);color:#fff}
+    .panel-btn{background:rgba(255,255,255,.52);color:#111827}
+    .toast{position:fixed;left:50%;bottom:max(18px,env(safe-area-inset-bottom));transform:translateX(-50%) translateY(18px);z-index:20;width:min(420px,calc(100% - 28px));padding:12px 14px;border-radius:16px;background:rgba(17,24,39,.90);color:#fff;font-weight:850;text-align:center;opacity:0;pointer-events:none;transition:opacity .18s ease,transform .18s ease}
+    .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+    @media (max-width:560px){.shell{padding:14px}header{flex-direction:column}.home-btn,.local-btn{width:100%}h1{font-size:25px}.row{grid-template-columns:repeat(2,minmax(0,1fr))}}
+  </style>
+</head>
+<body>
+  <main class="shell">
+    <header>
+      <div>
+        <h1>雪之宁芙 喀俄涅</h1>
+        <div id="status" class="status">预览模式</div>
+      </div>
+      <a class="home-btn" href="../">返回主页</a>
+    </header>
+
+    <section class="panel">
+      <a class="local-btn" id="localControl" href="http://192.168.1.105:8788/wind">连接家里 WiFi 后进入本地控制</a>
+    </section>
+
+    <section class="grid" id="airList"></section>
+  </main>
+  <div class="toast" id="toast"></div>
+
+  <script>
+    const LOCAL_LABEL = '请先连接家里的 WiFi，再点“进入本地控制”。';
+    const LOCAL_READY_LABEL = '请点上方按钮进入本地控制后操作。';
+    const LOCAL_CHECK_URL = 'http://192.168.1.105:8788/assets/hyperion-bg.jpg';
+    const airConditioners = [
+      ['living', '客厅空调', '客厅'],
+      ['bedroom', '主卧空调', '主卧'],
+      ['dining', '餐厅空调', '餐厅'],
+      ['guest', '次卧空调', '次卧']
+    ];
+    const modeActions = [['cool','制冷'],['heat','制热'],['dry','除湿'],['fan-mode','通风'],['auto','自动']];
+    const tempActions = [['temp-22','22C'],['temp-24','24C'],['temp-26','26C'],['temp-28','28C']];
+    const fanActions = [['fan-low','低风'],['fan-mid','中风'],['fan-high','高风']];
+    const airListEl = document.getElementById('airList');
+    const toastEl = document.getElementById('toast');
+    const statusEl = document.getElementById('status');
+    const localControlEl = document.getElementById('localControl');
+    let localAvailable = false;
+    let expandedId = '';
+
+    function buttons(actions, className) {
+      return actions.map(([, label]) => '<button class="' + className + '" type="button" data-locked>' + label + '</button>').join('');
+    }
+
+    function render() {
+      airListEl.innerHTML = airConditioners.map(([id, name, room]) => (
+        '<article class="card ' + (expandedId === id ? 'open' : '') + '" data-id="' + id + '">' +
+          '<button class="card-toggle" type="button" data-toggle-id="' + id + '" aria-expanded="' + (expandedId === id ? 'true' : 'false') + '">' +
+            '<div><div class="name">' + name + '</div><div class="room">' + room + '</div></div>' +
+            '<span class="chevron">›</span>' +
+          '</button>' +
+          '<div class="controls">' +
+            '<div class="row">' +
+              '<button class="power" type="button" data-locked>开/关</button>' +
+              buttons(fanActions, 'fan') +
+            '</div>' +
+            '<div class="row">' + buttons(modeActions, 'mode') + '</div>' +
+            '<div class="row">' + buttons(tempActions, 'temp') + '</div>' +
+            '<div class="row"><button class="panel-btn" type="button" data-locked>打开中控</button></div>' +
+          '</div>' +
+        '</article>'
+      )).join('');
+    }
+
+    function showToast(message){
+      toastEl.textContent = message;
+      toastEl.classList.add('show');
+      clearTimeout(showToast.timer);
+      showToast.timer = setTimeout(() => toastEl.classList.remove('show'), 2600);
+    }
+
+    function setLocalAvailable(next){
+      localAvailable = next;
+      localControlEl.classList.toggle('connected', next);
+      localControlEl.textContent = next ? '已进入本地控制' : '连接家里 WiFi 后进入本地控制';
+      statusEl.textContent = next ? '本地可用' : (navigator.onLine ? '预览模式' : '请联网');
+    }
+
+    function probeLocal(){
+      if (!navigator.onLine) {
+        setLocalAvailable(false);
+        return;
+      }
+      const image = new Image();
+      const timer = setTimeout(() => {
+        image.onload = null;
+        image.onerror = null;
+        setLocalAvailable(false);
+      }, 1800);
+      image.onload = () => {
+        clearTimeout(timer);
+        setLocalAvailable(true);
+      };
+      image.onerror = () => {
+        clearTimeout(timer);
+        setLocalAvailable(false);
+      };
+      image.src = LOCAL_CHECK_URL + '?probe=' + Date.now();
+    }
+
+    airListEl.addEventListener('click', (event) => {
+      const toggle = event.target.closest('button[data-toggle-id]');
+      if (toggle) {
+        expandedId = expandedId === toggle.dataset.toggleId ? '' : toggle.dataset.toggleId;
+        render();
+        return;
+      }
+      if (event.target.closest('[data-locked]')) {
+        showToast(navigator.onLine ? (localAvailable ? LOCAL_READY_LABEL : LOCAL_LABEL) : '请先联网。');
+      }
+    });
+
+    window.addEventListener('online', probeLocal);
+    window.addEventListener('offline', probeLocal);
+    document.addEventListener('visibilitychange', () => { if (!document.hidden) probeLocal(); });
+    render();
+    probeLocal();
+  </script>
+</body>
+</html>
