@@ -30,7 +30,7 @@
       position:fixed;
       inset:0;
       background:
-        linear-gradient(180deg, rgba(255,245,250,.25), rgba(255,250,240,.45)),
+        linear-gradient(180deg, rgba(255,245,250,.10), rgba(255,250,240,.16)),
         url('./home-bg.jpg') center/cover no-repeat;
       z-index:-2;
       transform:scale(1.02);
@@ -39,21 +39,21 @@
       content:"";
       position:fixed;
       inset:0;
-      background: radial-gradient(circle at 20% 20%, rgba(255,255,255,.35), transparent 35%),
-                  radial-gradient(circle at 80% 80%, rgba(255,255,255,.25), transparent 40%);
+      background: radial-gradient(circle at 20% 20%, rgba(255,255,255,.16), transparent 35%),
+                  radial-gradient(circle at 80% 80%, rgba(255,255,255,.10), transparent 40%);
       z-index:-1;
     }
     .card{
-      width:min(460px,92%);
-      border-radius:24px;
-      background:rgba(255,255,255,.52);
-      backdrop-filter: blur(8px);
-      -webkit-backdrop-filter: blur(8px);
-      border:1px solid rgba(255,255,255,.62);
-      box-shadow:0 14px 34px rgba(112,76,52,.16);
-      padding:18px 16px 14px;
+      width:min(430px,92%);
+      border-radius:22px;
+      background:rgba(255,255,255,.30);
+      backdrop-filter: blur(4px);
+      -webkit-backdrop-filter: blur(4px);
+      border:1px solid rgba(255,255,255,.50);
+      box-shadow:0 14px 34px rgba(112,76,52,.12);
+      padding:16px 14px 12px;
       text-align:center;
-      transform: translateY(-52px);
+      transform: translateY(-78px);
     }
     h1{
       margin:0;
@@ -63,35 +63,47 @@
       text-shadow:0 2px 8px rgba(255,255,255,.55);
     }
     .sub{
-      margin:6px 0 14px;
+      margin:5px 0 12px;
       color:#7b6f68;
-      font-size:13px;
+      font-size:12px;
+      font-weight:700;
     }
     .grid{
       display:grid;
-      grid-template-columns:1fr;
-      gap:10px;
+      grid-template-columns:repeat(2,minmax(0,1fr));
+      gap:8px;
     }
     .tool-btn{
       display:flex;
       align-items:center;
       justify-content:space-between;
+      gap:8px;
       text-decoration:none;
-      border-radius:18px;
-      padding:12px 14px;
-      font-size:16px;
+      min-height:56px;
+      border-radius:16px;
+      padding:10px;
+      font-size:14.5px;
+      line-height:1.18;
       font-weight:700;
-      border:1px solid rgba(255,255,255,.7);
-      box-shadow:0 12px 20px rgba(130,99,76,.13);
+      text-align:left;
+      border:1px solid rgba(255,255,255,.58);
+      box-shadow:0 10px 18px rgba(130,99,76,.10);
       transition:transform .14s ease, box-shadow .14s ease, filter .14s ease;
       color:#5b4438;
     }
+    .tool-btn span:first-child{min-width:0;overflow-wrap:anywhere}
+    .tool-btn.wide{
+      grid-column:1/-1;
+      min-height:50px;
+      padding:10px 12px;
+      font-size:15px;
+    }
     .tool-btn:active{transform:translateY(1px) scale(.98)}
     .tool-btn:hover{transform:translateY(-2px); box-shadow:0 14px 24px rgba(130,99,76,.2)}
-    .wheel{background:linear-gradient(135deg,#ffe6f3,#fff4d8)}
-    .stock{background:linear-gradient(135deg,#e8f7ff,#eaffea)}
-    .emoji{font-size:24px}
-    .foot{margin-top:14px;font-size:12px;color:#8a7a71}
+    .wheel{background:linear-gradient(135deg,rgba(255,230,243,.66),rgba(255,244,216,.58))}
+    .stock{background:linear-gradient(135deg,rgba(232,247,255,.66),rgba(234,255,234,.58))}
+    .emoji{font-size:22px;flex:0 0 auto}
+    .foot{margin-top:10px;font-size:12px;color:#7a6a61;font-weight:700;text-shadow:0 1px 6px rgba(255,255,255,.72)}
 
     /* 工具面板（保持在同一页里，BGM 不断） */
     .tool-overlay{
@@ -186,8 +198,9 @@
     .music-btn:active{ transform: translateY(1px) scale(.98); }
 
     @media (max-width:420px){
-      h1{font-size:30px}
-      .tool-btn{font-size:17px;padding:14px 16px}
+      h1{font-size:28px}
+      .tool-btn{font-size:14.5px;padding:10px}
+      .tool-btn.wide{font-size:15px;padding:10px 12px}
     }
   </style>
 </head>
@@ -210,16 +223,16 @@
       <button class="tool-btn stock" type="button" data-tool="stock" aria-label="打开仓储管理">
         <span>仓储管理</span><span class="emoji">📦🏠</span>
       </button>
-      <button class="tool-btn" type="button" data-tool="travel" aria-label="打开旅行备忘录" style="background:linear-gradient(135deg,#fdf2ff,#e0f2fe)">
+      <button class="tool-btn" type="button" data-tool="travel" aria-label="打开旅行备忘录" style="background:linear-gradient(135deg,rgba(253,242,255,.66),rgba(224,242,254,.58))">
         <span>去玩咯</span><span class="emoji">🏝️🧳</span>
       </button>
-      <button class="tool-btn" type="button" data-tool="conflict" aria-label="打开分歧终端机" style="background:linear-gradient(135deg,#ffe4e8,#fff0e4)">
+      <button class="tool-btn" type="button" data-tool="conflict" aria-label="打开分歧终端机" style="background:linear-gradient(135deg,rgba(255,228,232,.66),rgba(255,240,228,.58))">
         <span>分歧终端机</span><span class="emoji">💕🗣️</span>
       </button>
-      <a class="tool-btn" href="./smart-home/hyperion.html" aria-label="打开高天之光 许珀里翁" style="background:linear-gradient(135deg,#fff7cc,#dcfce7)">
+      <a class="tool-btn wide" href="./smart-home/hyperion.html" aria-label="打开高天之光 许珀里翁" style="background:linear-gradient(135deg,rgba(255,247,204,.62),rgba(220,252,231,.52))">
         <span>高天之光 许珀里翁</span><span class="emoji">💡✨</span>
       </a>
-      <a class="tool-btn" href="./smart-home/aurora.html" aria-label="打开黎明女神 欧若拉" style="background:linear-gradient(135deg,#fff1d6,#dff7ff)">
+      <a class="tool-btn wide" href="./smart-home/aurora.html" aria-label="打开黎明女神 欧若拉" style="background:linear-gradient(135deg,rgba(255,241,214,.62),rgba(223,247,255,.52))">
         <span>黎明女神 欧若拉</span><span class="emoji">🌅🪟</span>
       </a>
     </section>
