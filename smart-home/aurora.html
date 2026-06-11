@@ -45,7 +45,7 @@
       <a class="home-btn" href="../">返回主页</a>
     </header>
     <section class="panel">
-      <a class="local-btn" id="localControl" href="http://192.168.1.105:8788/aurora">连接家里 WiFi 后进入本地控制</a>
+      <a class="local-btn" id="localControl" href="http://192.168.1.105:8788/aurora" target="_top">连接家里 WiFi 后进入本地控制</a>
     </section>
 
     <section class="toolbar">
@@ -98,7 +98,7 @@
     function setLocalAvailable(next){
       localAvailable = next;
       localControlEl.classList.toggle('connected', next);
-      localControlEl.textContent = next ? '已进入本地控制' : '连接家里 WiFi 后进入本地控制';
+      localControlEl.textContent = next ? '本地控制可用，点击进入' : '连接家里 WiFi 后进入本地控制';
       statusEl.textContent = next ? '本地可用' : (navigator.onLine ? '预览模式' : '请联网');
     }
     function probeLocal(){
