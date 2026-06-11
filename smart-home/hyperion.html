@@ -18,9 +18,8 @@
     .home-btn,.local-btn,button{min-height:48px;border:1px solid rgba(255,255,255,.72);border-radius:999px;background:rgba(255,255,255,.50);color:#111827;font:inherit;font-weight:850;text-decoration:none;display:grid;place-items:center;box-shadow:0 12px 24px rgba(75,52,30,.10)}
     .home-btn,.local-btn{padding:0 18px;white-space:nowrap}
     .local-btn{background:rgba(255,255,255,.64)}
+    .local-btn.connected{background:rgba(64,160,104,.74);color:#fff;border-color:rgba(255,255,255,.86);box-shadow:0 14px 28px rgba(33,104,62,.22)}
     button{cursor:pointer}
-    .notice{display:none;margin:0 0 12px;padding:12px 14px;border-radius:16px;border:1px solid rgba(255,255,255,.72);background:rgba(255,255,255,.36);backdrop-filter:blur(4px);font-size:14px;font-weight:850;color:#111827;box-shadow:0 12px 26px rgba(75,52,30,.10)}
-    .notice.show{display:block}
     .panel{border-radius:18px;padding:14px;margin-bottom:12px}
     .toolbar{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-bottom:12px}
     .toolbar button:nth-child(2){background:rgba(89,177,126,.54);color:#fff}
@@ -47,11 +46,8 @@
       </div>
       <a class="home-btn" href="../">返回主页</a>
     </header>
-
-    <div id="notice" class="notice"></div>
-
     <section class="panel">
-      <a class="local-btn" href="http://192.168.1.105:8788">连接家里 WiFi 后进入本地控制</a>
+      <a class="local-btn" id="localControl" href="http://192.168.1.105:8788">连接家里 WiFi 后进入本地控制</a>
     </section>
 
     <section class="toolbar">
@@ -72,6 +68,8 @@
 
   <script>
     const LOCAL_LABEL = '请先连接家里的 WiFi，再点“进入本地控制”。';
+    const LOCAL_READY_LABEL = '请点上方按钮进入本地控制后操作。';
+    const LOCAL_CHECK_URL = 'http://192.168.1.105:8788/assets/hyperion-bg.jpg';
     const lights = [
       ['玄关灯带','玄关'],['玄关射灯','玄关'],['客厅吊灯','客厅'],['客厅射灯','客厅'],['餐厅吊灯','餐厅'],
       ['餐厅射灯','餐厅'],['衣帽间','主卧'],['主卧吊灯','主卧'],['主卧射灯','主卧']
@@ -79,7 +77,8 @@
     const lightsEl = document.getElementById('lights');
     const toastEl = document.getElementById('toast');
     const statusEl = document.getElementById('status');
-    const noticeEl = document.getElementById('notice');
+    const localControlEl = document.getElementById('localControl');
+    let localAvailable = false;
     lightsEl.innerHTML = lights.map(([name, room]) => (
       '<article class="light"><div><div class="name">' + name + '</div><div class="room">' + room + '</div></div><button class="switch" type="button" data-locked>操作</button></article>'
     )).join('');
@@ -89,18 +88,40 @@
       clearTimeout(showToast.timer);
       showToast.timer = setTimeout(() => toastEl.classList.remove('show'), 2600);
     }
-    function syncOnline(){
-      const online = navigator.onLine;
-      statusEl.textContent = online ? '预览模式' : '请联网';
-      noticeEl.textContent = online ? '现在可以查看界面。真正操作需要回家连接同一个 WiFi 后进入本地控制。' : '当前没有联网，请先联网后再打开页面。';
-      noticeEl.classList.add('show');
+    function setLocalAvailable(next){
+      localAvailable = next;
+      localControlEl.classList.toggle('connected', next);
+      localControlEl.textContent = next ? '已进入本地控制' : '连接家里 WiFi 后进入本地控制';
+      statusEl.textContent = next ? '本地可用' : (navigator.onLine ? '预览模式' : '请联网');
+    }
+    function probeLocal(){
+      if (!navigator.onLine) {
+        setLocalAvailable(false);
+        return;
+      }
+      const image = new Image();
+      const timer = setTimeout(() => {
+        image.onload = null;
+        image.onerror = null;
+        setLocalAvailable(false);
+      }, 1800);
+      image.onload = () => {
+        clearTimeout(timer);
+        setLocalAvailable(true);
+      };
+      image.onerror = () => {
+        clearTimeout(timer);
+        setLocalAvailable(false);
+      };
+      image.src = LOCAL_CHECK_URL + '?probe=' + Date.now();
     }
     document.addEventListener('click', (event) => {
-      if (event.target.closest('[data-locked]')) showToast(navigator.onLine ? LOCAL_LABEL : '请先联网。');
+      if (event.target.closest('[data-locked]')) showToast(navigator.onLine ? (localAvailable ? LOCAL_READY_LABEL : LOCAL_LABEL) : '请先联网。');
     });
-    window.addEventListener('online', syncOnline);
-    window.addEventListener('offline', syncOnline);
-    syncOnline();
+    window.addEventListener('online', probeLocal);
+    window.addEventListener('offline', probeLocal);
+    document.addEventListener('visibilitychange', () => { if (!document.hidden) probeLocal(); });
+    probeLocal();
   </script>
 </body>
 </html>
