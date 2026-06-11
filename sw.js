@@ -1,5 +1,5 @@
 // Simple service worker for Lw&5之家 (offline-ish)
-const CACHE = 'lw5-home-v1';
+const CACHE = 'lw5-home-v2';
 const ASSETS = [
   './',
   './index.html',
@@ -14,6 +14,10 @@ const ASSETS = [
   './travel/',
   './travel/index.html',
   './travel/bg.jpg',
+  './smart-home/hyperion.html',
+  './smart-home/aurora.html',
+  './smart-home/hyperion-bg.jpg',
+  './smart-home/aurora-bg.jpg',
   './icons/apple-touch-icon.png',
   './icons/icon-192x192.png',
   './icons/icon-512x512.png'
