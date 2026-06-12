@@ -31,6 +31,8 @@
     .controls{display:none;gap:9px;margin-top:12px;padding-top:12px;border-top:1px solid rgba(255,255,255,.52)}
     .card.open .controls{display:grid}
     .row{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+    .row.power-row{grid-template-columns:1fr}
+    .row.temp-row{grid-template-columns:repeat(4,minmax(0,1fr))}
     .mode{background:rgba(220,242,255,.56);color:#134e68}
     .temp{background:rgba(236,248,255,.58);color:#0b5792}
     .fan{background:rgba(226,250,248,.56);color:#176064}
@@ -90,12 +92,12 @@
             '<span class="chevron">›</span>' +
           '</button>' +
           '<div class="controls">' +
-            '<div class="row">' +
+            '<div class="row power-row">' +
               '<button class="power" type="button" data-locked>开/关</button>' +
-              buttons(fanActions, 'fan') +
             '</div>' +
+            '<div class="row temp-row">' + buttons(tempActions, 'temp') + '</div>' +
+            '<div class="row">' + buttons(fanActions, 'fan') + '</div>' +
             '<div class="row">' + buttons(modeActions, 'mode') + '</div>' +
-            '<div class="row">' + buttons(tempActions, 'temp') + '</div>' +
           '</div>' +
         '</article>'
       )).join('');
