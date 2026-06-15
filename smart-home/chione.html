@@ -26,6 +26,11 @@
     .card-toggle{width:100%;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:0;border:0;background:transparent;box-shadow:none;text-align:left}
     .name{font-size:19px;font-weight:900;overflow-wrap:anywhere}
     .room{margin-top:3px;font-size:13px;font-weight:800;color:rgba(17,24,39,.66)}
+    .meta{display:flex;align-items:center;flex-wrap:wrap;gap:8px;margin-top:3px}
+    .meta .room{margin-top:0}
+    .air-state{display:inline-flex;align-items:center;min-height:24px;padding:3px 9px;border:1px solid rgba(255,255,255,.66);border-radius:999px;background:rgba(255,241,206,.70);color:#7b4e12;font-size:12px;font-weight:850}
+    .air-state.on{background:rgba(52,142,166,.76);color:#fff}
+    .air-state.off{background:rgba(255,255,255,.55);color:rgba(17,24,39,.72)}
     .chevron{display:grid;place-items:center;flex:0 0 auto;width:36px;height:36px;border-radius:50%;background:rgba(255,255,255,.48);font-size:24px;color:rgba(17,24,39,.62);transition:transform .16s ease}
     .card.open .chevron{transform:rotate(90deg)}
     .controls{display:none;gap:9px;margin-top:12px;padding-top:12px;border-top:1px solid rgba(255,255,255,.52)}
@@ -84,11 +89,15 @@
       return actions.map(([, label]) => '<button class="' + className + '" type="button" data-locked>' + label + '</button>').join('');
     }
 
+    function powerState() {
+      return '<span class="air-state unknown">未知</span>';
+    }
+
     function render() {
       airListEl.innerHTML = airConditioners.map(([id, name, room]) => (
         '<article class="card ' + (expandedId === id ? 'open' : '') + '" data-id="' + id + '">' +
           '<button class="card-toggle" type="button" data-toggle-id="' + id + '" aria-expanded="' + (expandedId === id ? 'true' : 'false') + '">' +
-            '<div><div class="name">' + name + '</div><div class="room">' + room + '</div></div>' +
+            '<div><div class="name">' + name + '</div><div class="meta"><div class="room">' + room + '</div>' + powerState() + '</div></div>' +
             '<span class="chevron">›</span>' +
           '</button>' +
           '<div class="controls">' +
