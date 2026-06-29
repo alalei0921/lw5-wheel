@@ -196,6 +196,59 @@
       user-select:none;
     }
     .music-btn:active{ transform: translateY(1px) scale(.98); }
+    .sun-press{
+      position:fixed;
+      left:calc(50vw - 13.2vh);
+      top:4.25vh;
+      z-index:55;
+      width:clamp(54px,7.45vh,86px);
+      aspect-ratio:1;
+      padding:0;
+      border-radius:50%;
+      border:1px solid rgba(255,255,255,.30);
+      background:
+        radial-gradient(circle at 42% 35%, rgba(255,255,255,.32), rgba(255,255,255,.08) 58%, rgba(255,230,133,.10) 100%);
+      box-shadow:
+        inset 0 1px 16px rgba(255,255,255,.24),
+        0 0 26px rgba(255,226,122,.18);
+      backdrop-filter:blur(1.5px) saturate(1.18);
+      -webkit-backdrop-filter:blur(1.5px) saturate(1.18);
+      opacity:.46;
+      cursor:pointer;
+      -webkit-tap-highlight-color:transparent;
+    }
+    .sun-press:active,
+    .sun-press.working{
+      opacity:.72;
+      transform:scale(.94);
+      box-shadow:
+        inset 0 2px 20px rgba(255,255,255,.34),
+        0 0 34px rgba(255,221,94,.28);
+    }
+    .sun-press:disabled{cursor:wait}
+    .home-toast{
+      position:fixed;
+      left:50%;
+      bottom:max(18px,env(safe-area-inset-bottom));
+      z-index:95;
+      width:min(410px,calc(100% - 30px));
+      padding:12px 14px;
+      border-radius:16px;
+      background:rgba(45,36,31,.88);
+      color:#fff;
+      box-shadow:0 16px 34px rgba(56,39,31,.22);
+      font-size:14px;
+      font-weight:850;
+      text-align:center;
+      opacity:0;
+      pointer-events:none;
+      transform:translateX(-50%) translateY(14px);
+      transition:opacity .18s ease, transform .18s ease;
+    }
+    .home-toast.show{
+      opacity:1;
+      transform:translateX(-50%) translateY(0);
+    }
 
     @media (max-width:420px){
       h1{font-size:28px}
@@ -205,8 +258,10 @@
   </style>
 </head>
 <body>
+  <button class="sun-press" id="sunPress" type="button" aria-label="按下太阳，打开除衣帽间以外的灯并打开遮阳帘"></button>
   <button class="music-btn" id="musicBtn" aria-label="背景音乐">🎵 音乐：开</button>
   <button class="music-btn" id="updateBtn" aria-label="一键更新" style="right: max(12px, env(safe-area-inset-right)); top: calc(max(12px, env(safe-area-inset-top)) + 52px);">🧁 一键更新</button>
+  <div class="home-toast" id="homeToast"></div>
   <audio id="homeBgm" preload="auto" loop playsinline webkit-playsinline>
     <source src="./bgm.m4a" type="audio/mp4">
     <source src="./bgm.mp3" type="audio/mpeg">
@@ -285,6 +340,87 @@
         url.searchParams.set('v', String(Date.now()));
         location.href = url.toString();
       });
+    })();
+
+    (function(){
+      const sunBtn = document.getElementById('sunPress');
+      const toast = document.getElementById('homeToast');
+      const LOCAL_API = 'http://192.168.1.105:8788/api/sun-mode';
+      const LOCAL_FALLBACK = 'http://192.168.1.105:8788/sun-mode';
+      const LOCAL_PROBE = 'http://192.168.1.105:8788/assets/hyperion-bg.jpg';
+      let toastTimer = null;
+
+      function showHomeToast(message){
+        if (!toast) return;
+        toast.textContent = message;
+        toast.classList.add('show');
+        clearTimeout(toastTimer);
+        toastTimer = setTimeout(() => toast.classList.remove('show'), 2800);
+      }
+
+      function probeLocal(timeoutMs = 1800){
+        return new Promise((resolve) => {
+          if (!navigator.onLine) {
+            resolve(false);
+            return;
+          }
+          const image = new Image();
+          const timer = setTimeout(() => {
+            image.onload = null;
+            image.onerror = null;
+            resolve(false);
+          }, timeoutMs);
+          image.onload = () => {
+            clearTimeout(timer);
+            resolve(true);
+          };
+          image.onerror = () => {
+            clearTimeout(timer);
+            resolve(false);
+          };
+          image.src = LOCAL_PROBE + '?sunProbe=' + Date.now();
+        });
+      }
+
+      async function pressSun(){
+        if (!sunBtn || sunBtn.disabled) return;
+        if (!navigator.onLine) {
+          showHomeToast('请先联网，并连接家里的 WiFi。');
+          return;
+        }
+
+        sunBtn.disabled = true;
+        sunBtn.classList.add('working');
+        showHomeToast('正在按下太阳...');
+
+        try {
+          const controller = new AbortController();
+          const timer = setTimeout(() => controller.abort(), 9500);
+          const response = await fetch(LOCAL_API, {
+            method: 'POST',
+            mode: 'cors',
+            cache: 'no-store',
+            signal: controller.signal,
+          });
+          clearTimeout(timer);
+          const data = await response.json().catch(() => ({}));
+          if (!response.ok) throw new Error(data.error || '本地控制失败');
+          showHomeToast('已打开灯光，并同步打开遮阳帘。');
+        } catch (error) {
+          const localReady = await probeLocal();
+          if (localReady) {
+            showHomeToast('正在进入本地控制执行...');
+            location.href = LOCAL_FALLBACK;
+            return;
+          }
+          showHomeToast('请连接家里 WiFi 后再按太阳。');
+        } finally {
+          sunBtn.disabled = false;
+          sunBtn.classList.remove('working');
+        }
+      }
+
+      sunBtn?.addEventListener('click', pressSun);
     })();
 
     (function(){
