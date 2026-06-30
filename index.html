@@ -257,12 +257,23 @@
       place-items:center;
       overflow:hidden;
       background:
-        radial-gradient(circle at 50% 42%, rgba(71,207,255,.20), transparent 34%),
-        radial-gradient(circle at 48% 50%, rgba(255,211,111,.12), transparent 42%),
-        rgba(4,8,20,.88);
+        radial-gradient(circle at 50% 42%, rgba(255,229,128,.24), transparent 25%),
+        radial-gradient(circle at 42% 58%, rgba(68,211,255,.22), transparent 34%),
+        radial-gradient(circle at 62% 38%, rgba(189,113,255,.18), transparent 38%),
+        rgba(3,6,18,.91);
       opacity:0;
       pointer-events:none;
       transition:opacity .32s ease;
+    }
+    .nebula-overlay::before{
+      content:"";
+      position:absolute;
+      inset:-18%;
+      z-index:0;
+      background:
+        conic-gradient(from 0deg at 50% 50%, rgba(255,226,132,.08), rgba(66,210,255,.13), rgba(189,113,255,.11), rgba(255,150,99,.10), rgba(255,226,132,.08));
+      filter:blur(18px);
+      animation:nebulaDrift 18s linear infinite;
     }
     .nebula-overlay.show{
       opacity:1;
@@ -270,9 +281,10 @@
     }
     .nebula-overlay.done{
       background:
-        radial-gradient(circle at 50% 42%, rgba(255,237,153,.28), transparent 35%),
-        radial-gradient(circle at 50% 50%, rgba(71,207,255,.18), transparent 46%),
-        rgba(4,8,20,.88);
+        radial-gradient(circle at 50% 42%, rgba(255,242,169,.36), transparent 31%),
+        radial-gradient(circle at 50% 52%, rgba(77,221,255,.22), transparent 44%),
+        radial-gradient(circle at 60% 40%, rgba(255,141,103,.20), transparent 48%),
+        rgba(3,6,18,.90);
     }
     .nebula-canvas{
       position:absolute;
@@ -281,18 +293,90 @@
       height:100%;
       z-index:1;
     }
-    .nebula-fallback{
-      width:min(58vw,260px);
-      aspect-ratio:1;
-      border-radius:50%;
+    .nebula-stage{
       position:relative;
       z-index:0;
+      width:min(74vw,340px);
+      aspect-ratio:1;
+      display:grid;
+      place-items:center;
+      pointer-events:none;
+    }
+    .nebula-fallback{
+      width:78%;
+      aspect-ratio:1;
+      border-radius:50%;
+      position:absolute;
+      inset:11%;
       background:
-        radial-gradient(circle at 36% 32%, rgba(255,255,255,.95), rgba(116,224,255,.56) 18%, rgba(68,92,255,.32) 39%, rgba(246,171,84,.22) 62%, rgba(255,255,255,.02) 73%),
-        conic-gradient(from 90deg, rgba(71,207,255,.38), rgba(255,207,112,.44), rgba(161,98,255,.42), rgba(71,207,255,.38));
+        radial-gradient(circle at 36% 32%, rgba(255,255,255,.96), rgba(126,236,255,.60) 18%, rgba(73,100,255,.34) 39%, rgba(255,190,94,.28) 62%, rgba(255,255,255,.03) 73%),
+        conic-gradient(from 90deg, rgba(71,207,255,.45), rgba(255,214,112,.50), rgba(177,107,255,.46), rgba(255,151,104,.34), rgba(71,207,255,.45));
       filter:blur(.1px);
-      box-shadow:0 0 42px rgba(113,218,255,.42), 0 0 92px rgba(246,193,86,.20);
+      box-shadow:0 0 46px rgba(113,218,255,.48), 0 0 104px rgba(246,193,86,.26), inset 0 0 36px rgba(255,255,255,.22);
       animation:nebulaPulse 2.8s ease-in-out infinite;
+    }
+    .nebula-core{
+      width:26%;
+      aspect-ratio:1;
+      border-radius:50%;
+      position:absolute;
+      background:
+        radial-gradient(circle at 35% 32%, #fff, #fff4ad 34%, rgba(255,168,74,.72) 58%, rgba(88,206,255,.18) 78%, transparent 82%);
+      box-shadow:0 0 24px rgba(255,245,168,.88), 0 0 78px rgba(255,190,89,.42);
+      animation:nebulaCore 1.8s ease-in-out infinite;
+    }
+    .nebula-ring{
+      position:absolute;
+      width:92%;
+      aspect-ratio:1;
+      border-radius:50%;
+      border:1px solid rgba(182,238,255,.34);
+      box-shadow:0 0 28px rgba(91,219,255,.18);
+      transform:rotateX(66deg) rotateZ(0deg);
+      animation:nebulaOrbit 5.4s linear infinite;
+    }
+    .nebula-ring.two{
+      width:72%;
+      border-color:rgba(255,221,132,.30);
+      animation-duration:4.2s;
+      animation-direction:reverse;
+      transform:rotateX(58deg) rotateZ(42deg);
+    }
+    .nebula-ring.three{
+      width:112%;
+      border-color:rgba(198,144,255,.26);
+      animation-duration:7.2s;
+      transform:rotateX(74deg) rotateZ(-36deg);
+    }
+    .nebula-burst{
+      position:absolute;
+      width:48%;
+      aspect-ratio:1;
+      border-radius:50%;
+      border:1px solid rgba(255,247,188,.0);
+      opacity:0;
+      transform:scale(.78);
+      box-shadow:0 0 0 rgba(255,245,178,0);
+    }
+    .nebula-overlay.done .nebula-burst{
+      animation:nebulaBurst 1.3s ease-out both;
+    }
+    .nebula-back{
+      position:absolute;
+      left:max(18px,env(safe-area-inset-left));
+      top:max(18px,env(safe-area-inset-top));
+      z-index:3;
+      min-height:44px;
+      padding:0 16px;
+      border:1px solid rgba(255,255,255,.24);
+      border-radius:999px;
+      background:rgba(255,255,255,.14);
+      color:rgba(255,255,255,.94);
+      backdrop-filter:blur(16px);
+      -webkit-backdrop-filter:blur(16px);
+      box-shadow:0 16px 36px rgba(0,0,0,.24);
+      font-size:15px;
+      font-weight:900;
     }
     .nebula-status{
       position:absolute;
@@ -313,9 +397,23 @@
       font-weight:850;
       box-shadow:0 16px 36px rgba(0,0,0,.22);
     }
+    @keyframes nebulaDrift{
+      to{transform:rotate(360deg)}
+    }
     @keyframes nebulaPulse{
       0%,100%{transform:scale(.96) rotate(0deg)}
-      50%{transform:scale(1.04) rotate(12deg)}
+      50%{transform:scale(1.06) rotate(14deg)}
+    }
+    @keyframes nebulaCore{
+      0%,100%{transform:scale(.92);filter:saturate(1)}
+      50%{transform:scale(1.12);filter:saturate(1.4)}
+    }
+    @keyframes nebulaOrbit{
+      to{rotate:360deg}
+    }
+    @keyframes nebulaBurst{
+      0%{opacity:.92;transform:scale(.70);border-color:rgba(255,249,198,.88);box-shadow:0 0 24px rgba(255,236,144,.62)}
+      100%{opacity:0;transform:scale(2.85);border-color:rgba(123,226,255,.06);box-shadow:0 0 82px rgba(123,226,255,.18)}
     }
 
     @media (max-width:420px){
@@ -332,7 +430,15 @@
   <div class="home-toast" id="homeToast"></div>
   <div class="nebula-overlay" id="nebulaOverlay" aria-hidden="true">
     <canvas class="nebula-canvas" id="nebulaCanvas"></canvas>
-    <div class="nebula-fallback" aria-hidden="true"></div>
+    <button class="nebula-back" id="nebulaBack" type="button">返回主页</button>
+    <div class="nebula-stage" aria-hidden="true">
+      <div class="nebula-fallback"></div>
+      <div class="nebula-core"></div>
+      <div class="nebula-ring"></div>
+      <div class="nebula-ring two"></div>
+      <div class="nebula-ring three"></div>
+      <div class="nebula-burst"></div>
+    </div>
     <div class="nebula-status" id="nebulaStatus">唤醒太阳</div>
   </div>
   <audio id="homeBgm" preload="auto" loop playsinline webkit-playsinline>
@@ -420,9 +526,11 @@
       const toast = document.getElementById('homeToast');
       const nebulaOverlay = document.getElementById('nebulaOverlay');
       const nebulaStatus = document.getElementById('nebulaStatus');
+      const nebulaBack = document.getElementById('nebulaBack');
       const LOCAL_API = 'http://192.168.1.105:8788/api/sun-mode';
       const LOCAL_FALLBACK = 'http://192.168.1.105:8788/sun-mode';
       let toastTimer = null;
+      let nebulaRun = 0;
       const MIN_NEBULA_MS = 3600;
 
       function showHomeToast(message){
@@ -438,23 +546,29 @@
       }
 
       function showNebula(message){
-        if (!nebulaOverlay) return Date.now();
+        const run = ++nebulaRun;
+        if (!nebulaOverlay) return { run, startedAt: Date.now() };
         nebulaStatus.textContent = message;
         nebulaOverlay.classList.remove('done');
         nebulaOverlay.classList.add('show');
         nebulaOverlay.setAttribute('aria-hidden', 'false');
         window.dispatchEvent(new CustomEvent('lw5-nebula-start'));
-        return Date.now();
+        return { run, startedAt: Date.now() };
       }
 
-      async function finishNebula(message){
-        if (!nebulaOverlay) return;
+      function closeNebula(){
+        nebulaRun += 1;
+        nebulaOverlay?.classList.remove('show', 'done');
+        nebulaOverlay?.setAttribute('aria-hidden', 'true');
+        sunBtn.disabled = false;
+        sunBtn.classList.remove('working');
+      }
+
+      async function finishNebula(run, message){
+        if (!nebulaOverlay || run !== nebulaRun) return;
         nebulaStatus.textContent = message;
         nebulaOverlay.classList.add('done');
         window.dispatchEvent(new CustomEvent('lw5-nebula-finish'));
-        await delay(1200);
-        nebulaOverlay.classList.remove('show', 'done');
-        nebulaOverlay.setAttribute('aria-hidden', 'true');
       }
 
       async function pressSun(){
@@ -466,7 +580,10 @@
 
         sunBtn.disabled = true;
         sunBtn.classList.add('working');
-        const nebulaStartedAt = showNebula('唤醒太阳');
+        const nebulaStarted = showNebula('唤醒太阳');
+        const stageTimer = setTimeout(() => {
+          if (nebulaStarted.run === nebulaRun) nebulaStatus.textContent = '星云旋转中';
+        }, 1100);
 
         try {
           const controller = new AbortController();
@@ -480,19 +597,22 @@
           clearTimeout(timer);
           const data = await response.json().catch(() => ({}));
           if (!response.ok) throw new Error(data.error || '本地控制失败');
-          await delay(Math.max(0, MIN_NEBULA_MS - (Date.now() - nebulaStartedAt)));
-          await finishNebula('已完成');
+          await delay(Math.max(0, MIN_NEBULA_MS - (Date.now() - nebulaStarted.startedAt)));
+          await finishNebula(nebulaStarted.run, '已完成');
         } catch (error) {
+          if (nebulaStarted.run !== nebulaRun) return;
           nebulaStatus.textContent = '切换本地控制';
           await delay(520);
           location.href = LOCAL_FALLBACK;
           return;
         } finally {
+          clearTimeout(stageTimer);
           sunBtn.disabled = false;
           sunBtn.classList.remove('working');
         }
       }
 
+      nebulaBack?.addEventListener('click', closeNebula);
       sunBtn?.addEventListener('click', pressSun);
     })();
 
@@ -634,22 +754,28 @@
     let scene;
     let camera;
     let group;
+    let coreMesh;
+    let haloMesh;
     let frame = 0;
     let fallbackMode = false;
     let ctx2d = null;
     let fallbackParticles = [];
+    let pointerX = 0;
+    let pointerY = 0;
 
     function makeFallbackParticles() {
-      fallbackParticles = Array.from({ length: 950 }, () => {
+      fallbackParticles = Array.from({ length: 1400 }, () => {
         const theta = Math.random() * Math.PI * 2;
         const phi = Math.acos((Math.random() * 2) - 1);
-        const radius = .42 + Math.pow(Math.random(), .52) * 1.06;
+        const radius = .28 + Math.pow(Math.random(), .48) * 1.28;
+        const palette = Math.random();
         return {
           x: Math.sin(phi) * Math.cos(theta) * radius,
           y: Math.cos(phi) * radius,
           z: Math.sin(phi) * Math.sin(theta) * radius,
-          hue: Math.random() < .56 ? 190 + Math.random() * 28 : (Math.random() < .72 ? 43 + Math.random() * 18 : 260 + Math.random() * 28),
-          size: .8 + Math.random() * 1.8,
+          hue: palette < .50 ? 188 + Math.random() * 34 : (palette < .78 ? 42 + Math.random() * 18 : (palette < .92 ? 262 + Math.random() * 30 : 12 + Math.random() * 18)),
+          size: .65 + Math.random() * 2.15,
+          orbit: Math.random() * Math.PI * 2,
         };
       });
     }
@@ -659,6 +785,16 @@
       ctx2d = canvas.getContext('2d');
       makeFallbackParticles();
       resizeNebula();
+      window.addEventListener('pointermove', (event) => {
+        pointerX = ((event.clientX / (window.innerWidth || 1)) - .5) * 2;
+        pointerY = ((event.clientY / (window.innerHeight || 1)) - .5) * 2;
+      }, { passive:true });
+      window.addEventListener('touchmove', (event) => {
+        const touch = event.touches?.[0];
+        if (!touch) return;
+        pointerX = ((touch.clientX / (window.innerWidth || 1)) - .5) * 2;
+        pointerY = ((touch.clientY / (window.innerHeight || 1)) - .5) * 2;
+      }, { passive:true });
     }
 
     function drawFallbackNebula(time = 0) {
@@ -666,32 +802,73 @@
       const width = window.innerWidth || 1;
       const height = window.innerHeight || 1;
       ctx2d.clearRect(0, 0, width, height);
-      const cx = width / 2;
-      const cy = height * .47;
+      const done = overlay.classList.contains('done');
+      const cx = width / 2 + pointerX * 18;
+      const cy = height * .47 + pointerY * 18;
       const scale = Math.min(width, height) * .34;
-      const ry = time * .00072;
-      const rx = Math.sin(time * .00036) * .26;
-      const sinY = Math.sin(ry);
-      const cosY = Math.cos(ry);
+      const ry = time * (done ? .00118 : .00082);
+      const rx = Math.sin(time * .00036) * .26 + pointerY * .08;
       const sinX = Math.sin(rx);
       const cosX = Math.cos(rx);
+      const glow = ctx2d.createRadialGradient(cx, cy, 0, cx, cy, scale * 1.55);
+      glow.addColorStop(0, done ? 'rgba(255,244,178,.36)' : 'rgba(255,244,178,.22)');
+      glow.addColorStop(.32, 'rgba(87,218,255,.12)');
+      glow.addColorStop(.68, 'rgba(173,104,255,.08)');
+      glow.addColorStop(1, 'rgba(0,0,0,0)');
+      ctx2d.fillStyle = glow;
+      ctx2d.fillRect(0, 0, width, height);
       const sorted = fallbackParticles.map((p) => {
-        const x1 = p.x * cosY - p.z * sinY;
-        const z1 = p.x * sinY + p.z * cosY;
+        const localY = ry + Math.sin(time * .0005 + p.orbit) * .12;
+        const sy = Math.sin(localY);
+        const cy2 = Math.cos(localY);
+        const x1 = p.x * cy2 - p.z * sy;
+        const z1 = p.x * sy + p.z * cy2;
         const y1 = p.y * cosX - z1 * sinX;
         const z2 = p.y * sinX + z1 * cosX;
-        const perspective = 1.9 / (2.75 + z2);
+        const perspective = 1.95 / (2.78 + z2);
         return { p, x: cx + x1 * scale * perspective, y: cy + y1 * scale * perspective, z: z2, perspective };
       }).sort((a, b) => a.z - b.z);
       for (const item of sorted) {
-        const alpha = Math.max(.16, Math.min(.96, .36 + item.z * .26));
-        const r = item.p.size * item.perspective;
+        const alpha = Math.max(.14, Math.min(.98, (done ? .48 : .34) + item.z * .27));
+        const r = item.p.size * item.perspective * (done ? 1.18 : 1);
         ctx2d.beginPath();
         ctx2d.fillStyle = 'hsla(' + item.p.hue + ', 95%, 72%, ' + alpha + ')';
         ctx2d.shadowColor = 'hsla(' + item.p.hue + ', 95%, 72%, .75)';
-        ctx2d.shadowBlur = 9;
+        ctx2d.shadowBlur = done ? 14 : 9;
         ctx2d.arc(item.x, item.y, r, 0, Math.PI * 2);
         ctx2d.fill();
+      }
+      ctx2d.lineWidth = 1;
+      for (let i = 0; i < 3; i += 1) {
+        ctx2d.save();
+        ctx2d.translate(cx, cy);
+        ctx2d.rotate(time * (.00045 + i * .00016) * (i === 1 ? -1 : 1));
+        ctx2d.scale(1, .26 + i * .08);
+        ctx2d.strokeStyle = i === 1 ? 'rgba(255,225,139,.36)' : 'rgba(143,229,255,.34)';
+        ctx2d.shadowColor = ctx2d.strokeStyle;
+        ctx2d.shadowBlur = 12;
+        ctx2d.beginPath();
+        ctx2d.arc(0, 0, scale * (.92 + i * .16), 0, Math.PI * 2);
+        ctx2d.stroke();
+        ctx2d.restore();
+      }
+      const core = ctx2d.createRadialGradient(cx - scale * .05, cy - scale * .07, 0, cx, cy, scale * .22);
+      core.addColorStop(0, 'rgba(255,255,255,.98)');
+      core.addColorStop(.42, 'rgba(255,239,143,.86)');
+      core.addColorStop(1, 'rgba(255,169,86,0)');
+      ctx2d.fillStyle = core;
+      ctx2d.beginPath();
+      ctx2d.arc(cx, cy, scale * .25 * (done ? 1.14 : 1), 0, Math.PI * 2);
+      ctx2d.fill();
+      if (done) {
+        const pulse = ((time * .0012) % 1);
+        ctx2d.strokeStyle = 'rgba(255,246,188,' + (.45 * (1 - pulse)) + ')';
+        ctx2d.lineWidth = 1.5;
+        ctx2d.shadowColor = 'rgba(255,246,188,.7)';
+        ctx2d.shadowBlur = 20;
+        ctx2d.beginPath();
+        ctx2d.arc(cx, cy, scale * (.55 + pulse * 1.15), 0, Math.PI * 2);
+        ctx2d.stroke();
       }
       ctx2d.shadowBlur = 0;
     }
@@ -737,18 +914,46 @@
       camera = new THREE.PerspectiveCamera(48, 1, .1, 100);
       camera.position.z = 4.6;
       group = new THREE.Group();
-      group.add(makeCloud(1750, 0xb9f3ff, .072, .42, 1.28));
-      group.add(makeCloud(980, 0xffdd8a, .088, .78, 1.46));
-      group.add(makeCloud(760, 0xd2a8ff, .064, .18, .92));
-      const ring = new THREE.Mesh(
-        new THREE.TorusGeometry(1.26, .006, 8, 160),
-        new THREE.MeshBasicMaterial({ color: 0x9de7ff, transparent: true, opacity: .32, blending: THREE.AdditiveBlending })
+      group.add(makeCloud(2100, 0xb9f3ff, .066, .32, 1.36));
+      group.add(makeCloud(1260, 0xffdd8a, .084, .62, 1.58));
+      group.add(makeCloud(960, 0xd2a8ff, .058, .16, 1.04));
+      group.add(makeCloud(420, 0xff9a6f, .052, 1.08, 1.78));
+      haloMesh = new THREE.Mesh(
+        new THREE.SphereGeometry(.72, 32, 24),
+        new THREE.MeshBasicMaterial({ color: 0xffdc86, transparent: true, opacity: .16, blending: THREE.AdditiveBlending, depthWrite: false })
       );
-      ring.rotation.x = Math.PI * .53;
-      group.add(ring);
+      coreMesh = new THREE.Mesh(
+        new THREE.SphereGeometry(.18, 32, 24),
+        new THREE.MeshBasicMaterial({ color: 0xfff1a8, transparent: true, opacity: .92, blending: THREE.AdditiveBlending, depthWrite: false })
+      );
+      group.add(haloMesh);
+      group.add(coreMesh);
+      [
+        { radius:1.18, color:0x9de7ff, opacity:.34, rx:.53, rz:.08 },
+        { radius:1.43, color:0xffdd8a, opacity:.28, rx:.62, rz:.72 },
+        { radius:.92, color:0xd2a8ff, opacity:.30, rx:.46, rz:-.52 },
+      ].forEach((item) => {
+        const ring = new THREE.Mesh(
+          new THREE.TorusGeometry(item.radius, .006, 8, 180),
+          new THREE.MeshBasicMaterial({ color:item.color, transparent:true, opacity:item.opacity, blending:THREE.AdditiveBlending, depthWrite:false })
+        );
+        ring.rotation.x = Math.PI * item.rx;
+        ring.rotation.z = item.rz;
+        group.add(ring);
+      });
       scene.add(group);
       resizeNebula();
       window.addEventListener('resize', resizeNebula);
+      window.addEventListener('pointermove', (event) => {
+        pointerX = ((event.clientX / (window.innerWidth || 1)) - .5) * 2;
+        pointerY = ((event.clientY / (window.innerHeight || 1)) - .5) * 2;
+      }, { passive:true });
+      window.addEventListener('touchmove', (event) => {
+        const touch = event.touches?.[0];
+        if (!touch) return;
+        pointerX = ((touch.clientX / (window.innerWidth || 1)) - .5) * 2;
+        pointerY = ((touch.clientY / (window.innerHeight || 1)) - .5) * 2;
+      }, { passive:true });
     }
 
     function resizeNebula() {
@@ -779,10 +984,20 @@
         drawFallbackNebula(time);
         return;
       }
-      group.rotation.y += .009;
-      group.rotation.x = Math.sin(time * .00042) * .24;
-      group.rotation.z = Math.cos(time * .00032) * .10;
-      const scale = overlay.classList.contains('done') ? 1.14 : 1 + Math.sin(time * .0022) * .018;
+      const done = overlay.classList.contains('done');
+      group.rotation.y += done ? .014 : .0095;
+      group.rotation.x = Math.sin(time * .00042) * .24 + pointerY * .08;
+      group.rotation.z = Math.cos(time * .00032) * .10 - pointerX * .08;
+      if (coreMesh) {
+        const coreScale = done ? 1.34 : 1 + Math.sin(time * .0046) * .16;
+        coreMesh.scale.setScalar(coreScale);
+      }
+      if (haloMesh) {
+        const haloScale = done ? 1.35 : 1 + Math.sin(time * .0026) * .08;
+        haloMesh.scale.setScalar(haloScale);
+        haloMesh.material.opacity = done ? .24 : .14 + Math.sin(time * .002) * .03;
+      }
+      const scale = done ? 1.16 : 1 + Math.sin(time * .0022) * .022;
       group.scale.setScalar(scale);
       renderer.render(scene, camera);
     }
