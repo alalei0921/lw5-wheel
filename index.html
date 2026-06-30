@@ -309,7 +309,7 @@
     .nebula-stage{
       position:relative;
       z-index:0;
-      width:min(74vw,340px);
+      width:min(64vw,300px);
       aspect-ratio:1;
       display:grid;
       place-items:center;
@@ -884,9 +884,9 @@
       ctx2d.clearRect(0, 0, width, height);
       const done = overlay.classList.contains('done');
       const activeLift = pointerActive ? 1.18 : 1;
-      const cx = width / 2 + pointerX * 58;
-      const cy = height * .47 + pointerY * 46;
-      const scale = Math.min(width, height) * .34;
+      const cx = width / 2 + pointerX * 40;
+      const cy = height * .47 + pointerY * 32;
+      const scale = Math.min(width, height) * .285;
       const ry = time * (done ? .00118 : .00082) + pointerX * .48 + spinBoost;
       const rx = Math.sin(time * .00036) * .26 + pointerY * .34;
       const sinX = Math.sin(rx);
@@ -993,7 +993,7 @@
       renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
       scene = new THREE.Scene();
       camera = new THREE.PerspectiveCamera(48, 1, .1, 100);
-      camera.position.z = 4.6;
+      camera.position.z = 6.1;
       group = new THREE.Group();
       group.add(makeCloud(2100, 0xb9f3ff, .066, .32, 1.36));
       group.add(makeCloud(1260, 0xffdd8a, .084, .62, 1.58));
@@ -1061,8 +1061,8 @@
       group.rotation.y += (done ? .014 : .0095) + dragBoost * .016 + Math.abs(spinBoost) * .018;
       group.rotation.x = Math.sin(time * .00042) * .24 + pointerY * .34;
       group.rotation.z = Math.cos(time * .00032) * .10 - pointerX * .34 + spinBoost * .52;
-      group.position.x = pointerX * .28;
-      group.position.y = -pointerY * .22;
+      group.position.x = pointerX * .18;
+      group.position.y = -pointerY * .14;
       if (coreMesh) {
         const coreScale = (done ? 1.34 : 1 + Math.sin(time * .0046) * .16) + dragBoost * .16 + (pointerActive ? .10 : 0);
         coreMesh.scale.setScalar(coreScale);
