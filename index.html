@@ -249,6 +249,74 @@
       opacity:1;
       transform:translateX(-50%) translateY(0);
     }
+    .nebula-overlay{
+      position:fixed;
+      inset:0;
+      z-index:140;
+      display:grid;
+      place-items:center;
+      overflow:hidden;
+      background:
+        radial-gradient(circle at 50% 42%, rgba(71,207,255,.20), transparent 34%),
+        radial-gradient(circle at 48% 50%, rgba(255,211,111,.12), transparent 42%),
+        rgba(4,8,20,.88);
+      opacity:0;
+      pointer-events:none;
+      transition:opacity .32s ease;
+    }
+    .nebula-overlay.show{
+      opacity:1;
+      pointer-events:auto;
+    }
+    .nebula-overlay.done{
+      background:
+        radial-gradient(circle at 50% 42%, rgba(255,237,153,.28), transparent 35%),
+        radial-gradient(circle at 50% 50%, rgba(71,207,255,.18), transparent 46%),
+        rgba(4,8,20,.88);
+    }
+    .nebula-canvas{
+      position:absolute;
+      inset:0;
+      width:100%;
+      height:100%;
+      z-index:1;
+    }
+    .nebula-fallback{
+      width:min(58vw,260px);
+      aspect-ratio:1;
+      border-radius:50%;
+      position:relative;
+      z-index:0;
+      background:
+        radial-gradient(circle at 36% 32%, rgba(255,255,255,.95), rgba(116,224,255,.56) 18%, rgba(68,92,255,.32) 39%, rgba(246,171,84,.22) 62%, rgba(255,255,255,.02) 73%),
+        conic-gradient(from 90deg, rgba(71,207,255,.38), rgba(255,207,112,.44), rgba(161,98,255,.42), rgba(71,207,255,.38));
+      filter:blur(.1px);
+      box-shadow:0 0 42px rgba(113,218,255,.42), 0 0 92px rgba(246,193,86,.20);
+      animation:nebulaPulse 2.8s ease-in-out infinite;
+    }
+    .nebula-status{
+      position:absolute;
+      left:50%;
+      bottom:max(34px,env(safe-area-inset-bottom));
+      z-index:2;
+      transform:translateX(-50%);
+      width:min(380px,calc(100% - 34px));
+      padding:12px 16px;
+      border:1px solid rgba(255,255,255,.22);
+      border-radius:999px;
+      color:rgba(255,255,255,.92);
+      background:rgba(255,255,255,.10);
+      backdrop-filter:blur(14px);
+      -webkit-backdrop-filter:blur(14px);
+      text-align:center;
+      font-size:14px;
+      font-weight:850;
+      box-shadow:0 16px 36px rgba(0,0,0,.22);
+    }
+    @keyframes nebulaPulse{
+      0%,100%{transform:scale(.96) rotate(0deg)}
+      50%{transform:scale(1.04) rotate(12deg)}
+    }
 
     @media (max-width:420px){
       h1{font-size:28px}
@@ -262,6 +330,11 @@
   <button class="music-btn" id="musicBtn" aria-label="背景音乐">🎵 音乐：开</button>
   <button class="music-btn" id="updateBtn" aria-label="一键更新" style="right: max(12px, env(safe-area-inset-right)); top: calc(max(12px, env(safe-area-inset-top)) + 52px);">🧁 一键更新</button>
   <div class="home-toast" id="homeToast"></div>
+  <div class="nebula-overlay" id="nebulaOverlay" aria-hidden="true">
+    <canvas class="nebula-canvas" id="nebulaCanvas"></canvas>
+    <div class="nebula-fallback" aria-hidden="true"></div>
+    <div class="nebula-status" id="nebulaStatus">唤醒太阳</div>
+  </div>
   <audio id="homeBgm" preload="auto" loop playsinline webkit-playsinline>
     <source src="./bgm.m4a" type="audio/mp4">
     <source src="./bgm.mp3" type="audio/mpeg">
@@ -345,9 +418,12 @@
     (function(){
       const sunBtn = document.getElementById('sunPress');
       const toast = document.getElementById('homeToast');
+      const nebulaOverlay = document.getElementById('nebulaOverlay');
+      const nebulaStatus = document.getElementById('nebulaStatus');
       const LOCAL_API = 'http://192.168.1.105:8788/api/sun-mode';
       const LOCAL_FALLBACK = 'http://192.168.1.105:8788/sun-mode';
       let toastTimer = null;
+      const MIN_NEBULA_MS = 3600;
 
       function showHomeToast(message){
         if (!toast) return;
@@ -355,6 +431,30 @@
         toast.classList.add('show');
         clearTimeout(toastTimer);
         toastTimer = setTimeout(() => toast.classList.remove('show'), 2800);
+      }
+
+      function delay(ms){
+        return new Promise((resolve) => setTimeout(resolve, ms));
+      }
+
+      function showNebula(message){
+        if (!nebulaOverlay) return Date.now();
+        nebulaStatus.textContent = message;
+        nebulaOverlay.classList.remove('done');
+        nebulaOverlay.classList.add('show');
+        nebulaOverlay.setAttribute('aria-hidden', 'false');
+        window.dispatchEvent(new CustomEvent('lw5-nebula-start'));
+        return Date.now();
+      }
+
+      async function finishNebula(message){
+        if (!nebulaOverlay) return;
+        nebulaStatus.textContent = message;
+        nebulaOverlay.classList.add('done');
+        window.dispatchEvent(new CustomEvent('lw5-nebula-finish'));
+        await delay(1200);
+        nebulaOverlay.classList.remove('show', 'done');
+        nebulaOverlay.setAttribute('aria-hidden', 'true');
       }
 
       async function pressSun(){
@@ -366,11 +466,11 @@
 
         sunBtn.disabled = true;
         sunBtn.classList.add('working');
-        showHomeToast('正在按下太阳...');
+        const nebulaStartedAt = showNebula('唤醒太阳');
 
         try {
           const controller = new AbortController();
-          const timer = setTimeout(() => controller.abort(), 9500);
+          const timer = setTimeout(() => controller.abort(), 14000);
           const response = await fetch(LOCAL_API, {
             method: 'POST',
             mode: 'cors',
@@ -380,9 +480,11 @@
           clearTimeout(timer);
           const data = await response.json().catch(() => ({}));
           if (!response.ok) throw new Error(data.error || '本地控制失败');
-          showHomeToast('已打开灯光，并同步让遮阳帘下降。');
+          await delay(Math.max(0, MIN_NEBULA_MS - (Date.now() - nebulaStartedAt)));
+          await finishNebula('已完成');
         } catch (error) {
-          showHomeToast('正在进入本地控制执行...');
+          nebulaStatus.textContent = '切换本地控制';
+          await delay(520);
           location.href = LOCAL_FALLBACK;
           return;
         } finally {
@@ -522,6 +624,177 @@
       if (location.hash === '#conflict') openTool('conflict');
 
     })();
+  </script>
+  <script type="module">
+    import * as THREE from './vendor/three.module.min.js';
+
+    const overlay = document.getElementById('nebulaOverlay');
+    const canvas = document.getElementById('nebulaCanvas');
+    let renderer;
+    let scene;
+    let camera;
+    let group;
+    let frame = 0;
+    let fallbackMode = false;
+    let ctx2d = null;
+    let fallbackParticles = [];
+
+    function makeFallbackParticles() {
+      fallbackParticles = Array.from({ length: 950 }, () => {
+        const theta = Math.random() * Math.PI * 2;
+        const phi = Math.acos((Math.random() * 2) - 1);
+        const radius = .42 + Math.pow(Math.random(), .52) * 1.06;
+        return {
+          x: Math.sin(phi) * Math.cos(theta) * radius,
+          y: Math.cos(phi) * radius,
+          z: Math.sin(phi) * Math.sin(theta) * radius,
+          hue: Math.random() < .56 ? 190 + Math.random() * 28 : (Math.random() < .72 ? 43 + Math.random() * 18 : 260 + Math.random() * 28),
+          size: .8 + Math.random() * 1.8,
+        };
+      });
+    }
+
+    function initFallbackNebula() {
+      fallbackMode = true;
+      ctx2d = canvas.getContext('2d');
+      makeFallbackParticles();
+      resizeNebula();
+    }
+
+    function drawFallbackNebula(time = 0) {
+      if (!ctx2d) return;
+      const width = window.innerWidth || 1;
+      const height = window.innerHeight || 1;
+      ctx2d.clearRect(0, 0, width, height);
+      const cx = width / 2;
+      const cy = height * .47;
+      const scale = Math.min(width, height) * .34;
+      const ry = time * .00072;
+      const rx = Math.sin(time * .00036) * .26;
+      const sinY = Math.sin(ry);
+      const cosY = Math.cos(ry);
+      const sinX = Math.sin(rx);
+      const cosX = Math.cos(rx);
+      const sorted = fallbackParticles.map((p) => {
+        const x1 = p.x * cosY - p.z * sinY;
+        const z1 = p.x * sinY + p.z * cosY;
+        const y1 = p.y * cosX - z1 * sinX;
+        const z2 = p.y * sinX + z1 * cosX;
+        const perspective = 1.9 / (2.75 + z2);
+        return { p, x: cx + x1 * scale * perspective, y: cy + y1 * scale * perspective, z: z2, perspective };
+      }).sort((a, b) => a.z - b.z);
+      for (const item of sorted) {
+        const alpha = Math.max(.16, Math.min(.96, .36 + item.z * .26));
+        const r = item.p.size * item.perspective;
+        ctx2d.beginPath();
+        ctx2d.fillStyle = 'hsla(' + item.p.hue + ', 95%, 72%, ' + alpha + ')';
+        ctx2d.shadowColor = 'hsla(' + item.p.hue + ', 95%, 72%, .75)';
+        ctx2d.shadowBlur = 9;
+        ctx2d.arc(item.x, item.y, r, 0, Math.PI * 2);
+        ctx2d.fill();
+      }
+      ctx2d.shadowBlur = 0;
+    }
+
+    function makePositions(count, inner, outer) {
+      const positions = new Float32Array(count * 3);
+      for (let i = 0; i < count; i += 1) {
+        const theta = Math.random() * Math.PI * 2;
+        const phi = Math.acos((Math.random() * 2) - 1);
+        const radius = inner + Math.pow(Math.random(), .52) * (outer - inner);
+        positions[i * 3] = Math.sin(phi) * Math.cos(theta) * radius;
+        positions[i * 3 + 1] = Math.cos(phi) * radius;
+        positions[i * 3 + 2] = Math.sin(phi) * Math.sin(theta) * radius;
+      }
+      return positions;
+    }
+
+    function makeCloud(count, color, size, inner, outer) {
+      const geometry = new THREE.BufferGeometry();
+      geometry.setAttribute('position', new THREE.BufferAttribute(makePositions(count, inner, outer), 3));
+      const material = new THREE.PointsMaterial({
+        color,
+        size,
+        transparent: true,
+        opacity: .86,
+        depthWrite: false,
+        blending: THREE.AdditiveBlending,
+        sizeAttenuation: true,
+      });
+      return new THREE.Points(geometry, material);
+    }
+
+    function initNebula() {
+      if (renderer || fallbackMode || !canvas) return;
+      try {
+        renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: true, powerPreference: 'high-performance' });
+      } catch (error) {
+        initFallbackNebula();
+        return;
+      }
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+      scene = new THREE.Scene();
+      camera = new THREE.PerspectiveCamera(48, 1, .1, 100);
+      camera.position.z = 4.6;
+      group = new THREE.Group();
+      group.add(makeCloud(1750, 0xb9f3ff, .072, .42, 1.28));
+      group.add(makeCloud(980, 0xffdd8a, .088, .78, 1.46));
+      group.add(makeCloud(760, 0xd2a8ff, .064, .18, .92));
+      const ring = new THREE.Mesh(
+        new THREE.TorusGeometry(1.26, .006, 8, 160),
+        new THREE.MeshBasicMaterial({ color: 0x9de7ff, transparent: true, opacity: .32, blending: THREE.AdditiveBlending })
+      );
+      ring.rotation.x = Math.PI * .53;
+      group.add(ring);
+      scene.add(group);
+      resizeNebula();
+      window.addEventListener('resize', resizeNebula);
+    }
+
+    function resizeNebula() {
+      const width = window.innerWidth || 1;
+      const height = window.innerHeight || 1;
+      if (fallbackMode && ctx2d) {
+        const dpr = Math.min(window.devicePixelRatio || 1, 2);
+        canvas.width = Math.round(width * dpr);
+        canvas.height = Math.round(height * dpr);
+        canvas.style.width = width + 'px';
+        canvas.style.height = height + 'px';
+        ctx2d.setTransform(dpr, 0, 0, dpr, 0, 0);
+        return;
+      }
+      if (!renderer || !camera) return;
+      renderer.setSize(width, height, false);
+      camera.aspect = width / height;
+      camera.updateProjectionMatrix();
+    }
+
+    function animateNebula(time = 0) {
+      if (!overlay?.classList.contains('show')) {
+        frame = 0;
+        return;
+      }
+      frame = requestAnimationFrame(animateNebula);
+      if (fallbackMode) {
+        drawFallbackNebula(time);
+        return;
+      }
+      group.rotation.y += .009;
+      group.rotation.x = Math.sin(time * .00042) * .24;
+      group.rotation.z = Math.cos(time * .00032) * .10;
+      const scale = overlay.classList.contains('done') ? 1.14 : 1 + Math.sin(time * .0022) * .018;
+      group.scale.setScalar(scale);
+      renderer.render(scene, camera);
+    }
+
+    function startNebula() {
+      initNebula();
+      if (!frame) animateNebula();
+    }
+
+    window.addEventListener('lw5-nebula-start', startNebula);
+    window.addEventListener('lw5-nebula-finish', startNebula);
+    if (overlay?.classList.contains('show')) startNebula();
   </script>
 </body>
 </html>

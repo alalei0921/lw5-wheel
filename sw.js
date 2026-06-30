@@ -1,10 +1,12 @@
 // Simple service worker for Lw&5之家 (offline-ish)
-const CACHE = 'lw5-home-v14';
+const CACHE = 'lw5-home-v17';
 const ASSETS = [
   './',
   './index.html',
   './manifest.webmanifest',
   './home-bg.jpg',
+  './vendor/three.module.min.js',
+  './vendor/three.core.min.js',
   './bgm.m4a',
   './bgm.mp3',
   './wheel/',
