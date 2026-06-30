@@ -264,6 +264,9 @@
       opacity:0;
       pointer-events:none;
       transition:opacity .32s ease;
+      touch-action:none;
+      user-select:none;
+      -webkit-user-select:none;
     }
     .nebula-overlay::before{
       content:"";
@@ -285,6 +288,16 @@
         radial-gradient(circle at 50% 52%, rgba(77,221,255,.22), transparent 44%),
         radial-gradient(circle at 60% 40%, rgba(255,141,103,.20), transparent 48%),
         rgba(3,6,18,.90);
+    }
+    .nebula-overlay.interacting .nebula-core{
+      animation-duration:.78s;
+      box-shadow:0 0 34px rgba(255,249,190,.96), 0 0 104px rgba(255,190,89,.58);
+    }
+    .nebula-overlay.interacting .nebula-ring{
+      filter:brightness(1.45) saturate(1.2);
+    }
+    .nebula-overlay.interacting .nebula-fallback{
+      filter:saturate(1.35) brightness(1.08);
     }
     .nebula-canvas{
       position:absolute;
@@ -377,6 +390,7 @@
       box-shadow:0 16px 36px rgba(0,0,0,.24);
       font-size:15px;
       font-weight:900;
+      touch-action:manipulation;
     }
     .nebula-status{
       position:absolute;
@@ -762,6 +776,81 @@
     let fallbackParticles = [];
     let pointerX = 0;
     let pointerY = 0;
+    let targetPointerX = 0;
+    let targetPointerY = 0;
+    let lastPointerX = 0;
+    let lastPointerY = 0;
+    let pointerActive = false;
+    let dragBoost = 0;
+    let spinBoost = 0;
+
+    function clamp(value, min, max) {
+      return Math.max(min, Math.min(max, value));
+    }
+
+    function updatePointerFromPoint(clientX, clientY, active) {
+      const nextX = clamp(((clientX / (window.innerWidth || 1)) - .5) * 2, -1.35, 1.35);
+      const nextY = clamp(((clientY / (window.innerHeight || 1)) - .5) * 2, -1.35, 1.35);
+      if (active) {
+        const dx = nextX - lastPointerX;
+        const dy = nextY - lastPointerY;
+        dragBoost = Math.min(1.8, dragBoost + Math.hypot(dx, dy) * 2.4);
+        spinBoost = clamp(spinBoost + dx * .18, -1.1, 1.1);
+      }
+      targetPointerX = nextX;
+      targetPointerY = nextY;
+      lastPointerX = nextX;
+      lastPointerY = nextY;
+    }
+
+    function bindNebulaInteraction() {
+      if (!overlay || overlay.dataset.interactionBound === '1') return;
+      overlay.dataset.interactionBound = '1';
+      const isBackControl = (event) => event.target?.closest?.('.nebula-back');
+      const start = (event) => {
+        if (isBackControl(event)) return;
+        pointerActive = true;
+        overlay.classList.add('interacting');
+        updatePointerFromPoint(event.clientX, event.clientY, true);
+        try { overlay.setPointerCapture(event.pointerId); } catch (_) {}
+      };
+      const move = (event) => {
+        if (!overlay.classList.contains('show')) return;
+        updatePointerFromPoint(event.clientX, event.clientY, pointerActive);
+      };
+      const end = () => {
+        pointerActive = false;
+        overlay.classList.remove('interacting');
+      };
+      overlay.addEventListener('pointerdown', start, { passive:true });
+      overlay.addEventListener('pointermove', move, { passive:true });
+      overlay.addEventListener('pointerup', end, { passive:true });
+      overlay.addEventListener('pointercancel', end, { passive:true });
+      overlay.addEventListener('pointerleave', end, { passive:true });
+      overlay.addEventListener('touchstart', (event) => {
+        if (isBackControl(event)) return;
+        const touch = event.touches?.[0];
+        if (!touch) return;
+        pointerActive = true;
+        overlay.classList.add('interacting');
+        updatePointerFromPoint(touch.clientX, touch.clientY, true);
+      }, { passive:true });
+      overlay.addEventListener('touchmove', (event) => {
+        const touch = event.touches?.[0];
+        if (!touch) return;
+        updatePointerFromPoint(touch.clientX, touch.clientY, pointerActive);
+      }, { passive:true });
+      overlay.addEventListener('touchend', end, { passive:true });
+      overlay.addEventListener('touchcancel', end, { passive:true });
+    }
+
+    function updateInteractionPhysics() {
+      const follow = pointerActive ? .32 : .16;
+      pointerX += (targetPointerX - pointerX) * follow;
+      pointerY += (targetPointerY - pointerY) * follow;
+      dragBoost *= pointerActive ? .92 : .86;
+      spinBoost *= .93;
+    }
 
     function makeFallbackParticles() {
       fallbackParticles = Array.from({ length: 1400 }, () => {
@@ -785,16 +874,7 @@
       ctx2d = canvas.getContext('2d');
       makeFallbackParticles();
       resizeNebula();
-      window.addEventListener('pointermove', (event) => {
-        pointerX = ((event.clientX / (window.innerWidth || 1)) - .5) * 2;
-        pointerY = ((event.clientY / (window.innerHeight || 1)) - .5) * 2;
-      }, { passive:true });
-      window.addEventListener('touchmove', (event) => {
-        const touch = event.touches?.[0];
-        if (!touch) return;
-        pointerX = ((touch.clientX / (window.innerWidth || 1)) - .5) * 2;
-        pointerY = ((touch.clientY / (window.innerHeight || 1)) - .5) * 2;
-      }, { passive:true });
+      bindNebulaInteraction();
     }
 
     function drawFallbackNebula(time = 0) {
@@ -803,22 +883,23 @@
       const height = window.innerHeight || 1;
       ctx2d.clearRect(0, 0, width, height);
       const done = overlay.classList.contains('done');
-      const cx = width / 2 + pointerX * 18;
-      const cy = height * .47 + pointerY * 18;
+      const activeLift = pointerActive ? 1.18 : 1;
+      const cx = width / 2 + pointerX * 58;
+      const cy = height * .47 + pointerY * 46;
       const scale = Math.min(width, height) * .34;
-      const ry = time * (done ? .00118 : .00082);
-      const rx = Math.sin(time * .00036) * .26 + pointerY * .08;
+      const ry = time * (done ? .00118 : .00082) + pointerX * .48 + spinBoost;
+      const rx = Math.sin(time * .00036) * .26 + pointerY * .34;
       const sinX = Math.sin(rx);
       const cosX = Math.cos(rx);
       const glow = ctx2d.createRadialGradient(cx, cy, 0, cx, cy, scale * 1.55);
-      glow.addColorStop(0, done ? 'rgba(255,244,178,.36)' : 'rgba(255,244,178,.22)');
-      glow.addColorStop(.32, 'rgba(87,218,255,.12)');
-      glow.addColorStop(.68, 'rgba(173,104,255,.08)');
+      glow.addColorStop(0, done ? 'rgba(255,244,178,.42)' : 'rgba(255,244,178,.26)');
+      glow.addColorStop(.32, pointerActive ? 'rgba(87,218,255,.22)' : 'rgba(87,218,255,.12)');
+      glow.addColorStop(.68, pointerActive ? 'rgba(173,104,255,.16)' : 'rgba(173,104,255,.08)');
       glow.addColorStop(1, 'rgba(0,0,0,0)');
       ctx2d.fillStyle = glow;
       ctx2d.fillRect(0, 0, width, height);
       const sorted = fallbackParticles.map((p) => {
-        const localY = ry + Math.sin(time * .0005 + p.orbit) * .12;
+        const localY = ry + Math.sin(time * (.0005 + dragBoost * .00024) + p.orbit) * (.12 + dragBoost * .08);
         const sy = Math.sin(localY);
         const cy2 = Math.cos(localY);
         const x1 = p.x * cy2 - p.z * sy;
@@ -829,8 +910,8 @@
         return { p, x: cx + x1 * scale * perspective, y: cy + y1 * scale * perspective, z: z2, perspective };
       }).sort((a, b) => a.z - b.z);
       for (const item of sorted) {
-        const alpha = Math.max(.14, Math.min(.98, (done ? .48 : .34) + item.z * .27));
-        const r = item.p.size * item.perspective * (done ? 1.18 : 1);
+        const alpha = Math.max(.14, Math.min(.98, (done ? .48 : .34) + item.z * .27 + dragBoost * .08));
+        const r = item.p.size * item.perspective * (done ? 1.18 : 1) * (1 + dragBoost * .20 + (pointerActive ? .10 : 0));
         ctx2d.beginPath();
         ctx2d.fillStyle = 'hsla(' + item.p.hue + ', 95%, 72%, ' + alpha + ')';
         ctx2d.shadowColor = 'hsla(' + item.p.hue + ', 95%, 72%, .75)';
@@ -842,7 +923,7 @@
       for (let i = 0; i < 3; i += 1) {
         ctx2d.save();
         ctx2d.translate(cx, cy);
-        ctx2d.rotate(time * (.00045 + i * .00016) * (i === 1 ? -1 : 1));
+        ctx2d.rotate(time * (.00045 + i * .00016 + dragBoost * .00018) * (i === 1 ? -1 : 1) + pointerX * .48);
         ctx2d.scale(1, .26 + i * .08);
         ctx2d.strokeStyle = i === 1 ? 'rgba(255,225,139,.36)' : 'rgba(143,229,255,.34)';
         ctx2d.shadowColor = ctx2d.strokeStyle;
@@ -858,7 +939,7 @@
       core.addColorStop(1, 'rgba(255,169,86,0)');
       ctx2d.fillStyle = core;
       ctx2d.beginPath();
-      ctx2d.arc(cx, cy, scale * .25 * (done ? 1.14 : 1), 0, Math.PI * 2);
+      ctx2d.arc(cx, cy, scale * .25 * (done ? 1.14 : 1) * activeLift, 0, Math.PI * 2);
       ctx2d.fill();
       if (done) {
         const pulse = ((time * .0012) % 1);
@@ -944,16 +1025,7 @@
       scene.add(group);
       resizeNebula();
       window.addEventListener('resize', resizeNebula);
-      window.addEventListener('pointermove', (event) => {
-        pointerX = ((event.clientX / (window.innerWidth || 1)) - .5) * 2;
-        pointerY = ((event.clientY / (window.innerHeight || 1)) - .5) * 2;
-      }, { passive:true });
-      window.addEventListener('touchmove', (event) => {
-        const touch = event.touches?.[0];
-        if (!touch) return;
-        pointerX = ((touch.clientX / (window.innerWidth || 1)) - .5) * 2;
-        pointerY = ((touch.clientY / (window.innerHeight || 1)) - .5) * 2;
-      }, { passive:true });
+      bindNebulaInteraction();
     }
 
     function resizeNebula() {
@@ -980,24 +1052,27 @@
         return;
       }
       frame = requestAnimationFrame(animateNebula);
+      updateInteractionPhysics();
       if (fallbackMode) {
         drawFallbackNebula(time);
         return;
       }
       const done = overlay.classList.contains('done');
-      group.rotation.y += done ? .014 : .0095;
-      group.rotation.x = Math.sin(time * .00042) * .24 + pointerY * .08;
-      group.rotation.z = Math.cos(time * .00032) * .10 - pointerX * .08;
+      group.rotation.y += (done ? .014 : .0095) + dragBoost * .016 + Math.abs(spinBoost) * .018;
+      group.rotation.x = Math.sin(time * .00042) * .24 + pointerY * .34;
+      group.rotation.z = Math.cos(time * .00032) * .10 - pointerX * .34 + spinBoost * .52;
+      group.position.x = pointerX * .28;
+      group.position.y = -pointerY * .22;
       if (coreMesh) {
-        const coreScale = done ? 1.34 : 1 + Math.sin(time * .0046) * .16;
+        const coreScale = (done ? 1.34 : 1 + Math.sin(time * .0046) * .16) + dragBoost * .16 + (pointerActive ? .10 : 0);
         coreMesh.scale.setScalar(coreScale);
       }
       if (haloMesh) {
-        const haloScale = done ? 1.35 : 1 + Math.sin(time * .0026) * .08;
+        const haloScale = (done ? 1.35 : 1 + Math.sin(time * .0026) * .08) + dragBoost * .10;
         haloMesh.scale.setScalar(haloScale);
-        haloMesh.material.opacity = done ? .24 : .14 + Math.sin(time * .002) * .03;
+        haloMesh.material.opacity = done ? .24 : .14 + Math.sin(time * .002) * .03 + dragBoost * .06;
       }
-      const scale = done ? 1.16 : 1 + Math.sin(time * .0022) * .022;
+      const scale = (done ? 1.16 : 1 + Math.sin(time * .0022) * .022) + dragBoost * .035 + (pointerActive ? .025 : 0);
       group.scale.setScalar(scale);
       renderer.render(scene, camera);
     }
