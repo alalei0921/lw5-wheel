@@ -21,6 +21,11 @@
     .local-btn.connected{background:rgba(64,160,104,.74);color:#fff;border-color:rgba(255,255,255,.86);box-shadow:0 14px 28px rgba(33,104,62,.22)}
     button{cursor:pointer}
     .panel{border-radius:18px;padding:14px;margin-bottom:12px}
+    .alarm-preview{display:grid;grid-template-columns:1fr auto;gap:12px;align-items:center}
+    .alarm-title{font-size:20px;font-weight:950}
+    .alarm-time{margin-top:6px;font-size:38px;line-height:1;font-weight:520;color:#1f2937}
+    .alarm-detail{margin-top:6px;font-size:13px;font-weight:850;color:rgba(17,24,39,.66)}
+    .add-btn{width:48px;min-height:48px;font-size:28px;line-height:1}
     .toolbar{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-bottom:12px}
     .open{background:rgba(89,177,126,.54);color:#fff}
     .close{background:rgba(224,103,83,.56);color:#fff}
@@ -32,7 +37,7 @@
     .controls{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
     .toast{position:fixed;left:50%;bottom:max(18px,env(safe-area-inset-bottom));transform:translateX(-50%) translateY(18px);z-index:20;width:min(420px,calc(100% - 28px));padding:12px 14px;border-radius:16px;background:rgba(17,24,39,.90);color:#fff;font-weight:850;text-align:center;opacity:0;pointer-events:none;transition:opacity .18s ease,transform .18s ease}
     .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
-    @media (max-width:560px){.shell{padding:14px}.toolbar,.controls{grid-template-columns:1fr}header{flex-direction:column}.home-btn,.local-btn{width:100%}h1{font-size:25px}.card-head{flex-direction:column}.state{text-align:left}}
+    @media (max-width:560px){.shell{padding:14px}.toolbar,.controls{grid-template-columns:1fr}header{flex-direction:column}.home-btn,.local-btn{width:100%}h1{font-size:25px}.card-head{flex-direction:column}.state{text-align:left}.alarm-time{font-size:34px}}
   </style>
 </head>
 <body>
@@ -46,6 +51,14 @@
     </header>
     <section class="panel">
       <a class="local-btn" id="localControl" href="http://192.168.1.105:8788/aurora" target="_top">连接家里 WiFi 后进入本地控制</a>
+    </section>
+    <section class="panel alarm-preview">
+      <div>
+        <div class="alarm-title">遮阳帘闹钟</div>
+        <div class="alarm-time">07:00</div>
+        <div class="alarm-detail">进入本地控制后可添加、重复和开关闹钟</div>
+      </div>
+      <button class="add-btn" type="button" data-locked>+</button>
     </section>
 
     <section class="toolbar">
