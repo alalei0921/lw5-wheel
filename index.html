@@ -250,6 +250,7 @@
       transform:translateX(-50%) translateY(0);
     }
     .nebula-overlay{
+      --nebula-level:0;
       position:fixed;
       inset:0;
       z-index:140;
@@ -276,6 +277,7 @@
       background:
         conic-gradient(from 0deg at 50% 50%, rgba(255,226,132,.08), rgba(66,210,255,.13), rgba(189,113,255,.11), rgba(255,150,99,.10), rgba(255,226,132,.08));
       filter:blur(18px);
+      opacity:calc(.54 + var(--nebula-level) * .46);
       animation:nebulaDrift 18s linear infinite;
     }
     .nebula-overlay.show{
@@ -297,7 +299,7 @@
       filter:brightness(1.45) saturate(1.2);
     }
     .nebula-overlay.interacting .nebula-fallback{
-      filter:saturate(1.35) brightness(1.08);
+      filter:saturate(calc(1.15 + var(--nebula-level) * .62)) brightness(calc(.9 + var(--nebula-level) * .48));
     }
     .nebula-canvas{
       position:absolute;
@@ -324,8 +326,8 @@
       background:
         radial-gradient(circle at 36% 32%, rgba(255,255,255,.96), rgba(126,236,255,.60) 18%, rgba(73,100,255,.34) 39%, rgba(255,190,94,.28) 62%, rgba(255,255,255,.03) 73%),
         conic-gradient(from 90deg, rgba(71,207,255,.45), rgba(255,214,112,.50), rgba(177,107,255,.46), rgba(255,151,104,.34), rgba(71,207,255,.45));
-      filter:blur(.1px);
-      box-shadow:0 0 46px rgba(113,218,255,.48), 0 0 104px rgba(246,193,86,.26), inset 0 0 36px rgba(255,255,255,.22);
+      filter:saturate(calc(.82 + var(--nebula-level) * .72)) brightness(calc(.68 + var(--nebula-level) * .62));
+      box-shadow:0 0 calc(28px + var(--nebula-level) * 54px) rgba(113,218,255,.48), 0 0 calc(60px + var(--nebula-level) * 96px) rgba(246,193,86,.26), inset 0 0 36px rgba(255,255,255,.22);
       animation:nebulaPulse 2.8s ease-in-out infinite;
     }
     .nebula-core{
@@ -335,7 +337,7 @@
       position:absolute;
       background:
         radial-gradient(circle at 35% 32%, #fff, #fff4ad 34%, rgba(255,168,74,.72) 58%, rgba(88,206,255,.18) 78%, transparent 82%);
-      box-shadow:0 0 24px rgba(255,245,168,.88), 0 0 78px rgba(255,190,89,.42);
+      box-shadow:0 0 calc(14px + var(--nebula-level) * 34px) rgba(255,245,168,.88), 0 0 calc(42px + var(--nebula-level) * 96px) rgba(255,190,89,.42);
       animation:nebulaCore 1.8s ease-in-out infinite;
     }
     .nebula-ring{
@@ -392,13 +394,18 @@
       font-weight:900;
       touch-action:manipulation;
     }
-    .nebula-status{
+    .nebula-status-wrap{
       position:absolute;
       left:50%;
       bottom:max(34px,env(safe-area-inset-bottom));
       z-index:2;
       transform:translateX(-50%);
-      width:min(380px,calc(100% - 34px));
+      width:min(390px,calc(100% - 34px));
+      display:grid;
+      gap:8px;
+    }
+    .nebula-status,
+    .nebula-hint{
       padding:12px 16px;
       border:1px solid rgba(255,255,255,.22);
       border-radius:999px;
@@ -410,6 +417,13 @@
       font-size:14px;
       font-weight:850;
       box-shadow:0 16px 36px rgba(0,0,0,.22);
+    }
+    .nebula-hint{
+      padding:10px 14px;
+      font-size:12px;
+      font-weight:750;
+      color:rgba(255,255,255,.78);
+      background:rgba(3,6,18,.18);
     }
     @keyframes nebulaDrift{
       to{transform:rotate(360deg)}
@@ -438,7 +452,7 @@
   </style>
 </head>
 <body>
-  <button class="sun-press" id="sunPress" type="button" aria-label="按下太阳，打开除衣帽间以外的灯并让遮阳帘下降"></button>
+  <button class="sun-press" id="sunPress" type="button" aria-label="按下太阳，旋转星云控制灯光"></button>
   <button class="music-btn" id="musicBtn" aria-label="背景音乐">🎵 音乐：开</button>
   <button class="music-btn" id="updateBtn" aria-label="一键更新" style="right: max(12px, env(safe-area-inset-right)); top: calc(max(12px, env(safe-area-inset-top)) + 52px);">🧁 一键更新</button>
   <div class="home-toast" id="homeToast"></div>
@@ -453,7 +467,10 @@
       <div class="nebula-ring three"></div>
       <div class="nebula-burst"></div>
     </div>
-    <div class="nebula-status" id="nebulaStatus">唤醒太阳</div>
+    <div class="nebula-status-wrap">
+      <div class="nebula-status" id="nebulaStatus">向右旋转点亮灯光</div>
+      <div class="nebula-hint" id="nebulaHint">向左旋转会按相反顺序熄灭；未进入本地控制时只播放动画</div>
+    </div>
   </div>
   <audio id="homeBgm" preload="auto" loop playsinline webkit-playsinline>
     <source src="./bgm.m4a" type="audio/mp4">
@@ -540,12 +557,27 @@
       const toast = document.getElementById('homeToast');
       const nebulaOverlay = document.getElementById('nebulaOverlay');
       const nebulaStatus = document.getElementById('nebulaStatus');
+      const nebulaHint = document.getElementById('nebulaHint');
       const nebulaBack = document.getElementById('nebulaBack');
-      const LOCAL_API = 'http://192.168.1.105:8788/api/sun-mode';
-      const LOCAL_FALLBACK = 'http://192.168.1.105:8788/sun-mode';
+      const LOCAL_ORIGIN = 'http://192.168.1.105:8788';
+      const LIGHT_SEQUENCE = [
+        { loop: 9, name: '主卧射灯' },
+        { loop: 4, name: '客厅射灯' },
+        { loop: 3, name: '客厅吊灯' },
+        { loop: 1, name: '玄关灯带' },
+        { loop: 2, name: '玄关射灯' },
+        { loop: 5, name: '餐厅吊灯' },
+        { loop: 6, name: '餐厅射灯' },
+        { loop: 8, name: '主卧吊灯' },
+        { loop: 7, name: '衣帽间' },
+      ];
+      const STEP_COUNT = LIGHT_SEQUENCE.length;
       let toastTimer = null;
       let nebulaRun = 0;
-      const MIN_NEBULA_MS = 3600;
+      let nebulaStep = 0;
+      let localControlFailed = false;
+      let commandQueue = Promise.resolve();
+      window.__nebulaProgress = 0;
 
       function showHomeToast(message){
         if (!toast) return;
@@ -555,17 +587,34 @@
         toastTimer = setTimeout(() => toast.classList.remove('show'), 2800);
       }
 
-      function delay(ms){
-        return new Promise((resolve) => setTimeout(resolve, ms));
+      function setNebulaStep(step, label){
+        nebulaStep = Math.max(0, Math.min(STEP_COUNT, step));
+        const progress = nebulaStep / STEP_COUNT;
+        window.__nebulaProgress = progress;
+        nebulaOverlay?.style.setProperty('--nebula-level', String(progress));
+        nebulaOverlay?.classList.toggle('done', nebulaStep === STEP_COUNT);
+        if (label) {
+          nebulaStatus.textContent = label;
+        } else if (nebulaStep === 0) {
+          nebulaStatus.textContent = '向右旋转点亮灯光';
+        } else if (nebulaStep === STEP_COUNT) {
+          nebulaStatus.textContent = '九盏灯已全部点亮';
+        } else {
+          nebulaStatus.textContent = '已点亮 ' + nebulaStep + ' / ' + STEP_COUNT + '：' + LIGHT_SEQUENCE[nebulaStep - 1].name;
+        }
+        window.dispatchEvent(new CustomEvent('lw5-nebula-progress', { detail: { step: nebulaStep, progress } }));
       }
 
-      function showNebula(message){
+      function showNebula(){
         const run = ++nebulaRun;
         if (!nebulaOverlay) return { run, startedAt: Date.now() };
-        nebulaStatus.textContent = message;
+        localControlFailed = false;
+        commandQueue = Promise.resolve();
+        nebulaHint.textContent = '向左旋转会按相反顺序熄灭；未进入本地控制时只播放动画';
         nebulaOverlay.classList.remove('done');
         nebulaOverlay.classList.add('show');
         nebulaOverlay.setAttribute('aria-hidden', 'false');
+        setNebulaStep(0);
         window.dispatchEvent(new CustomEvent('lw5-nebula-start'));
         return { run, startedAt: Date.now() };
       }
@@ -574,58 +623,44 @@
         nebulaRun += 1;
         nebulaOverlay?.classList.remove('show', 'done');
         nebulaOverlay?.setAttribute('aria-hidden', 'true');
+        setNebulaStep(0);
         sunBtn.disabled = false;
         sunBtn.classList.remove('working');
       }
 
-      async function finishNebula(run, message){
-        if (!nebulaOverlay || run !== nebulaRun) return;
-        nebulaStatus.textContent = message;
-        nebulaOverlay.classList.add('done');
-        window.dispatchEvent(new CustomEvent('lw5-nebula-finish'));
-      }
-
-      async function pressSun(){
-        if (!sunBtn || sunBtn.disabled) return;
-        if (!navigator.onLine) {
-          showHomeToast('请先联网，并连接家里的 WiFi。');
-          return;
-        }
-
-        sunBtn.disabled = true;
-        sunBtn.classList.add('working');
-        const nebulaStarted = showNebula('唤醒太阳');
-        const stageTimer = setTimeout(() => {
-          if (nebulaStarted.run === nebulaRun) nebulaStatus.textContent = '星云旋转中';
-        }, 1100);
-
+      async function sendLightCommand(light, on){
         try {
-          const controller = new AbortController();
-          const timer = setTimeout(() => controller.abort(), 14000);
-          const response = await fetch(LOCAL_API, {
+          const response = await fetch(LOCAL_ORIGIN + '/api/sun-lights/' + light.loop + '/' + (on ? 'on' : 'off'), {
             method: 'POST',
             mode: 'cors',
             cache: 'no-store',
-            signal: controller.signal,
           });
-          clearTimeout(timer);
           const data = await response.json().catch(() => ({}));
           if (!response.ok) throw new Error(data.error || '本地控制失败');
-          await delay(Math.max(0, MIN_NEBULA_MS - (Date.now() - nebulaStarted.startedAt)));
-          await finishNebula(nebulaStarted.run, '已完成');
+          if (!localControlFailed) nebulaHint.textContent = '本地控制已连接，继续旋转即可控制灯光';
         } catch (error) {
-          if (nebulaStarted.run !== nebulaRun) return;
-          nebulaStatus.textContent = '切换本地控制';
-          await delay(520);
-          location.href = LOCAL_FALLBACK;
-          return;
-        } finally {
-          clearTimeout(stageTimer);
-          sunBtn.disabled = false;
-          sunBtn.classList.remove('working');
+          localControlFailed = true;
+          nebulaHint.textContent = '未进入本地控制：当前只播放动画，连接家里 Wi-Fi 后才会真正控制灯光';
         }
       }
 
+      function moveNebulaStep(direction){
+        if (!nebulaOverlay?.classList.contains('show')) return;
+        if (direction > 0 && nebulaStep >= STEP_COUNT) return;
+        if (direction < 0 && nebulaStep <= 0) return;
+        const nextStep = nebulaStep + direction;
+        const light = direction > 0 ? LIGHT_SEQUENCE[nextStep - 1] : LIGHT_SEQUENCE[nebulaStep - 1];
+        setNebulaStep(nextStep, (direction > 0 ? '点亮：' : '熄灭：') + light.name);
+        commandQueue = commandQueue.then(() => sendLightCommand(light, direction > 0));
+      }
+
+      function pressSun(){
+        if (!sunBtn || sunBtn.disabled) return;
+        sunBtn.classList.add('working');
+        showNebula();
+      }
+
+      window.lw5NebulaControl = { get step(){ return nebulaStep; }, move: moveNebulaStep };
       nebulaBack?.addEventListener('click', closeNebula);
       sunBtn?.addEventListener('click', pressSun);
     })();
@@ -783,6 +818,9 @@
     let pointerActive = false;
     let dragBoost = 0;
     let spinBoost = 0;
+    let dragAccumulator = 0;
+    let lastControlClientX = 0;
+    const DRAG_STEP_PX = 46;
 
     function clamp(value, min, max) {
       return Math.max(min, Math.min(max, value));
@@ -803,6 +841,22 @@
       lastPointerY = nextY;
     }
 
+    function handleControlDrag(clientX) {
+      if (!pointerActive || !window.lw5NebulaControl) return;
+      const dx = clientX - lastControlClientX;
+      lastControlClientX = clientX;
+      if (Math.abs(dx) > 90) return;
+      dragAccumulator += dx;
+      while (dragAccumulator >= DRAG_STEP_PX) {
+        window.lw5NebulaControl.move(1);
+        dragAccumulator -= DRAG_STEP_PX;
+      }
+      while (dragAccumulator <= -DRAG_STEP_PX) {
+        window.lw5NebulaControl.move(-1);
+        dragAccumulator += DRAG_STEP_PX;
+      }
+    }
+
     function bindNebulaInteraction() {
       if (!overlay || overlay.dataset.interactionBound === '1') return;
       overlay.dataset.interactionBound = '1';
@@ -810,16 +864,20 @@
       const start = (event) => {
         if (isBackControl(event)) return;
         pointerActive = true;
+        dragAccumulator = 0;
+        lastControlClientX = event.clientX;
         overlay.classList.add('interacting');
         updatePointerFromPoint(event.clientX, event.clientY, true);
         try { overlay.setPointerCapture(event.pointerId); } catch (_) {}
       };
       const move = (event) => {
         if (!overlay.classList.contains('show')) return;
+        if (pointerActive) handleControlDrag(event.clientX);
         updatePointerFromPoint(event.clientX, event.clientY, pointerActive);
       };
       const end = () => {
         pointerActive = false;
+        dragAccumulator = 0;
         overlay.classList.remove('interacting');
       };
       overlay.addEventListener('pointerdown', start, { passive:true });
@@ -832,12 +890,15 @@
         const touch = event.touches?.[0];
         if (!touch) return;
         pointerActive = true;
+        dragAccumulator = 0;
+        lastControlClientX = touch.clientX;
         overlay.classList.add('interacting');
         updatePointerFromPoint(touch.clientX, touch.clientY, true);
       }, { passive:true });
       overlay.addEventListener('touchmove', (event) => {
         const touch = event.touches?.[0];
         if (!touch) return;
+        if (pointerActive) handleControlDrag(touch.clientX);
         updatePointerFromPoint(touch.clientX, touch.clientY, pointerActive);
       }, { passive:true });
       overlay.addEventListener('touchend', end, { passive:true });
@@ -883,18 +944,19 @@
       const height = window.innerHeight || 1;
       ctx2d.clearRect(0, 0, width, height);
       const done = overlay.classList.contains('done');
+      const progress = Math.max(0, Math.min(1, Number(window.__nebulaProgress || 0)));
       const activeLift = pointerActive ? 1.18 : 1;
       const cx = width / 2 + pointerX * 40;
       const cy = height * .47 + pointerY * 32;
-      const scale = Math.min(width, height) * .285;
-      const ry = time * (done ? .00118 : .00082) + pointerX * .48 + spinBoost;
+      const scale = Math.min(width, height) * (.255 + progress * .045);
+      const ry = time * (.0007 + progress * .00054) + pointerX * .48 + spinBoost;
       const rx = Math.sin(time * .00036) * .26 + pointerY * .34;
       const sinX = Math.sin(rx);
       const cosX = Math.cos(rx);
       const glow = ctx2d.createRadialGradient(cx, cy, 0, cx, cy, scale * 1.55);
-      glow.addColorStop(0, done ? 'rgba(255,244,178,.42)' : 'rgba(255,244,178,.26)');
-      glow.addColorStop(.32, pointerActive ? 'rgba(87,218,255,.22)' : 'rgba(87,218,255,.12)');
-      glow.addColorStop(.68, pointerActive ? 'rgba(173,104,255,.16)' : 'rgba(173,104,255,.08)');
+      glow.addColorStop(0, 'rgba(255,244,178,' + (.16 + progress * .32) + ')');
+      glow.addColorStop(.32, 'rgba(87,218,255,' + ((pointerActive ? .16 : .09) + progress * .17) + ')');
+      glow.addColorStop(.68, 'rgba(173,104,255,' + ((pointerActive ? .13 : .06) + progress * .12) + ')');
       glow.addColorStop(1, 'rgba(0,0,0,0)');
       ctx2d.fillStyle = glow;
       ctx2d.fillRect(0, 0, width, height);
@@ -910,12 +972,12 @@
         return { p, x: cx + x1 * scale * perspective, y: cy + y1 * scale * perspective, z: z2, perspective };
       }).sort((a, b) => a.z - b.z);
       for (const item of sorted) {
-        const alpha = Math.max(.14, Math.min(.98, (done ? .48 : .34) + item.z * .27 + dragBoost * .08));
-        const r = item.p.size * item.perspective * (done ? 1.18 : 1) * (1 + dragBoost * .20 + (pointerActive ? .10 : 0));
+        const alpha = Math.max(.08, Math.min(.98, (.20 + progress * .34) + item.z * .25 + dragBoost * .08));
+        const r = item.p.size * item.perspective * (1 + progress * .26) * (1 + dragBoost * .20 + (pointerActive ? .10 : 0));
         ctx2d.beginPath();
         ctx2d.fillStyle = 'hsla(' + item.p.hue + ', 95%, 72%, ' + alpha + ')';
         ctx2d.shadowColor = 'hsla(' + item.p.hue + ', 95%, 72%, .75)';
-        ctx2d.shadowBlur = done ? 14 : 9;
+        ctx2d.shadowBlur = 6 + progress * 11;
         ctx2d.arc(item.x, item.y, r, 0, Math.PI * 2);
         ctx2d.fill();
       }
@@ -939,7 +1001,7 @@
       core.addColorStop(1, 'rgba(255,169,86,0)');
       ctx2d.fillStyle = core;
       ctx2d.beginPath();
-      ctx2d.arc(cx, cy, scale * .25 * (done ? 1.14 : 1) * activeLift, 0, Math.PI * 2);
+      ctx2d.arc(cx, cy, scale * (.18 + progress * .10) * activeLift, 0, Math.PI * 2);
       ctx2d.fill();
       if (done) {
         const pulse = ((time * .0012) % 1);
@@ -1058,21 +1120,23 @@
         return;
       }
       const done = overlay.classList.contains('done');
-      group.rotation.y += (done ? .014 : .0095) + dragBoost * .016 + Math.abs(spinBoost) * .018;
+      const progress = Math.max(0, Math.min(1, Number(window.__nebulaProgress || 0)));
+      group.rotation.y += (.0075 + progress * .007) + dragBoost * .016 + Math.abs(spinBoost) * .018;
       group.rotation.x = Math.sin(time * .00042) * .24 + pointerY * .34;
       group.rotation.z = Math.cos(time * .00032) * .10 - pointerX * .34 + spinBoost * .52;
       group.position.x = pointerX * .18;
       group.position.y = -pointerY * .14;
       if (coreMesh) {
-        const coreScale = (done ? 1.34 : 1 + Math.sin(time * .0046) * .16) + dragBoost * .16 + (pointerActive ? .10 : 0);
+        const coreScale = (.78 + progress * .58 + Math.sin(time * .0046) * .12) + dragBoost * .16 + (pointerActive ? .10 : 0);
         coreMesh.scale.setScalar(coreScale);
+        coreMesh.material.opacity = .56 + progress * .42;
       }
       if (haloMesh) {
-        const haloScale = (done ? 1.35 : 1 + Math.sin(time * .0026) * .08) + dragBoost * .10;
+        const haloScale = (.82 + progress * .62 + Math.sin(time * .0026) * .08) + dragBoost * .10;
         haloMesh.scale.setScalar(haloScale);
-        haloMesh.material.opacity = done ? .24 : .14 + Math.sin(time * .002) * .03 + dragBoost * .06;
+        haloMesh.material.opacity = .08 + progress * .20 + Math.sin(time * .002) * .03 + dragBoost * .06;
       }
-      const scale = (done ? 1.16 : 1 + Math.sin(time * .0022) * .022) + dragBoost * .035 + (pointerActive ? .025 : 0);
+      const scale = (.84 + progress * .32 + Math.sin(time * .0022) * .022) + dragBoost * .035 + (pointerActive ? .025 : 0);
       group.scale.setScalar(scale);
       renderer.render(scene, camera);
     }
