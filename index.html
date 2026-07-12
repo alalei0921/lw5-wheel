@@ -54,6 +54,7 @@
       padding:16px 14px 12px;
       text-align:center;
       transform: translateY(-78px);
+      transition:transform .72s cubic-bezier(.22,.78,.22,1),filter .72s ease,opacity .52s ease;
     }
     h1{
       margin:0;
@@ -194,6 +195,7 @@
       color:#7c4a37;
       cursor:pointer;
       user-select:none;
+      transition:opacity .42s ease,transform .48s cubic-bezier(.2,.8,.2,1);
     }
     .music-btn:active{ transform: translateY(1px) scale(.98); }
     .sun-press{
@@ -219,13 +221,23 @@
     }
     .sun-press:active,
     .sun-press.working{
-      opacity:.72;
-      transform:scale(.94);
+      opacity:0;
+      transform:scale(.88);
       box-shadow:
         inset 0 2px 20px rgba(255,255,255,.34),
         0 0 34px rgba(255,221,94,.28);
     }
     .sun-press:disabled{cursor:wait}
+    body.nebula-active .card{
+      transform:translateY(-78px) scale(.975);
+      filter:brightness(.58) saturate(.72) blur(1.2px);
+      opacity:.74;
+    }
+    body.nebula-active .music-btn{
+      opacity:0;
+      pointer-events:none;
+      transform:translateY(-8px) scale(.96);
+    }
     .home-toast{
       position:fixed;
       left:50%;
@@ -252,6 +264,13 @@
     .nebula-overlay{
       --nebula-level:0;
       --nebula-energy:0;
+      --sun-x:50vw;
+      --sun-y:8vh;
+      --sun-radius:34px;
+      --sun-size:68px;
+      --nebula-mini-x:0px;
+      --nebula-mini-y:0px;
+      --nebula-mini-scale:.24;
       position:fixed;
       inset:0;
       z-index:140;
@@ -264,12 +283,15 @@
         radial-gradient(circle at 42% 58%, rgba(68,211,255,calc(.055 + var(--nebula-energy) * .15)), transparent 42%),
         radial-gradient(circle at 62% 38%, rgba(189,113,255,calc(.050 + var(--nebula-energy) * .105)), transparent 46%),
         rgba(1,3,11,.985);
-      opacity:0;
+      opacity:1;
       pointer-events:none;
-      transition:opacity .32s ease;
+      clip-path:circle(var(--sun-radius) at var(--sun-x) var(--sun-y));
+      -webkit-clip-path:circle(var(--sun-radius) at var(--sun-x) var(--sun-y));
+      transition:clip-path 1.04s cubic-bezier(.22,.62,.24,1),-webkit-clip-path 1.04s cubic-bezier(.22,.62,.24,1);
       touch-action:none;
       user-select:none;
       -webkit-user-select:none;
+      will-change:clip-path;
     }
     .nebula-overlay::before{
       content:"";
@@ -294,9 +316,18 @@
       mix-blend-mode:screen;
       opacity:calc(.15 + var(--nebula-energy) * .85);
     }
-    .nebula-overlay.show{
-      opacity:1;
+    .nebula-overlay.expanding,
+    .nebula-overlay.expanded{
+      clip-path:circle(150vmax at var(--sun-x) var(--sun-y));
+      -webkit-clip-path:circle(150vmax at var(--sun-x) var(--sun-y));
       pointer-events:auto;
+    }
+    .nebula-overlay.collapsing{
+      clip-path:circle(var(--sun-radius) at var(--sun-x) var(--sun-y));
+      -webkit-clip-path:circle(var(--sun-radius) at var(--sun-x) var(--sun-y));
+      pointer-events:auto;
+      transition-duration:.76s;
+      transition-timing-function:cubic-bezier(.50,0,.28,1);
     }
     .nebula-overlay.done{
       --nebula-energy:1;
@@ -327,6 +358,19 @@
       display:grid;
       place-items:center;
       pointer-events:none;
+      transform:translate(var(--nebula-mini-x),var(--nebula-mini-y)) scale(var(--nebula-mini-scale));
+      transform-origin:center;
+      transition:transform 1.04s cubic-bezier(.22,.62,.24,1),filter .54s ease;
+      will-change:transform;
+    }
+    .nebula-overlay.expanding .nebula-stage,
+    .nebula-overlay.expanded .nebula-stage{
+      transform:translate(0,0) scale(1);
+    }
+    .nebula-overlay.collapsing .nebula-stage{
+      transform:translate(var(--nebula-mini-x),var(--nebula-mini-y)) scale(var(--nebula-mini-scale));
+      transition-duration:.76s;
+      transition-timing-function:cubic-bezier(.50,0,.28,1);
     }
     .nebula-radiance{
       position:absolute;
@@ -426,6 +470,74 @@
     .nebula-burst.extinguish{
       animation:nebulaExtinguish .72s ease-out both;
     }
+    .nebula-portal{
+      position:absolute;
+      left:var(--sun-x);
+      top:var(--sun-y);
+      z-index:2;
+      width:var(--sun-size);
+      aspect-ratio:1;
+      border-radius:50%;
+      opacity:0;
+      pointer-events:none;
+      transform:translate(-50%,-50%);
+      mix-blend-mode:screen;
+    }
+    .nebula-portal::before,
+    .nebula-portal::after{
+      content:"";
+      position:absolute;
+      inset:0;
+      border-radius:50%;
+      opacity:0;
+    }
+    .nebula-portal::before{
+      border:1.5px solid rgba(207,244,255,.92);
+      box-shadow:0 0 18px rgba(111,222,255,.78),0 0 42px rgba(172,120,255,.48),inset 0 0 18px rgba(255,255,255,.50);
+    }
+    .nebula-portal::after{
+      background:radial-gradient(circle,rgba(255,255,255,.98) 0,rgba(143,226,255,.72) 18%,rgba(174,119,255,.30) 42%,transparent 70%);
+      filter:blur(2px);
+    }
+    .nebula-portal-rays{
+      position:absolute;
+      inset:-390%;
+      border-radius:50%;
+      opacity:0;
+      background:repeating-conic-gradient(from 0deg,rgba(151,232,255,.28) 0 .7deg,transparent 1.2deg 8deg,rgba(255,221,139,.19) 8.8deg 9.4deg,transparent 10deg 19deg);
+      filter:blur(.6px);
+      transform:scale(.12) rotate(0deg);
+    }
+    .nebula-overlay:not(.expanding):not(.expanded):not(.collapsing) .nebula-portal{
+      opacity:.58;
+      animation:nebulaMiniAnchor 3.2s ease-in-out infinite;
+    }
+    .nebula-overlay:not(.expanding):not(.expanded):not(.collapsing) .nebula-portal::before{
+      opacity:.52;
+      animation:nebulaMiniRing 3.2s ease-in-out infinite;
+    }
+    .nebula-overlay:not(.expanding):not(.expanded):not(.collapsing) .nebula-portal::after{
+      opacity:.10;
+      animation:nebulaMiniGlow 3.2s ease-in-out infinite;
+    }
+    .nebula-overlay.expanding .nebula-portal{
+      animation:nebulaPortalAnchor 1.04s ease-out both;
+    }
+    .nebula-overlay.expanding .nebula-portal::before{
+      animation:nebulaPortalRing 1.04s cubic-bezier(.12,.64,.20,1) both;
+    }
+    .nebula-overlay.expanding .nebula-portal::after{
+      animation:nebulaPortalFlash .72s ease-out both;
+    }
+    .nebula-overlay.expanding .nebula-portal-rays{
+      animation:nebulaPortalRays 1.04s cubic-bezier(.16,.74,.22,1) both;
+    }
+    .nebula-overlay.collapsing .nebula-portal{
+      animation:nebulaPortalCollapse .76s ease-in both;
+    }
+    .nebula-overlay.collapsing .nebula-portal::before{
+      animation:nebulaPortalRingClose .76s cubic-bezier(.50,0,.28,1) both;
+    }
     .nebula-back{
       position:absolute;
       left:max(18px,env(safe-area-inset-left));
@@ -443,6 +555,11 @@
       font-size:15px;
       font-weight:900;
       touch-action:manipulation;
+      opacity:0;
+      visibility:hidden;
+      pointer-events:none;
+      transform:translateY(-12px) scale(.94);
+      transition:opacity .30s ease,transform .36s cubic-bezier(.2,.8,.2,1),visibility 0s linear .36s;
     }
     .nebula-status-wrap{
       position:absolute;
@@ -453,6 +570,25 @@
       width:min(390px,calc(100% - 34px));
       display:grid;
       gap:8px;
+      opacity:0;
+      visibility:hidden;
+      pointer-events:none;
+      transform:translateX(-50%) translateY(18px);
+      transition:opacity .34s ease,transform .40s cubic-bezier(.2,.8,.2,1),visibility 0s linear .40s;
+    }
+    .nebula-overlay.control-ready .nebula-back{
+      opacity:1;
+      visibility:visible;
+      pointer-events:auto;
+      transform:translateY(0) scale(1);
+      transition-delay:.05s;
+    }
+    .nebula-overlay.control-ready .nebula-status-wrap{
+      opacity:1;
+      visibility:visible;
+      pointer-events:auto;
+      transform:translateX(-50%) translateY(0);
+      transition-delay:.10s;
     }
     .nebula-status,
     .nebula-hint{
@@ -500,6 +636,50 @@
       0%{opacity:.70;transform:scale(2.35);border-color:rgba(121,216,255,.64);box-shadow:0 0 78px rgba(103,194,255,.34)}
       100%{opacity:0;transform:scale(.48);border-color:rgba(106,157,255,0);box-shadow:0 0 8px rgba(74,125,255,0)}
     }
+    @keyframes nebulaPortalAnchor{
+      0%{opacity:0;filter:brightness(.8)}
+      10%{opacity:1;filter:brightness(1.7)}
+      62%{opacity:.82;filter:brightness(1.25)}
+      100%{opacity:0;filter:brightness(1)}
+    }
+    @keyframes nebulaMiniAnchor{
+      0%,100%{filter:brightness(.88);opacity:.42}
+      50%{filter:brightness(1.20);opacity:.68}
+    }
+    @keyframes nebulaMiniRing{
+      0%,100%{opacity:.34;transform:scale(.94)}
+      50%{opacity:.72;transform:scale(1.08)}
+    }
+    @keyframes nebulaMiniGlow{
+      0%,100%{opacity:.05;transform:scale(.84)}
+      50%{opacity:.16;transform:scale(1.14)}
+    }
+    @keyframes nebulaPortalRing{
+      0%{opacity:0;transform:scale(.62)}
+      14%{opacity:1;transform:scale(1.05)}
+      100%{opacity:0;transform:scale(17)}
+    }
+    @keyframes nebulaPortalFlash{
+      0%{opacity:0;transform:scale(.42)}
+      18%{opacity:1;transform:scale(1.05)}
+      58%{opacity:.40;transform:scale(3.2)}
+      100%{opacity:0;transform:scale(6.8)}
+    }
+    @keyframes nebulaPortalRays{
+      0%{opacity:0;transform:scale(.10) rotate(0deg)}
+      22%{opacity:.62}
+      100%{opacity:0;transform:scale(1.35) rotate(42deg)}
+    }
+    @keyframes nebulaPortalCollapse{
+      0%{opacity:0;filter:brightness(1)}
+      70%{opacity:.56;filter:brightness(1.18)}
+      100%{opacity:0;filter:brightness(.82)}
+    }
+    @keyframes nebulaPortalRingClose{
+      0%{opacity:0;transform:scale(14)}
+      70%{opacity:.58}
+      100%{opacity:0;transform:scale(.72)}
+    }
 
     @media (max-width:420px){
       h1{font-size:28px}
@@ -515,6 +695,9 @@
   <div class="home-toast" id="homeToast"></div>
   <div class="nebula-overlay" id="nebulaOverlay" aria-hidden="true">
     <canvas class="nebula-canvas" id="nebulaCanvas"></canvas>
+    <div class="nebula-portal" aria-hidden="true">
+      <div class="nebula-portal-rays"></div>
+    </div>
     <button class="nebula-back" id="nebulaBack" type="button">返回主页</button>
     <div class="nebula-stage" aria-hidden="true">
       <div class="nebula-radiance"></div>
@@ -632,12 +815,17 @@
         { loop: 7, name: '衣帽间' },
       ];
       const STEP_COUNT = LIGHT_SEQUENCE.length;
+      const OPEN_DURATION = 1040;
+      const CLOSE_DURATION = 760;
       let toastTimer = null;
-      let nebulaRun = 0;
       let nebulaStep = 0;
+      let nebulaMode = 'mini';
+      let transitionToken = 0;
       let localControlFailed = false;
       let commandQueue = Promise.resolve();
       window.__nebulaProgress = 0;
+      window.__nebulaEnergy = 0;
+      window.__nebulaExpansion = 0;
 
       function showHomeToast(message){
         if (!toast) return;
@@ -645,6 +833,63 @@
         toast.classList.add('show');
         clearTimeout(toastTimer);
         toastTimer = setTimeout(() => toast.classList.remove('show'), 2800);
+      }
+
+      function clamp(value, min, max){
+        return Math.max(min, Math.min(max, value));
+      }
+
+      function syncSunGeometry(){
+        if (!sunBtn || !nebulaOverlay) return;
+        const rect = sunBtn.getBoundingClientRect();
+        const centerX = rect.left + rect.width / 2;
+        const centerY = rect.top + rect.height / 2;
+        const stageSize = Math.min(window.innerWidth * .64, 300);
+        const miniScale = clamp(rect.width / Math.max(1, stageSize * 1.12), .15, .34);
+        const miniX = centerX - window.innerWidth / 2;
+        const miniY = centerY - window.innerHeight / 2;
+        nebulaOverlay.style.setProperty('--sun-x', centerX + 'px');
+        nebulaOverlay.style.setProperty('--sun-y', centerY + 'px');
+        nebulaOverlay.style.setProperty('--sun-radius', (rect.width / 2) + 'px');
+        nebulaOverlay.style.setProperty('--sun-size', rect.width + 'px');
+        nebulaOverlay.style.setProperty('--nebula-mini-x', miniX + 'px');
+        nebulaOverlay.style.setProperty('--nebula-mini-y', miniY + 'px');
+        nebulaOverlay.style.setProperty('--nebula-mini-scale', String(miniScale));
+        window.__nebulaSunRect = {
+          left:rect.left,
+          top:rect.top,
+          width:rect.width,
+          height:rect.height,
+          centerX,
+          centerY,
+        };
+      }
+
+      function animateExpansion(target, duration, token){
+        const from = Number(window.__nebulaExpansion || 0);
+        const opening = target > from;
+        const startedAt = performance.now();
+        return new Promise((resolve) => {
+          const tick = (now) => {
+            if (token !== transitionToken) {
+              resolve(false);
+              return;
+            }
+            const elapsed = clamp((now - startedAt) / duration, 0, 1);
+            const openingPhase = clamp((elapsed - .06) / .94, 0, 1);
+            const eased = opening
+              ? 1 - Math.pow(1 - openingPhase, 3)
+              : (elapsed < .5 ? 4 * elapsed * elapsed * elapsed : 1 - Math.pow(-2 * elapsed + 2, 3) / 2);
+            window.__nebulaExpansion = from + (target - from) * eased;
+            if (elapsed < 1) {
+              requestAnimationFrame(tick);
+            } else {
+              window.__nebulaExpansion = target;
+              resolve(true);
+            }
+          };
+          requestAnimationFrame(tick);
+        });
       }
 
       function setNebulaStep(step, label){
@@ -682,27 +927,50 @@
         window.dispatchEvent(new CustomEvent('lw5-nebula-ignite', { detail: { direction, step: nebulaStep } }));
       }
 
-      function showNebula(){
-        const run = ++nebulaRun;
-        if (!nebulaOverlay) return { run, startedAt: Date.now() };
+      async function showNebula(){
+        if (!nebulaOverlay || nebulaMode !== 'mini') return;
+        const token = ++transitionToken;
+        nebulaMode = 'expanding';
+        syncSunGeometry();
         localControlFailed = false;
         commandQueue = Promise.resolve();
         nebulaHint.textContent = '向左旋转会按相反顺序熄灭；未进入本地控制时只播放动画';
-        nebulaOverlay.classList.remove('done');
-        nebulaOverlay.classList.add('show');
+        nebulaOverlay.classList.remove('done', 'collapsing', 'expanded', 'control-ready');
+        nebulaBurst?.classList.remove('ignite', 'extinguish');
         nebulaOverlay.setAttribute('aria-hidden', 'false');
         setNebulaStep(0);
-        window.dispatchEvent(new CustomEvent('lw5-nebula-start'));
-        return { run, startedAt: Date.now() };
+        sunBtn.disabled = true;
+        sunBtn.classList.add('working');
+        document.body.classList.add('nebula-active');
+        void nebulaOverlay.offsetWidth;
+        nebulaOverlay.classList.add('expanding');
+        window.dispatchEvent(new CustomEvent('lw5-nebula-expand-start'));
+        const completed = await animateExpansion(1, OPEN_DURATION, token);
+        if (!completed || token !== transitionToken) return;
+        nebulaOverlay.classList.remove('expanding');
+        nebulaOverlay.classList.add('expanded', 'control-ready');
+        nebulaMode = 'expanded';
+        window.dispatchEvent(new CustomEvent('lw5-nebula-expanded'));
       }
 
-      function closeNebula(){
-        nebulaRun += 1;
-        nebulaOverlay?.classList.remove('show', 'done');
-        nebulaOverlay?.setAttribute('aria-hidden', 'true');
+      async function closeNebula(){
+        if (!nebulaOverlay || nebulaMode !== 'expanded') return;
+        const token = ++transitionToken;
+        nebulaMode = 'collapsing';
+        nebulaOverlay.classList.remove('expanded', 'control-ready', 'done');
+        nebulaOverlay.classList.add('collapsing');
         setNebulaStep(0);
+        window.dispatchEvent(new CustomEvent('lw5-nebula-collapse-start'));
+        const completed = await animateExpansion(0, CLOSE_DURATION, token);
+        if (!completed || token !== transitionToken) return;
+        nebulaOverlay.classList.remove('collapsing');
+        nebulaOverlay.setAttribute('aria-hidden', 'true');
+        document.body.classList.remove('nebula-active');
         sunBtn.disabled = false;
         sunBtn.classList.remove('working');
+        nebulaMode = 'mini';
+        syncSunGeometry();
+        window.dispatchEvent(new CustomEvent('lw5-nebula-collapse-complete'));
       }
 
       async function sendLightCommand(light, on){
@@ -726,7 +994,7 @@
       }
 
       function moveNebulaStep(direction){
-        if (!nebulaOverlay?.classList.contains('show')) return;
+        if (!nebulaOverlay?.classList.contains('control-ready')) return;
         if (direction > 0 && nebulaStep >= STEP_COUNT) return;
         if (direction < 0 && nebulaStep <= 0) return;
         const nextStep = nebulaStep + direction;
@@ -738,17 +1006,23 @@
 
       function pressSun(){
         if (!sunBtn || sunBtn.disabled) return;
-        sunBtn.classList.add('working');
         showNebula();
       }
 
       window.lw5NebulaControl = {
         get step(){ return nebulaStep; },
+        get mode(){ return nebulaMode; },
         move: moveNebulaStep,
         preview: setNebulaVisualStep,
       };
       nebulaBack?.addEventListener('click', closeNebula);
       sunBtn?.addEventListener('click', pressSun);
+      window.addEventListener('resize', syncSunGeometry, { passive:true });
+      window.addEventListener('orientationchange', syncSunGeometry, { passive:true });
+      requestAnimationFrame(() => {
+        syncSunGeometry();
+        setNebulaStep(0);
+      });
     })();
 
     (function(){
@@ -912,6 +1186,8 @@
     let renderedProgress = 0;
     let flashEnergy = 0;
     let flashDirection = 1;
+    let lastRenderTime = 0;
+    let highQuality = false;
     const coreDimColor = new THREE.Color(0x3d77a8);
     const coreBrightColor = new THREE.Color(0xfff4ba);
     const haloDimColor = new THREE.Color(0x315d86);
@@ -922,6 +1198,19 @@
 
     function clamp(value, min, max) {
       return Math.max(min, Math.min(max, value));
+    }
+
+    function getExpansion() {
+      return clamp(Number(window.__nebulaExpansion || 0), 0, 1);
+    }
+
+    function getSunRect() {
+      return window.__nebulaSunRect || {
+        width:64,
+        height:64,
+        centerX:(window.innerWidth || 1) / 2,
+        centerY:(window.innerHeight || 1) * .08,
+      };
     }
 
     function updatePointerFromPoint(clientX, clientY, active) {
@@ -961,7 +1250,7 @@
       overlay.dataset.interactionBound = '1';
       const isBackControl = (event) => event.target?.closest?.('.nebula-back');
       const start = (event) => {
-        if (isBackControl(event)) return;
+        if (isBackControl(event) || !overlay.classList.contains('control-ready')) return;
         pointerActive = true;
         dragAccumulator = 0;
         lastControlClientX = event.clientX;
@@ -970,7 +1259,7 @@
         try { overlay.setPointerCapture(event.pointerId); } catch (_) {}
       };
       const move = (event) => {
-        if (!overlay.classList.contains('show')) return;
+        if (!overlay.classList.contains('control-ready')) return;
         if (pointerActive) handleControlDrag(event.clientX);
         updatePointerFromPoint(event.clientX, event.clientY, pointerActive);
       };
@@ -986,7 +1275,7 @@
       overlay.addEventListener('pointercancel', end, { passive:true });
       overlay.addEventListener('pointerleave', end, { passive:true });
       overlay.addEventListener('touchstart', (event) => {
-        if (isBackControl(event)) return;
+        if (isBackControl(event) || !overlay.classList.contains('control-ready')) return;
         const touch = event.touches?.[0];
         if (!touch) return;
         pointerActive = true;
@@ -996,6 +1285,7 @@
         updatePointerFromPoint(touch.clientX, touch.clientY, true);
       }, { passive:true });
       overlay.addEventListener('touchmove', (event) => {
+        if (!overlay.classList.contains('control-ready')) return;
         const touch = event.touches?.[0];
         if (!touch) return;
         if (pointerActive) handleControlDrag(touch.clientX);
@@ -1045,9 +1335,15 @@
       ctx2d.clearRect(0, 0, width, height);
       const progress = renderedProgress;
       const energy = Math.pow(progress, .78);
-      const cx = width / 2 + pointerX * 40;
-      const cy = height * .47 + pointerY * 32;
-      const scale = Math.min(width, height) * (.268 + energy * .008);
+      const expansion = getExpansion();
+      const sunRect = getSunRect();
+      const fullCx = width / 2 + pointerX * 40;
+      const fullCy = height * .47 + pointerY * 32;
+      const cx = sunRect.centerX + (fullCx - sunRect.centerX) * expansion;
+      const cy = sunRect.centerY + (fullCy - sunRect.centerY) * expansion;
+      const miniScale = Math.max(18, sunRect.width * .42);
+      const fullScale = Math.min(width, height) * (.268 + energy * .008);
+      const scale = miniScale + (fullScale - miniScale) * expansion;
       const ry = time * (.00054 + energy * .00052) + pointerX * .48 + spinBoost;
       const rx = Math.sin(time * .00036) * .26 + pointerY * .34;
       const sinX = Math.sin(rx);
@@ -1243,8 +1539,16 @@
     }
 
     function getNebulaPixelRatio() {
+      if (!highQuality) return Math.min(window.devicePixelRatio || 1, 1);
       const cap = (window.innerWidth || 0) > 720 ? 1.35 : 1.75;
       return Math.min(window.devicePixelRatio || 1, cap);
+    }
+
+    function setRenderQuality(enabled) {
+      if (highQuality === enabled) return;
+      highQuality = enabled;
+      if (renderer) renderer.setPixelRatio(getNebulaPixelRatio());
+      resizeNebula();
     }
 
     function initNebula() {
@@ -1320,11 +1624,11 @@
     }
 
     function animateNebula(time = 0) {
-      if (!overlay?.classList.contains('show')) {
-        frame = 0;
-        return;
-      }
       frame = requestAnimationFrame(animateNebula);
+      const expansion = getExpansion();
+      const miniIdle = expansion < .01 && !overlay?.classList.contains('expanding') && !overlay?.classList.contains('collapsing');
+      if (miniIdle && time - lastRenderTime < 45) return;
+      lastRenderTime = time;
       updateInteractionPhysics();
       const targetProgress = Math.max(0, Math.min(1, Number(window.__nebulaProgress || 0)));
       renderedProgress += (targetProgress - renderedProgress) * (pointerActive ? .24 : .14);
@@ -1336,10 +1640,17 @@
         return;
       }
       group.rotation.y += (.0048 + energy * .0042) + spinBoost * .036;
-      group.rotation.x = Math.sin(time * .00042) * .24 + pointerY * .34;
-      group.rotation.z = Math.cos(time * .00032) * .10 - pointerX * .34 + spinBoost * .52;
-      group.position.x = pointerX * .18;
-      group.position.y = -pointerY * .14;
+      group.rotation.x = Math.sin(time * .00042) * .24 + pointerY * .34 * expansion;
+      group.rotation.z = Math.cos(time * .00032) * .10 - pointerX * .34 * expansion + spinBoost * .52;
+      const viewportWidth = window.innerWidth || 1;
+      const viewportHeight = window.innerHeight || 1;
+      const sunRect = getSunRect();
+      const worldHeight = 2 * Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)) * camera.position.z;
+      const worldWidth = worldHeight * camera.aspect;
+      const miniX = ((sunRect.centerX / viewportWidth) - .5) * worldWidth;
+      const miniY = -((sunRect.centerY / viewportHeight) - .5) * worldHeight;
+      group.position.x = miniX * (1 - expansion) + pointerX * .18 * expansion;
+      group.position.y = miniY * (1 - expansion) - pointerY * .14 * expansion;
       cloudMeshes.forEach((cloud) => {
         cloud.material.color.copy(cloud.userData.dimColor).lerp(cloud.userData.brightColor, energy);
         cloud.material.opacity = clamp(.18 + energy * .585 + flashEnergy * .11 + dragBoost * .025, .16, .92);
@@ -1361,7 +1672,9 @@
         haloMesh.material.color.copy(haloDimColor).lerp(haloBrightColor, energy);
         haloMesh.material.opacity = clamp(.08 + energy * .308 + flashEnergy * .20, .06, .62);
       }
-      const scale = .98 + energy * .028 + Math.sin(time * .0022) * .009 + dragBoost * .012;
+      const miniSceneScale = clamp(sunRect.width / Math.max(1, Math.min(viewportWidth, viewportHeight) * .78), .14, .34);
+      const sceneExpansionScale = miniSceneScale + (1 - miniSceneScale) * expansion;
+      const scale = (.98 + energy * .028 + Math.sin(time * .0022) * .009 + dragBoost * .012) * sceneExpansionScale;
       group.scale.setScalar(scale);
       renderer.toneMappingExposure = .58 + energy * .62 + flashEnergy * .28;
       renderer.render(scene, camera);
@@ -1378,7 +1691,32 @@
       flashDirection = event.detail?.direction < 0 ? -1 : 1;
       flashEnergy = 1;
     });
-    if (overlay?.classList.contains('show')) startNebula();
+    window.addEventListener('lw5-nebula-expand-start', () => {
+      setRenderQuality(true);
+      flashDirection = 1;
+      flashEnergy = 1;
+      spinBoost = 1.08;
+    });
+    window.addEventListener('lw5-nebula-collapse-start', () => {
+      pointerActive = false;
+      dragAccumulator = 0;
+      overlay?.classList.remove('interacting');
+      flashDirection = -1;
+      flashEnergy = .72;
+    });
+    window.addEventListener('lw5-nebula-collapse-complete', () => {
+      pointerX = 0;
+      pointerY = 0;
+      targetPointerX = 0;
+      targetPointerY = 0;
+      spinBoost = 0;
+      setTimeout(() => {
+        if (getExpansion() < .01 && !overlay?.classList.contains('expanding')) {
+          setRenderQuality(false);
+        }
+      }, 360);
+    });
+    if (overlay) startNebula();
   </script>
 </body>
 </html>
