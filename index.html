@@ -202,27 +202,63 @@
       position:fixed;
       left:calc(50vw - 13.2vh);
       top:4.25vh;
-      z-index:55;
+      z-index:145;
       width:clamp(54px,7.45vh,86px);
       aspect-ratio:1;
       padding:0;
+      overflow:hidden;
+      isolation:isolate;
       border-radius:50%;
-      border:1px solid rgba(255,255,255,.30);
+      border:1px solid rgba(210,246,255,.72);
       background:
-        radial-gradient(circle at 42% 35%, rgba(255,255,255,.32), rgba(255,255,255,.08) 58%, rgba(255,230,133,.10) 100%);
+        radial-gradient(circle at 38% 32%,rgba(255,255,255,.94) 0 3%,rgba(181,243,255,.66) 8%,transparent 22%),
+        radial-gradient(circle at 50% 48%,rgba(104,220,255,.86) 0,rgba(44,104,178,.88) 34%,rgba(93,56,151,.86) 64%,rgba(7,16,48,.88) 100%);
       box-shadow:
-        inset 0 1px 16px rgba(255,255,255,.24),
-        0 0 26px rgba(255,226,122,.18);
-      backdrop-filter:blur(1.5px) saturate(1.18);
-      -webkit-backdrop-filter:blur(1.5px) saturate(1.18);
-      opacity:.46;
+        inset 0 0 15px rgba(205,244,255,.48),
+        0 0 12px rgba(103,218,255,.52),
+        0 0 25px rgba(255,220,120,.32);
+      opacity:.94;
       cursor:pointer;
       -webkit-tap-highlight-color:transparent;
+      transition:opacity .18s ease,transform .24s ease,box-shadow .24s ease;
+    }
+    .sun-press::before{
+      content:"";
+      position:absolute;
+      inset:-12%;
+      z-index:1;
+      border-radius:50%;
+      background:
+        radial-gradient(circle at 18% 27%,rgba(255,255,255,.98) 0 1.2px,transparent 2.1px),
+        radial-gradient(circle at 32% 74%,rgba(255,222,128,.96) 0 1.1px,transparent 2px),
+        radial-gradient(circle at 47% 16%,rgba(169,241,255,.96) 0 1.3px,transparent 2.2px),
+        radial-gradient(circle at 61% 81%,rgba(220,181,255,.94) 0 1.2px,transparent 2.1px),
+        radial-gradient(circle at 75% 33%,rgba(255,236,167,.98) 0 1.4px,transparent 2.4px),
+        radial-gradient(circle at 83% 61%,rgba(153,232,255,.98) 0 1.1px,transparent 2px),
+        radial-gradient(circle at 44% 54%,rgba(255,255,255,.92) 0 .9px,transparent 1.8px),
+        radial-gradient(circle at 21% 57%,rgba(192,170,255,.88) 0 1px,transparent 1.9px);
+      filter:drop-shadow(0 0 3px rgba(168,235,255,.92));
+      animation:sunNebulaParticles 3.6s linear infinite;
+    }
+    .sun-press::after{
+      content:"";
+      position:absolute;
+      left:8%;
+      top:33%;
+      z-index:2;
+      width:84%;
+      height:34%;
+      border:1px solid rgba(226,249,255,.72);
+      border-radius:50%;
+      box-shadow:0 0 6px rgba(112,224,255,.68),inset 0 0 4px rgba(255,226,138,.42);
+      transform:rotate(-18deg);
+      animation:sunNebulaOrbit 4.8s ease-in-out infinite alternate;
     }
     .sun-press:active,
     .sun-press.working{
       opacity:0;
       transform:scale(.88);
+      pointer-events:none;
       box-shadow:
         inset 0 2px 20px rgba(255,255,255,.34),
         0 0 34px rgba(255,221,94,.28);
@@ -320,6 +356,9 @@
     .nebula-overlay.expanded{
       clip-path:circle(150vmax at var(--sun-x) var(--sun-y));
       -webkit-clip-path:circle(150vmax at var(--sun-x) var(--sun-y));
+      pointer-events:auto;
+    }
+    .nebula-overlay.priming{
       pointer-events:auto;
     }
     .nebula-overlay.collapsing{
@@ -508,17 +547,42 @@
       filter:blur(.6px);
       transform:scale(.12) rotate(0deg);
     }
-    .nebula-overlay:not(.expanding):not(.expanded):not(.collapsing) .nebula-portal{
+    .nebula-overlay:not(.priming):not(.expanding):not(.expanded):not(.collapsing) .nebula-portal{
       opacity:.58;
       animation:nebulaMiniAnchor 3.2s ease-in-out infinite;
     }
-    .nebula-overlay:not(.expanding):not(.expanded):not(.collapsing) .nebula-portal::before{
+    .nebula-overlay:not(.priming):not(.expanding):not(.expanded):not(.collapsing) .nebula-portal::before{
       opacity:.52;
       animation:nebulaMiniRing 3.2s ease-in-out infinite;
     }
-    .nebula-overlay:not(.expanding):not(.expanded):not(.collapsing) .nebula-portal::after{
+    .nebula-overlay:not(.priming):not(.expanding):not(.expanded):not(.collapsing) .nebula-portal::after{
       opacity:.10;
       animation:nebulaMiniGlow 3.2s ease-in-out infinite;
+    }
+    .nebula-overlay:not(.priming):not(.expanding):not(.expanded):not(.collapsing) .nebula-canvas{
+      filter:brightness(.92) saturate(1.38) contrast(1.16);
+    }
+    .nebula-overlay:not(.priming):not(.expanding):not(.expanded):not(.collapsing) .nebula-fallback{
+      filter:saturate(1.42) brightness(.84);
+    }
+    .nebula-overlay:not(.priming):not(.expanding):not(.expanded):not(.collapsing) .nebula-fallback::after{
+      opacity:calc(.12 + var(--nebula-energy) * .24);
+    }
+    .nebula-overlay:not(.priming):not(.expanding):not(.expanded):not(.collapsing) .nebula-core{
+      opacity:.78;
+      filter:brightness(.88) saturate(1.38);
+    }
+    .nebula-overlay:not(.priming):not(.expanding):not(.expanded):not(.collapsing) .nebula-core::after{
+      opacity:calc(.08 + var(--nebula-energy) * .20);
+    }
+    .nebula-overlay.priming .nebula-portal{
+      animation:nebulaPrimeAnchor .24s ease-out both;
+    }
+    .nebula-overlay.priming .nebula-portal::before{
+      animation:nebulaPrimeRing .24s ease-out both;
+    }
+    .nebula-overlay.priming .nebula-portal::after{
+      animation:nebulaPrimeGlow .24s ease-out both;
     }
     .nebula-overlay.expanding .nebula-portal{
       animation:nebulaPortalAnchor 1.04s ease-out both;
@@ -614,6 +678,15 @@
     @keyframes nebulaDrift{
       to{transform:rotate(360deg)}
     }
+    @keyframes sunNebulaParticles{
+      0%{transform:rotate(0deg) scale(.96)}
+      50%{transform:rotate(180deg) scale(1.04)}
+      100%{transform:rotate(360deg) scale(.96)}
+    }
+    @keyframes sunNebulaOrbit{
+      0%{transform:rotate(-24deg) scaleX(.92);opacity:.58}
+      100%{transform:rotate(18deg) scaleX(1.08);opacity:.96}
+    }
     @keyframes nebulaRadiance{
       to{transform:rotate(-360deg)}
     }
@@ -653,6 +726,21 @@
     @keyframes nebulaMiniGlow{
       0%,100%{opacity:.05;transform:scale(.84)}
       50%{opacity:.16;transform:scale(1.14)}
+    }
+    @keyframes nebulaPrimeAnchor{
+      0%{opacity:.60;filter:brightness(1.18)}
+      45%{opacity:1;filter:brightness(1.70)}
+      100%{opacity:.34;filter:brightness(.72)}
+    }
+    @keyframes nebulaPrimeRing{
+      0%{opacity:.55;transform:scale(1)}
+      55%{opacity:1;transform:scale(1.22)}
+      100%{opacity:.20;transform:scale(.74)}
+    }
+    @keyframes nebulaPrimeGlow{
+      0%{opacity:.12;transform:scale(1)}
+      55%{opacity:.78;transform:scale(1.26)}
+      100%{opacity:.06;transform:scale(.54)}
     }
     @keyframes nebulaPortalRing{
       0%{opacity:0;transform:scale(.62)}
@@ -815,6 +903,8 @@
         { loop: 7, name: '衣帽间' },
       ];
       const STEP_COUNT = LIGHT_SEQUENCE.length;
+      const HOME_VISUAL_STEP = 4;
+      const PRIME_DURATION = 240;
       const OPEN_DURATION = 1040;
       const CLOSE_DURATION = 760;
       let toastTimer = null;
@@ -892,6 +982,29 @@
         });
       }
 
+      function animateVisualStep(target, duration, token){
+        const from = Number(window.__nebulaProgress || 0) * STEP_COUNT;
+        const startedAt = performance.now();
+        return new Promise((resolve) => {
+          const tick = (now) => {
+            if (token !== transitionToken) {
+              resolve(false);
+              return;
+            }
+            const elapsed = clamp((now - startedAt) / duration, 0, 1);
+            const eased = elapsed * (2 - elapsed);
+            setNebulaVisualStep(from + (target - from) * eased);
+            if (elapsed < 1) {
+              requestAnimationFrame(tick);
+            } else {
+              setNebulaVisualStep(target);
+              resolve(true);
+            }
+          };
+          requestAnimationFrame(tick);
+        });
+      }
+
       function setNebulaStep(step, label){
         nebulaStep = Math.max(0, Math.min(STEP_COUNT, step));
         setNebulaVisualStep(nebulaStep);
@@ -930,18 +1043,26 @@
       async function showNebula(){
         if (!nebulaOverlay || nebulaMode !== 'mini') return;
         const token = ++transitionToken;
-        nebulaMode = 'expanding';
+        nebulaMode = 'priming';
         syncSunGeometry();
         localControlFailed = false;
         commandQueue = Promise.resolve();
         nebulaHint.textContent = '向左旋转会按相反顺序熄灭；未进入本地控制时只播放动画';
-        nebulaOverlay.classList.remove('done', 'collapsing', 'expanded', 'control-ready');
+        nebulaOverlay.classList.remove('done', 'priming', 'collapsing', 'expanded', 'control-ready');
         nebulaBurst?.classList.remove('ignite', 'extinguish');
         nebulaOverlay.setAttribute('aria-hidden', 'false');
-        setNebulaStep(0);
+        nebulaStep = 0;
+        nebulaStatus.textContent = '向右旋转点亮灯光';
         sunBtn.disabled = true;
         sunBtn.classList.add('working');
         document.body.classList.add('nebula-active');
+        void nebulaOverlay.offsetWidth;
+        nebulaOverlay.classList.add('priming');
+        window.dispatchEvent(new CustomEvent('lw5-nebula-prime-start'));
+        const primed = await animateVisualStep(0, PRIME_DURATION, token);
+        if (!primed || token !== transitionToken) return;
+        nebulaOverlay.classList.remove('priming');
+        nebulaMode = 'expanding';
         void nebulaOverlay.offsetWidth;
         nebulaOverlay.classList.add('expanding');
         window.dispatchEvent(new CustomEvent('lw5-nebula-expand-start'));
@@ -971,6 +1092,7 @@
         nebulaMode = 'mini';
         syncSunGeometry();
         window.dispatchEvent(new CustomEvent('lw5-nebula-collapse-complete'));
+        animateVisualStep(HOME_VISUAL_STEP, 420, token);
       }
 
       async function sendLightCommand(light, on){
@@ -1022,6 +1144,7 @@
       requestAnimationFrame(() => {
         syncSunGeometry();
         setNebulaStep(0);
+        setNebulaVisualStep(HOME_VISUAL_STEP);
       });
     })();
 
@@ -1336,6 +1459,7 @@
       const progress = renderedProgress;
       const energy = Math.pow(progress, .78);
       const expansion = getExpansion();
+      const miniFactor = 1 - expansion;
       const sunRect = getSunRect();
       const fullCx = width / 2 + pointerX * 40;
       const fullCy = height * .47 + pointerY * 32;
@@ -1349,7 +1473,7 @@
       const sinX = Math.sin(rx);
       const cosX = Math.cos(rx);
       const glow = ctx2d.createRadialGradient(cx, cy, 0, cx, cy, scale * (1.28 + energy * .52));
-      glow.addColorStop(0, 'rgba(255,248,203,' + (.01 + energy * .665 + flashEnergy * .18) + ')');
+      glow.addColorStop(0, 'rgba(255,248,203,' + ((.01 + energy * .665 + flashEnergy * .18) * (1 - miniFactor * .42)) + ')');
       glow.addColorStop(.28, 'rgba(255,192,90,' + (.004 + energy * .344) + ')');
       glow.addColorStop(.54, 'rgba(87,218,255,' + (.09 + energy * .168) + ')');
       glow.addColorStop(.78, 'rgba(173,104,255,' + (.07 + energy * .09) + ')');
@@ -1368,10 +1492,11 @@
         return { p, x: cx + x1 * scale * perspective, y: cy + y1 * scale * perspective, z: z2, perspective };
       }).sort((a, b) => a.z - b.z);
       const trailDirection = spinBoost < -.025 ? -1 : 1;
+      const miniParticleBoost = 1 + miniFactor * 1.18;
       for (let index = 0; index < sorted.length; index += 1) {
         const item = sorted[index];
-        const alpha = clamp(.09 + energy * .648 + item.z * (.05 + energy * .14) + dragBoost * .06, .06, .98);
-        const r = item.p.size * item.perspective * (.72 + energy * .38) * (1 + dragBoost * .12);
+        const alpha = clamp(.09 + energy * .648 + item.z * (.05 + energy * .14) + dragBoost * .06 + miniFactor * .14, .06, .98);
+        const r = item.p.size * item.perspective * (.72 + energy * .38) * (1 + dragBoost * .12) * miniParticleBoost;
         const lightness = 46 + energy * 33;
         const targetHue = item.p.hue < 120 ? item.p.hue + 360 : item.p.hue;
         const particleHue = (215 + (targetHue - 215) * Math.pow(energy, 1.25)) % 360;
@@ -1379,7 +1504,7 @@
           const vx = item.x - cx;
           const vy = item.y - cy;
           const length = Math.max(1, Math.hypot(vx, vy));
-          const trail = (1 + energy * 11 + Math.abs(spinBoost) * 13 + flashEnergy * 7) * item.perspective;
+          const trail = (1 + energy * 11 + Math.abs(spinBoost) * 13 + flashEnergy * 7) * item.perspective * (1 + miniFactor * .65);
           ctx2d.beginPath();
           ctx2d.strokeStyle = 'hsla(' + particleHue + ', 96%, ' + lightness + '%, ' + (alpha * .42) + ')';
           ctx2d.lineWidth = Math.max(.35, r * .42);
@@ -1409,9 +1534,10 @@
         ctx2d.restore();
       }
       const core = ctx2d.createRadialGradient(cx - scale * .04, cy - scale * .06, 0, cx, cy, scale * .24);
-      core.addColorStop(0, 'rgba(' + Math.round(158 + energy * 97) + ',' + Math.round(208 + energy * 47) + ',255,' + (.40 + energy * .60) + ')');
-      core.addColorStop(.30, 'rgba(' + Math.round(71 + energy * 184) + ',' + Math.round(104 + energy * 141) + ',' + Math.round(171 + energy * 4) + ',' + (.30 + energy * .625) + ')');
-      core.addColorStop(.68, 'rgba(' + Math.round(52 + energy * 203) + ',' + Math.round(45 + energy * 121) + ',' + Math.round(118 - energy * 49) + ',' + (.14 + energy * .415) + ')');
+      const miniCoreVisibility = 1 - miniFactor * .48;
+      core.addColorStop(0, 'rgba(' + Math.round(158 + energy * 97) + ',' + Math.round(208 + energy * 47) + ',255,' + ((.40 + energy * .60) * miniCoreVisibility) + ')');
+      core.addColorStop(.30, 'rgba(' + Math.round(71 + energy * 184) + ',' + Math.round(104 + energy * 141) + ',' + Math.round(171 + energy * 4) + ',' + ((.30 + energy * .625) * miniCoreVisibility) + ')');
+      core.addColorStop(.68, 'rgba(' + Math.round(52 + energy * 203) + ',' + Math.round(45 + energy * 121) + ',' + Math.round(118 - energy * 49) + ',' + ((.14 + energy * .415) * miniCoreVisibility) + ')');
       core.addColorStop(1, 'rgba(70,164,255,0)');
       ctx2d.fillStyle = core;
       ctx2d.beginPath();
@@ -1521,8 +1647,10 @@
       const attribute = trailMesh.geometry.getAttribute('position');
       const positions = attribute.array;
       const { starts, tangents } = trailMesh.userData;
+      const expansion = getExpansion();
       const direction = spinBoost < -.025 ? -1 : 1;
-      const trailLength = .012 + energy * .105 + Math.abs(spinBoost) * .085 + flashEnergy * .055;
+      const miniTrailBoost = 1 + (1 - expansion) * 1.65;
+      const trailLength = (.012 + energy * .105 + Math.abs(spinBoost) * .085 + flashEnergy * .055) * miniTrailBoost;
       for (let i = 0; i < starts.length / 3; i += 1) {
         const source = i * 3;
         const target = i * 6;
@@ -1534,7 +1662,7 @@
         positions[target + 5] = starts[source + 2] - tangents[source + 2] * trailLength * direction;
       }
       attribute.needsUpdate = true;
-      trailMesh.material.opacity = .055 + energy * .337 + Math.abs(spinBoost) * .10 + flashEnergy * .16;
+      trailMesh.material.opacity = .055 + energy * .337 + (1 - expansion) * .17 + Math.abs(spinBoost) * .10 + flashEnergy * .16;
       trailMesh.material.color.copy(trailDimColor).lerp(trailBrightColor, energy);
     }
 
@@ -1639,7 +1767,9 @@
         drawFallbackNebula(time);
         return;
       }
-      group.rotation.y += (.0048 + energy * .0042) + spinBoost * .036;
+      const miniFactor = 1 - expansion;
+      const miniRotationBoost = 1 + miniFactor * 2.10;
+      group.rotation.y += (.0048 + energy * .0042) * miniRotationBoost + spinBoost * .036;
       group.rotation.x = Math.sin(time * .00042) * .24 + pointerY * .34 * expansion;
       group.rotation.z = Math.cos(time * .00032) * .10 - pointerX * .34 * expansion + spinBoost * .52;
       const viewportWidth = window.innerWidth || 1;
@@ -1653,8 +1783,8 @@
       group.position.y = miniY * (1 - expansion) - pointerY * .14 * expansion;
       cloudMeshes.forEach((cloud) => {
         cloud.material.color.copy(cloud.userData.dimColor).lerp(cloud.userData.brightColor, energy);
-        cloud.material.opacity = clamp(.18 + energy * .585 + flashEnergy * .11 + dragBoost * .025, .16, .92);
-        cloud.material.size = cloud.userData.baseSize * (.90 + energy * .16 + Math.min(.10, dragBoost * .05));
+        cloud.material.opacity = clamp(.18 + energy * .585 + miniFactor * .16 + flashEnergy * .11 + dragBoost * .025, .16, .94);
+        cloud.material.size = cloud.userData.baseSize * (.90 + energy * .16 + Math.min(.10, dragBoost * .05)) * (1 + miniFactor * 1.58);
       });
       orbitRings.forEach((ring) => {
         ring.material.opacity = ring.userData.baseOpacity * (.28 + energy * 1.19) + flashEnergy * .08;
@@ -1664,19 +1794,21 @@
         const coreScale = .93 + energy * .10 + Math.sin(time * .0046) * .025 + flashEnergy * .055;
         coreMesh.scale.setScalar(coreScale);
         coreMesh.material.color.copy(coreDimColor).lerp(coreBrightColor, energy);
-        coreMesh.material.opacity = clamp(.34 + energy * .64 + flashEnergy * .16, .30, 1);
+        coreMesh.material.opacity = clamp((.34 + energy * .64 + flashEnergy * .16) * (1 - miniFactor * .52), .24, 1);
       }
       if (haloMesh) {
         const haloScale = .95 + energy * .08 + Math.sin(time * .0026) * .018 + flashEnergy * .075;
         haloMesh.scale.setScalar(haloScale);
         haloMesh.material.color.copy(haloDimColor).lerp(haloBrightColor, energy);
-        haloMesh.material.opacity = clamp(.08 + energy * .308 + flashEnergy * .20, .06, .62);
+        haloMesh.material.opacity = clamp((.08 + energy * .308 + flashEnergy * .20) * (1 - miniFactor * .34), .05, .62);
       }
-      const miniSceneScale = clamp(sunRect.width / Math.max(1, Math.min(viewportWidth, viewportHeight) * .78), .14, .34);
+      const miniSceneScale = clamp(sunRect.width / Math.max(1, Math.min(viewportWidth, viewportHeight) * .70), .14, .36);
       const sceneExpansionScale = miniSceneScale + (1 - miniSceneScale) * expansion;
       const scale = (.98 + energy * .028 + Math.sin(time * .0022) * .009 + dragBoost * .012) * sceneExpansionScale;
       group.scale.setScalar(scale);
-      renderer.toneMappingExposure = .58 + energy * .62 + flashEnergy * .28;
+      const miniExposure = .43 + energy * .48 + flashEnergy * .18;
+      const fullExposure = .58 + energy * .62 + flashEnergy * .28;
+      renderer.toneMappingExposure = miniExposure + (fullExposure - miniExposure) * expansion;
       renderer.render(scene, camera);
     }
 
@@ -1690,6 +1822,11 @@
     window.addEventListener('lw5-nebula-ignite', (event) => {
       flashDirection = event.detail?.direction < 0 ? -1 : 1;
       flashEnergy = 1;
+    });
+    window.addEventListener('lw5-nebula-prime-start', () => {
+      flashDirection = -1;
+      flashEnergy = .82;
+      spinBoost = .62;
     });
     window.addEventListener('lw5-nebula-expand-start', () => {
       setRenderQuality(true);
