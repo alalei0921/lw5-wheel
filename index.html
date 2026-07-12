@@ -259,10 +259,11 @@
       place-items:center;
       overflow:hidden;
       background:
+        radial-gradient(circle at 50% 47%, rgba(39,78,148,calc(.14 + var(--nebula-energy) * .04)), transparent 39%),
         radial-gradient(circle at 50% 46%, rgba(255,240,160,calc(.015 + var(--nebula-energy) * .30)), transparent 31%),
-        radial-gradient(circle at 42% 58%, rgba(68,211,255,calc(.035 + var(--nebula-energy) * .17)), transparent 42%),
-        radial-gradient(circle at 62% 38%, rgba(189,113,255,calc(.025 + var(--nebula-energy) * .13)), transparent 46%),
-        rgba(1,3,11,.97);
+        radial-gradient(circle at 42% 58%, rgba(68,211,255,calc(.055 + var(--nebula-energy) * .15)), transparent 42%),
+        radial-gradient(circle at 62% 38%, rgba(189,113,255,calc(.050 + var(--nebula-energy) * .105)), transparent 46%),
+        rgba(1,3,11,.985);
       opacity:0;
       pointer-events:none;
       transition:opacity .32s ease;
@@ -277,8 +278,8 @@
       z-index:0;
       background:
         conic-gradient(from 0deg at 50% 50%, rgba(255,226,132,.08), rgba(66,210,255,.13), rgba(189,113,255,.11), rgba(255,150,99,.10), rgba(255,226,132,.08));
-      filter:blur(22px) brightness(calc(.48 + var(--nebula-energy) * 1.22)) saturate(calc(.65 + var(--nebula-energy) * .75));
-      opacity:calc(.16 + var(--nebula-energy) * .66);
+      filter:blur(22px) brightness(calc(.62 + var(--nebula-energy) * 1.08)) saturate(calc(.75 + var(--nebula-energy) * .65));
+      opacity:calc(.28 + var(--nebula-energy) * .54);
       animation:nebulaDrift 18s linear infinite;
     }
     .nebula-overlay::after{
@@ -304,10 +305,10 @@
       animation-duration:.78s;
     }
     .nebula-overlay.interacting .nebula-ring{
-      filter:brightness(calc(.70 + var(--nebula-energy) * 1.05)) saturate(1.3);
+      filter:brightness(calc(.85 + var(--nebula-energy) * .90)) saturate(1.3);
     }
     .nebula-overlay.interacting .nebula-fallback{
-      filter:saturate(calc(.72 + var(--nebula-energy) * 1.02)) brightness(calc(.34 + var(--nebula-energy) * 1.46));
+      filter:saturate(calc(.92 + var(--nebula-energy) * .82)) brightness(calc(.52 + var(--nebula-energy) * 1.28));
     }
     .nebula-canvas{
       position:absolute;
@@ -315,7 +316,7 @@
       width:100%;
       height:100%;
       z-index:1;
-      filter:brightness(calc(.40 + var(--nebula-energy) * .78)) saturate(calc(.62 + var(--nebula-energy) * .72)) contrast(calc(.96 + var(--nebula-energy) * .10));
+      filter:brightness(calc(.78 + var(--nebula-energy) * .40)) saturate(calc(.92 + var(--nebula-energy) * .42)) contrast(calc(.99 + var(--nebula-energy) * .07));
       transition:filter .08s linear;
     }
     .nebula-stage{
@@ -334,7 +335,7 @@
       background:repeating-conic-gradient(from 0deg, rgba(255,244,183,.30) 0 1deg, transparent 2deg 11deg, rgba(103,224,255,.20) 12deg 13deg, transparent 14deg 25deg);
       filter:blur(5px);
       mix-blend-mode:screen;
-      opacity:calc(.015 + var(--nebula-energy) * .32);
+      opacity:calc(.035 + var(--nebula-energy) * .30);
       animation:nebulaRadiance 26s linear infinite;
     }
     .nebula-fallback{
@@ -343,13 +344,25 @@
       border-radius:50%;
       position:absolute;
       inset:11%;
+      overflow:hidden;
+      background:
+        radial-gradient(circle at 36% 32%, rgba(145,198,255,.60), rgba(49,91,150,.62) 18%, rgba(31,41,94,.72) 42%, rgba(35,19,70,.60) 62%, rgba(3,8,22,.06) 73%),
+        conic-gradient(from 90deg, rgba(36,116,169,.58), rgba(50,61,127,.62), rgba(91,50,139,.60), rgba(37,74,132,.55), rgba(36,116,169,.58));
+      opacity:calc(.60 + var(--nebula-energy) * .40);
+      filter:saturate(calc(.96 + var(--nebula-energy) * .68)) brightness(calc(.60 + var(--nebula-energy) * 1.22));
+      box-shadow:0 0 calc(18px + var(--nebula-energy) * 82px) rgba(113,218,255,calc(.22 + var(--nebula-energy) * .42)), 0 0 calc(32px + var(--nebula-energy) * 132px) rgba(246,193,86,calc(.02 + var(--nebula-energy) * .40)), inset 0 0 36px rgba(190,226,255,calc(.10 + var(--nebula-energy) * .23));
+      animation:nebulaPulse 2.8s ease-in-out infinite;
+    }
+    .nebula-fallback::after{
+      content:"";
+      position:absolute;
+      inset:0;
+      border-radius:50%;
       background:
         radial-gradient(circle at 36% 32%, rgba(255,255,255,.96), rgba(126,236,255,.60) 18%, rgba(73,100,255,.34) 39%, rgba(255,190,94,.28) 62%, rgba(255,255,255,.03) 73%),
         conic-gradient(from 90deg, rgba(71,207,255,.45), rgba(255,214,112,.50), rgba(177,107,255,.46), rgba(255,151,104,.34), rgba(71,207,255,.45));
-      opacity:calc(.24 + var(--nebula-energy) * .76);
-      filter:saturate(calc(.52 + var(--nebula-energy) * 1.12)) brightness(calc(.30 + var(--nebula-energy) * 1.52));
-      box-shadow:0 0 calc(18px + var(--nebula-energy) * 82px) rgba(113,218,255,calc(.12 + var(--nebula-energy) * .52)), 0 0 calc(32px + var(--nebula-energy) * 132px) rgba(246,193,86,calc(.04 + var(--nebula-energy) * .38)), inset 0 0 36px rgba(255,255,255,calc(.05 + var(--nebula-energy) * .28));
-      animation:nebulaPulse 2.8s ease-in-out infinite;
+      mix-blend-mode:screen;
+      opacity:var(--nebula-energy);
     }
     .nebula-core{
       width:26%;
@@ -357,11 +370,20 @@
       border-radius:50%;
       position:absolute;
       background:
-        radial-gradient(circle at 35% 32%, #fff, #fff4ad 34%, rgba(255,168,74,.72) 58%, rgba(88,206,255,.18) 78%, transparent 82%);
-      opacity:calc(.12 + var(--nebula-energy) * .88);
-      filter:brightness(calc(.34 + var(--nebula-energy) * 1.58)) saturate(calc(.55 + var(--nebula-energy) * .85));
-      box-shadow:0 0 calc(8px + var(--nebula-energy) * 54px) rgba(255,245,168,calc(.12 + var(--nebula-energy) * .82)), 0 0 calc(22px + var(--nebula-energy) * 128px) rgba(255,190,89,calc(.02 + var(--nebula-energy) * .52));
+        radial-gradient(circle at 35% 32%, rgba(154,210,255,.88), rgba(58,98,166,.76) 34%, rgba(35,38,106,.70) 60%, rgba(20,25,73,.18) 78%, transparent 82%);
+      opacity:calc(.62 + var(--nebula-energy) * .38);
+      filter:brightness(calc(.78 + var(--nebula-energy) * 1.14)) saturate(calc(1 + var(--nebula-energy) * .40));
+      box-shadow:0 0 calc(8px + var(--nebula-energy) * 54px) rgba(114,190,255,calc(.20 + var(--nebula-energy) * .34)), 0 0 calc(22px + var(--nebula-energy) * 128px) rgba(255,190,89,calc(var(--nebula-energy) * .54));
       animation:nebulaCore 1.8s ease-in-out infinite;
+    }
+    .nebula-core::after{
+      content:"";
+      position:absolute;
+      inset:0;
+      border-radius:50%;
+      background:radial-gradient(circle at 35% 32%, #fff, #fff4ad 34%, rgba(255,168,74,.72) 58%, rgba(88,206,255,.18) 78%, transparent 82%);
+      mix-blend-mode:screen;
+      opacity:var(--nebula-energy);
     }
     .nebula-ring{
       position:absolute;
@@ -370,8 +392,8 @@
       border-radius:50%;
       border:1px solid rgba(182,238,255,.34);
       box-shadow:0 0 28px rgba(91,219,255,.18);
-      opacity:calc(.10 + var(--nebula-energy) * .82);
-      filter:brightness(calc(.55 + var(--nebula-energy) * 1.05));
+      opacity:calc(.30 + var(--nebula-energy) * .62);
+      filter:brightness(calc(.95 + var(--nebula-energy) * .65));
       transform:rotateX(66deg) rotateZ(0deg);
       animation:nebulaOrbit 5.4s linear infinite;
     }
@@ -890,11 +912,11 @@
     let renderedProgress = 0;
     let flashEnergy = 0;
     let flashDirection = 1;
-    const coreDimColor = new THREE.Color(0x17365a);
+    const coreDimColor = new THREE.Color(0x3d77a8);
     const coreBrightColor = new THREE.Color(0xfff4ba);
-    const haloDimColor = new THREE.Color(0x102644);
+    const haloDimColor = new THREE.Color(0x315d86);
     const haloBrightColor = new THREE.Color(0xffd472);
-    const trailDimColor = new THREE.Color(0x183251);
+    const trailDimColor = new THREE.Color(0x426c91);
     const trailBrightColor = new THREE.Color(0xffe7a4);
     const DRAG_STEP_PX = 46;
 
@@ -1031,10 +1053,10 @@
       const sinX = Math.sin(rx);
       const cosX = Math.cos(rx);
       const glow = ctx2d.createRadialGradient(cx, cy, 0, cx, cy, scale * (1.28 + energy * .52));
-      glow.addColorStop(0, 'rgba(255,248,203,' + (.015 + energy * .66 + flashEnergy * .18) + ')');
-      glow.addColorStop(.28, 'rgba(255,192,90,' + (.008 + energy * .34) + ')');
-      glow.addColorStop(.54, 'rgba(87,218,255,' + (.018 + energy * .24) + ')');
-      glow.addColorStop(.78, 'rgba(173,104,255,' + (.01 + energy * .15) + ')');
+      glow.addColorStop(0, 'rgba(255,248,203,' + (.01 + energy * .665 + flashEnergy * .18) + ')');
+      glow.addColorStop(.28, 'rgba(255,192,90,' + (.004 + energy * .344) + ')');
+      glow.addColorStop(.54, 'rgba(87,218,255,' + (.09 + energy * .168) + ')');
+      glow.addColorStop(.78, 'rgba(173,104,255,' + (.07 + energy * .09) + ')');
       glow.addColorStop(1, 'rgba(0,0,0,0)');
       ctx2d.fillStyle = glow;
       ctx2d.fillRect(0, 0, width, height);
@@ -1052,24 +1074,26 @@
       const trailDirection = spinBoost < -.025 ? -1 : 1;
       for (let index = 0; index < sorted.length; index += 1) {
         const item = sorted[index];
-        const alpha = clamp(.018 + energy * .72 + item.z * (.07 + energy * .12) + dragBoost * .06, .012, .98);
+        const alpha = clamp(.09 + energy * .648 + item.z * (.05 + energy * .14) + dragBoost * .06, .06, .98);
         const r = item.p.size * item.perspective * (.72 + energy * .38) * (1 + dragBoost * .12);
-        const lightness = 31 + energy * 48;
+        const lightness = 46 + energy * 33;
+        const targetHue = item.p.hue < 120 ? item.p.hue + 360 : item.p.hue;
+        const particleHue = (215 + (targetHue - 215) * Math.pow(energy, 1.25)) % 360;
         if (index % 3 === 0 && energy + dragBoost > .08) {
           const vx = item.x - cx;
           const vy = item.y - cy;
           const length = Math.max(1, Math.hypot(vx, vy));
           const trail = (1 + energy * 11 + Math.abs(spinBoost) * 13 + flashEnergy * 7) * item.perspective;
           ctx2d.beginPath();
-          ctx2d.strokeStyle = 'hsla(' + item.p.hue + ', 96%, ' + lightness + '%, ' + (alpha * .42) + ')';
+          ctx2d.strokeStyle = 'hsla(' + particleHue + ', 96%, ' + lightness + '%, ' + (alpha * .42) + ')';
           ctx2d.lineWidth = Math.max(.35, r * .42);
           ctx2d.moveTo(item.x, item.y);
           ctx2d.lineTo(item.x + (-vy / length) * trail * trailDirection, item.y + (vx / length) * trail * trailDirection);
           ctx2d.stroke();
         }
         ctx2d.beginPath();
-        ctx2d.fillStyle = 'hsla(' + item.p.hue + ', 96%, ' + lightness + '%, ' + alpha + ')';
-        ctx2d.shadowColor = 'hsla(' + item.p.hue + ', 98%, ' + (lightness + 8) + '%, ' + (.12 + energy * .72) + ')';
+        ctx2d.fillStyle = 'hsla(' + particleHue + ', 96%, ' + lightness + '%, ' + alpha + ')';
+        ctx2d.shadowColor = 'hsla(' + particleHue + ', 98%, ' + (lightness + 8) + '%, ' + (.18 + energy * .66) + ')';
         ctx2d.shadowBlur = 1 + energy * 18 + flashEnergy * 8;
         ctx2d.arc(item.x, item.y, r, 0, Math.PI * 2);
         ctx2d.fill();
@@ -1080,7 +1104,7 @@
         ctx2d.translate(cx, cy);
         ctx2d.rotate(time * (.00045 + i * .00016 + dragBoost * .00018) * (i === 1 ? -1 : 1) + pointerX * .48);
         ctx2d.scale(1, .26 + i * .08);
-        ctx2d.strokeStyle = i === 1 ? 'rgba(255,225,139,' + (.04 + energy * .48) + ')' : 'rgba(143,229,255,' + (.035 + energy * .42) + ')';
+        ctx2d.strokeStyle = i === 1 ? 'rgba(156,172,255,' + (.14 + energy * .38) + ')' : 'rgba(143,229,255,' + (.13 + energy * .325) + ')';
         ctx2d.shadowColor = ctx2d.strokeStyle;
         ctx2d.shadowBlur = 2 + energy * 18;
         ctx2d.beginPath();
@@ -1089,9 +1113,9 @@
         ctx2d.restore();
       }
       const core = ctx2d.createRadialGradient(cx - scale * .04, cy - scale * .06, 0, cx, cy, scale * .24);
-      core.addColorStop(0, 'rgba(255,255,255,' + (.10 + energy * .90) + ')');
-      core.addColorStop(.30, 'rgba(255,245,175,' + (.045 + energy * .88) + ')');
-      core.addColorStop(.68, 'rgba(255,166,69,' + (.015 + energy * .54) + ')');
+      core.addColorStop(0, 'rgba(' + Math.round(158 + energy * 97) + ',' + Math.round(208 + energy * 47) + ',255,' + (.40 + energy * .60) + ')');
+      core.addColorStop(.30, 'rgba(' + Math.round(71 + energy * 184) + ',' + Math.round(104 + energy * 141) + ',' + Math.round(171 + energy * 4) + ',' + (.30 + energy * .625) + ')');
+      core.addColorStop(.68, 'rgba(' + Math.round(52 + energy * 203) + ',' + Math.round(45 + energy * 121) + ',' + Math.round(118 - energy * 49) + ',' + (.14 + energy * .415) + ')');
       core.addColorStop(1, 'rgba(70,164,255,0)');
       ctx2d.fillStyle = core;
       ctx2d.beginPath();
@@ -1151,7 +1175,7 @@
         size,
         map:getParticleTexture(),
         transparent: true,
-        opacity: .08,
+        opacity: .12,
         depthWrite: false,
         blending: THREE.AdditiveBlending,
         sizeAttenuation: true,
@@ -1214,7 +1238,7 @@
         positions[target + 5] = starts[source + 2] - tangents[source + 2] * trailLength * direction;
       }
       attribute.needsUpdate = true;
-      trailMesh.material.opacity = .012 + energy * .38 + Math.abs(spinBoost) * .10 + flashEnergy * .16;
+      trailMesh.material.opacity = .055 + energy * .337 + Math.abs(spinBoost) * .10 + flashEnergy * .16;
       trailMesh.material.color.copy(trailDimColor).lerp(trailBrightColor, energy);
     }
 
@@ -1240,10 +1264,10 @@
       camera = new THREE.PerspectiveCamera(48, 1, .1, 100);
       camera.position.z = 7.15;
       group = new THREE.Group();
-      group.add(makeCloud(2100, 0xc9f7ff, 0x0b172d, .066, .32, 1.36));
-      group.add(makeCloud(1260, 0xffe19a, 0x21170d, .084, .62, 1.58));
-      group.add(makeCloud(960, 0xdab7ff, 0x17112b, .058, .16, 1.04));
-      group.add(makeCloud(420, 0xffa47e, 0x28100e, .052, 1.08, 1.78));
+      group.add(makeCloud(2100, 0xc9f7ff, 0x4a8bb3, .066, .32, 1.36));
+      group.add(makeCloud(1260, 0xffe19a, 0x53648e, .084, .62, 1.58));
+      group.add(makeCloud(960, 0xdab7ff, 0x6b4f92, .058, .16, 1.04));
+      group.add(makeCloud(420, 0xffa47e, 0x594776, .052, 1.08, 1.78));
       trailMesh = makeEnergyTrails();
       group.add(trailMesh);
       haloMesh = new THREE.Mesh(
@@ -1318,28 +1342,28 @@
       group.position.y = -pointerY * .14;
       cloudMeshes.forEach((cloud) => {
         cloud.material.color.copy(cloud.userData.dimColor).lerp(cloud.userData.brightColor, energy);
-        cloud.material.opacity = clamp(.025 + energy * .74 + flashEnergy * .11 + dragBoost * .025, .02, .92);
-        cloud.material.size = cloud.userData.baseSize * (.72 + energy * .34 + Math.min(.10, dragBoost * .05));
+        cloud.material.opacity = clamp(.18 + energy * .585 + flashEnergy * .11 + dragBoost * .025, .16, .92);
+        cloud.material.size = cloud.userData.baseSize * (.90 + energy * .16 + Math.min(.10, dragBoost * .05));
       });
       orbitRings.forEach((ring) => {
-        ring.material.opacity = ring.userData.baseOpacity * (.13 + energy * 1.34) + flashEnergy * .08;
+        ring.material.opacity = ring.userData.baseOpacity * (.28 + energy * 1.19) + flashEnergy * .08;
       });
       updateEnergyTrails(energy);
       if (coreMesh) {
         const coreScale = .93 + energy * .10 + Math.sin(time * .0046) * .025 + flashEnergy * .055;
         coreMesh.scale.setScalar(coreScale);
         coreMesh.material.color.copy(coreDimColor).lerp(coreBrightColor, energy);
-        coreMesh.material.opacity = clamp(.08 + energy * .90 + flashEnergy * .16, .06, 1);
+        coreMesh.material.opacity = clamp(.34 + energy * .64 + flashEnergy * .16, .30, 1);
       }
       if (haloMesh) {
         const haloScale = .95 + energy * .08 + Math.sin(time * .0026) * .018 + flashEnergy * .075;
         haloMesh.scale.setScalar(haloScale);
         haloMesh.material.color.copy(haloDimColor).lerp(haloBrightColor, energy);
-        haloMesh.material.opacity = clamp(.018 + energy * .37 + flashEnergy * .20, .01, .62);
+        haloMesh.material.opacity = clamp(.08 + energy * .308 + flashEnergy * .20, .06, .62);
       }
       const scale = .98 + energy * .028 + Math.sin(time * .0022) * .009 + dragBoost * .012;
       group.scale.setScalar(scale);
-      renderer.toneMappingExposure = .42 + energy * .78 + flashEnergy * .28;
+      renderer.toneMappingExposure = .58 + energy * .62 + flashEnergy * .28;
       renderer.render(scene, camera);
     }
 
