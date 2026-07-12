@@ -307,6 +307,8 @@
       --sun-size:68px;
       --nebula-reveal-radius:34px;
       --nebula-feather:24px;
+      --nebula-open-duration:.68s;
+      --nebula-close-duration:.56s;
       --nebula-mini-x:0px;
       --nebula-mini-y:0px;
       --nebula-mini-scale:.24;
@@ -409,7 +411,7 @@
       pointer-events:none;
       transform:translate(var(--nebula-mini-x),var(--nebula-mini-y)) scale(var(--nebula-mini-scale));
       transform-origin:center;
-      transition:transform 1.04s cubic-bezier(.22,.62,.24,1),filter .54s ease;
+      transition:transform var(--nebula-open-duration) cubic-bezier(.22,.62,.24,1),filter .40s ease;
       will-change:transform;
     }
     .nebula-overlay.expanding .nebula-stage,
@@ -418,7 +420,7 @@
     }
     .nebula-overlay.collapsing .nebula-stage{
       transform:translate(var(--nebula-mini-x),var(--nebula-mini-y)) scale(var(--nebula-mini-scale));
-      transition-duration:.76s;
+      transition-duration:var(--nebula-close-duration);
       transition-timing-function:cubic-bezier(.50,0,.28,1);
     }
     .nebula-radiance{
@@ -603,22 +605,22 @@
       animation:nebulaPrimeGlow .24s ease-out both;
     }
     .nebula-overlay.expanding .nebula-portal{
-      animation:nebulaPortalAnchor 1.04s ease-out both;
+      animation:nebulaPortalAnchor var(--nebula-open-duration) ease-out both;
     }
     .nebula-overlay.expanding .nebula-portal::before{
-      animation:nebulaPortalRing 1.04s cubic-bezier(.12,.64,.20,1) both;
+      animation:nebulaPortalRing var(--nebula-open-duration) cubic-bezier(.12,.64,.20,1) both;
     }
     .nebula-overlay.expanding .nebula-portal::after{
-      animation:nebulaPortalFlash .72s ease-out both;
+      animation:nebulaPortalFlash .50s ease-out both;
     }
     .nebula-overlay.expanding .nebula-portal-rays{
-      animation:nebulaPortalRays 1.04s cubic-bezier(.16,.74,.22,1) both;
+      animation:nebulaPortalRays var(--nebula-open-duration) cubic-bezier(.16,.74,.22,1) both;
     }
     .nebula-overlay.collapsing .nebula-portal{
-      animation:nebulaPortalCollapse .76s ease-in both;
+      animation:nebulaPortalCollapse var(--nebula-close-duration) ease-in both;
     }
     .nebula-overlay.collapsing .nebula-portal::before{
-      animation:nebulaPortalRingClose .76s cubic-bezier(.50,0,.28,1) both;
+      animation:nebulaPortalRingClose var(--nebula-close-duration) cubic-bezier(.50,0,.28,1) both;
     }
     .nebula-back{
       position:absolute;
@@ -688,10 +690,41 @@
     }
     .nebula-hint{
       padding:10px 14px;
+      width:100%;
+      border:1px solid rgba(255,255,255,.22);
       font-size:12px;
       font-weight:750;
+      font-family:inherit;
+      line-height:1.35;
       color:rgba(255,255,255,.78);
       background:rgba(3,6,18,.18);
+      appearance:none;
+      -webkit-appearance:none;
+      cursor:default;
+      transition:background .18s ease,border-color .18s ease,color .18s ease,transform .12s ease;
+    }
+    .nebula-hint.connecting{
+      color:rgba(225,239,255,.88);
+      border-color:rgba(159,207,255,.30);
+      background:rgba(53,104,165,.18);
+    }
+    .nebula-hint.connected{
+      color:rgba(219,255,228,.96);
+      border-color:rgba(127,231,157,.34);
+      background:rgba(45,137,73,.22);
+    }
+    .nebula-hint.retry{
+      color:rgba(255,241,194,.96);
+      border-color:rgba(255,215,113,.42);
+      background:rgba(155,105,28,.25);
+      cursor:pointer;
+    }
+    .nebula-hint.retry:active{
+      transform:scale(.985);
+      background:rgba(178,124,34,.34);
+    }
+    .nebula-hint:disabled{
+      opacity:1;
     }
     @keyframes nebulaDrift{
       to{transform:rotate(360deg)}
@@ -817,7 +850,7 @@
     </div>
     <div class="nebula-status-wrap">
       <div class="nebula-status" id="nebulaStatus">向右旋转点亮灯光</div>
-      <div class="nebula-hint" id="nebulaHint">向左旋转会按相反顺序熄灭；未进入本地控制时只播放动画</div>
+      <button class="nebula-hint retry" id="nebulaHint" type="button" aria-live="polite">未连接，点击重试</button>
     </div>
   </div>
   <audio id="homeBgm" preload="auto" loop playsinline webkit-playsinline>
@@ -923,14 +956,18 @@
       ];
       const STEP_COUNT = LIGHT_SEQUENCE.length;
       const HOME_VISUAL_STEP = 4;
-      const PRIME_DURATION = 240;
-      const OPEN_DURATION = 1040;
-      const CLOSE_DURATION = 760;
+      const PRIME_DURATION = 120;
+      const OPEN_DURATION = 680;
+      const CLOSE_DURATION = 560;
+      const LOCAL_CONNECT_TIMEOUT = 2800;
       let toastTimer = null;
       let nebulaStep = 0;
       let nebulaMode = 'mini';
       let transitionToken = 0;
-      let localControlFailed = false;
+      let localControlConnected = false;
+      let localConnectPromise = null;
+      let localConnectController = null;
+      let localConnectSequence = 0;
       let commandQueue = Promise.resolve();
       window.__nebulaProgress = 0;
       window.__nebulaEnergy = 0;
@@ -946,6 +983,77 @@
 
       function clamp(value, min, max){
         return Math.max(min, Math.min(max, value));
+      }
+
+      function setLocalControlState(state, message){
+        if (!nebulaHint) return;
+        const labels = {
+          idle:'展开后自动连接本地控制',
+          connecting:'正在连接本地控制…',
+          connected:'已连接',
+          retry:'未连接，点击重试',
+        };
+        nebulaHint.classList.remove('idle', 'connecting', 'connected', 'retry');
+        nebulaHint.classList.add(state);
+        nebulaHint.textContent = message || labels[state] || labels.retry;
+        nebulaHint.disabled = state !== 'retry';
+      }
+
+      function resetLocalControlConnection(){
+        localConnectSequence += 1;
+        localConnectController?.abort();
+        localConnectController = null;
+        localConnectPromise = null;
+        localControlConnected = false;
+        setLocalControlState('idle');
+      }
+
+      function connectLocalControl(){
+        if (nebulaMode !== 'expanded') return Promise.resolve(false);
+        if (VISUAL_TEST) {
+          localControlConnected = false;
+          setLocalControlState('retry', '视觉测试模式：点击可重试本地连接');
+          return Promise.resolve(false);
+        }
+        if (localControlConnected) {
+          setLocalControlState('connected');
+          return Promise.resolve(true);
+        }
+        if (localConnectPromise) return localConnectPromise;
+
+        const sequence = ++localConnectSequence;
+        const controller = new AbortController();
+        localConnectController = controller;
+        setLocalControlState('connecting');
+        const timeout = window.setTimeout(() => controller.abort(), LOCAL_CONNECT_TIMEOUT);
+
+        localConnectPromise = (async () => {
+          try {
+            const response = await fetch(LOCAL_ORIGIN + '/api/ping?ts=' + Date.now(), {
+              mode:'cors',
+              cache:'no-store',
+              signal:controller.signal,
+            });
+            const data = await response.json().catch(() => ({}));
+            if (!response.ok || data.ok !== true) throw new Error('本地服务未响应');
+            if (sequence !== localConnectSequence || nebulaMode !== 'expanded') return false;
+            localControlConnected = true;
+            setLocalControlState('connected');
+            return true;
+          } catch (error) {
+            if (sequence !== localConnectSequence) return false;
+            localControlConnected = false;
+            setLocalControlState('retry');
+            return false;
+          } finally {
+            window.clearTimeout(timeout);
+            if (sequence === localConnectSequence) {
+              localConnectController = null;
+              localConnectPromise = null;
+            }
+          }
+        })();
+        return localConnectPromise;
       }
 
       function setNebulaReveal(expansion, sunRect = window.__nebulaSunRect){
@@ -1080,9 +1188,8 @@
         const token = ++transitionToken;
         nebulaMode = 'priming';
         syncSunGeometry();
-        localControlFailed = false;
+        resetLocalControlConnection();
         commandQueue = Promise.resolve();
-        nebulaHint.textContent = '向左旋转会按相反顺序熄灭；未进入本地控制时只播放动画';
         nebulaOverlay.classList.remove('done', 'priming', 'collapsing', 'expanded', 'control-ready');
         nebulaBurst?.classList.remove('ignite', 'extinguish');
         nebulaOverlay.setAttribute('aria-hidden', 'false');
@@ -1107,12 +1214,14 @@
         nebulaOverlay.classList.add('expanded', 'control-ready');
         nebulaMode = 'expanded';
         window.dispatchEvent(new CustomEvent('lw5-nebula-expanded'));
+        connectLocalControl();
       }
 
       async function closeNebula(){
         if (!nebulaOverlay || nebulaMode !== 'expanded') return;
         const token = ++transitionToken;
         nebulaMode = 'collapsing';
+        resetLocalControlConnection();
         nebulaOverlay.classList.remove('expanded', 'control-ready', 'done');
         nebulaOverlay.classList.add('collapsing');
         setNebulaStep(0);
@@ -1132,7 +1241,12 @@
 
       async function sendLightCommand(light, on){
         if (VISUAL_TEST) {
-          nebulaHint.textContent = '视觉测试模式：动画运行中，不发送灯光指令';
+          setLocalControlState('retry', '视觉测试模式：动画运行中，不发送灯光指令');
+          return;
+        }
+        if (localConnectPromise) await localConnectPromise;
+        if (!localControlConnected) {
+          setLocalControlState('retry');
           return;
         }
         try {
@@ -1143,10 +1257,11 @@
           });
           const data = await response.json().catch(() => ({}));
           if (!response.ok) throw new Error(data.error || '本地控制失败');
-          if (!localControlFailed) nebulaHint.textContent = '本地控制已连接，继续旋转即可控制灯光';
+          localControlConnected = true;
+          setLocalControlState('connected');
         } catch (error) {
-          localControlFailed = true;
-          nebulaHint.textContent = '未进入本地控制：当前只播放动画，连接家里 Wi-Fi 后才会真正控制灯光';
+          localControlConnected = false;
+          setLocalControlState('retry');
         }
       }
 
@@ -1173,6 +1288,9 @@
         preview: setNebulaVisualStep,
       };
       nebulaBack?.addEventListener('click', closeNebula);
+      nebulaHint?.addEventListener('click', () => {
+        if (nebulaMode === 'expanded' && !localControlConnected) connectLocalControl();
+      });
       sunBtn?.addEventListener('click', pressSun);
       window.addEventListener('resize', syncSunGeometry, { passive:true });
       window.addEventListener('orientationchange', syncSunGeometry, { passive:true });
@@ -1859,15 +1977,18 @@
       flashEnergy = 1;
     });
     window.addEventListener('lw5-nebula-prime-start', () => {
+      setRenderQuality(false);
       flashDirection = -1;
       flashEnergy = .82;
       spinBoost = .62;
     });
     window.addEventListener('lw5-nebula-expand-start', () => {
-      setRenderQuality(true);
       flashDirection = 1;
       flashEnergy = 1;
       spinBoost = 1.08;
+    });
+    window.addEventListener('lw5-nebula-expanded', () => {
+      requestAnimationFrame(() => setRenderQuality(true));
     });
     window.addEventListener('lw5-nebula-collapse-start', () => {
       pointerActive = false;
