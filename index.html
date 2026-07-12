@@ -200,68 +200,69 @@
     .music-btn:active{ transform: translateY(1px) scale(.98); }
     .sun-press{
       position:fixed;
-      left:calc(50vw - 13.2vh);
-      top:4.25vh;
+      left:calc(50vw - 13.2vh + 4px);
+      top:calc(4.25vh - 3px);
       z-index:145;
       width:clamp(54px,7.45vh,86px);
       aspect-ratio:1;
       padding:0;
-      overflow:hidden;
+      overflow:visible;
       isolation:isolate;
       border-radius:50%;
-      border:1px solid rgba(210,246,255,.72);
-      background:
-        radial-gradient(circle at 38% 32%,rgba(255,255,255,.94) 0 3%,rgba(181,243,255,.66) 8%,transparent 22%),
-        radial-gradient(circle at 50% 48%,rgba(104,220,255,.86) 0,rgba(44,104,178,.88) 34%,rgba(93,56,151,.86) 64%,rgba(7,16,48,.88) 100%);
-      box-shadow:
-        inset 0 0 15px rgba(205,244,255,.48),
-        0 0 12px rgba(103,218,255,.52),
-        0 0 25px rgba(255,220,120,.32);
-      opacity:.94;
+      border:0;
+      background:transparent;
+      box-shadow:none;
+      opacity:1;
       cursor:pointer;
       -webkit-tap-highlight-color:transparent;
-      transition:opacity .18s ease,transform .24s ease,box-shadow .24s ease;
+      transition:opacity .18s ease,transform .24s ease,filter .18s ease;
     }
     .sun-press::before{
       content:"";
       position:absolute;
-      inset:-12%;
+      inset:-24%;
       z-index:1;
       border-radius:50%;
       background:
-        radial-gradient(circle at 18% 27%,rgba(255,255,255,.98) 0 1.2px,transparent 2.1px),
-        radial-gradient(circle at 32% 74%,rgba(255,222,128,.96) 0 1.1px,transparent 2px),
-        radial-gradient(circle at 47% 16%,rgba(169,241,255,.96) 0 1.3px,transparent 2.2px),
-        radial-gradient(circle at 61% 81%,rgba(220,181,255,.94) 0 1.2px,transparent 2.1px),
-        radial-gradient(circle at 75% 33%,rgba(255,236,167,.98) 0 1.4px,transparent 2.4px),
-        radial-gradient(circle at 83% 61%,rgba(153,232,255,.98) 0 1.1px,transparent 2px),
-        radial-gradient(circle at 44% 54%,rgba(255,255,255,.92) 0 .9px,transparent 1.8px),
-        radial-gradient(circle at 21% 57%,rgba(192,170,255,.88) 0 1px,transparent 1.9px);
-      filter:drop-shadow(0 0 3px rgba(168,235,255,.92));
-      animation:sunNebulaParticles 3.6s linear infinite;
+        radial-gradient(circle at 17% 31%,rgba(255,250,209,1) 0 1.2px,rgba(255,194,57,.42) 1.8px,transparent 3px),
+        radial-gradient(circle at 29% 71%,rgba(255,211,77,.98) 0 1.1px,transparent 2.6px),
+        radial-gradient(circle at 43% 17%,rgba(255,249,201,.98) 0 1.4px,rgba(255,170,32,.34) 2px,transparent 3.2px),
+        radial-gradient(circle at 56% 82%,rgba(255,183,42,.96) 0 1.2px,transparent 2.8px),
+        radial-gradient(circle at 72% 25%,rgba(255,244,174,1) 0 1.5px,rgba(255,180,31,.38) 2.2px,transparent 3.4px),
+        radial-gradient(circle at 84% 58%,rgba(255,205,65,.98) 0 1.1px,transparent 2.7px),
+        radial-gradient(circle at 65% 67%,rgba(255,250,215,.94) 0 .9px,transparent 2.4px),
+        radial-gradient(circle at 23% 52%,rgba(255,171,24,.94) 0 1px,transparent 2.5px),
+        radial-gradient(circle at 48% 47%,rgba(255,248,192,.96) 0 1.1px,transparent 2.6px),
+        radial-gradient(circle at 78% 79%,rgba(255,230,125,.92) 0 .9px,transparent 2.3px),
+        radial-gradient(circle at 38% 88%,rgba(255,193,48,.90) 0 .8px,transparent 2.2px),
+        radial-gradient(circle at 91% 39%,rgba(255,248,203,.92) 0 .8px,transparent 2.1px);
+      -webkit-mask-image:radial-gradient(circle,#000 0 58%,rgba(0,0,0,.84) 70%,transparent 88%);
+      mask-image:radial-gradient(circle,#000 0 58%,rgba(0,0,0,.84) 70%,transparent 88%);
+      filter:drop-shadow(0 0 3px rgba(255,191,42,.96)) drop-shadow(0 0 7px rgba(255,219,101,.58));
+      animation:sunNebulaParticles 3.2s linear infinite;
     }
     .sun-press::after{
       content:"";
       position:absolute;
-      left:8%;
-      top:33%;
-      z-index:2;
-      width:84%;
-      height:34%;
-      border:1px solid rgba(226,249,255,.72);
+      inset:-30%;
+      z-index:0;
       border-radius:50%;
-      box-shadow:0 0 6px rgba(112,224,255,.68),inset 0 0 4px rgba(255,226,138,.42);
-      transform:rotate(-18deg);
-      animation:sunNebulaOrbit 4.8s ease-in-out infinite alternate;
+      background:
+        radial-gradient(circle,rgba(255,252,220,.38) 0 9%,rgba(255,213,78,.23) 25%,rgba(255,166,22,.09) 45%,transparent 68%),
+        repeating-conic-gradient(from 12deg,rgba(255,235,154,.38) 0 1.2deg,transparent 2.4deg 17deg,rgba(255,177,38,.24) 18deg 19deg,transparent 20deg 34deg);
+      -webkit-mask-image:radial-gradient(circle,rgba(0,0,0,.96) 0 26%,rgba(0,0,0,.68) 50%,transparent 76%);
+      mask-image:radial-gradient(circle,rgba(0,0,0,.96) 0 26%,rgba(0,0,0,.68) 50%,transparent 76%);
+      filter:blur(.55px) drop-shadow(0 0 9px rgba(255,205,72,.50));
+      animation:sunNebulaOrbit 5.4s linear infinite;
     }
-    .sun-press:active,
+    .sun-press:active{
+      opacity:.72;
+      filter:brightness(1.20);
+    }
     .sun-press.working{
       opacity:0;
       transform:scale(.88);
       pointer-events:none;
-      box-shadow:
-        inset 0 2px 20px rgba(255,255,255,.34),
-        0 0 34px rgba(255,221,94,.28);
     }
     .sun-press:disabled{cursor:wait}
     body.nebula-active .card{
@@ -323,11 +324,14 @@
       pointer-events:none;
       clip-path:circle(var(--sun-radius) at var(--sun-x) var(--sun-y));
       -webkit-clip-path:circle(var(--sun-radius) at var(--sun-x) var(--sun-y));
-      transition:clip-path 1.04s cubic-bezier(.22,.62,.24,1),-webkit-clip-path 1.04s cubic-bezier(.22,.62,.24,1);
+      transition:clip-path 1.04s cubic-bezier(.22,.62,.24,1),-webkit-clip-path 1.04s cubic-bezier(.22,.62,.24,1),opacity .18s ease;
       touch-action:none;
       user-select:none;
       -webkit-user-select:none;
       will-change:clip-path;
+    }
+    .nebula-overlay:not(.priming):not(.expanding):not(.expanded):not(.collapsing){
+      opacity:0;
     }
     .nebula-overlay::before{
       content:"";
@@ -684,8 +688,9 @@
       100%{transform:rotate(360deg) scale(.96)}
     }
     @keyframes sunNebulaOrbit{
-      0%{transform:rotate(-24deg) scaleX(.92);opacity:.58}
-      100%{transform:rotate(18deg) scaleX(1.08);opacity:.96}
+      0%{transform:rotate(360deg) scale(.94);opacity:.56}
+      50%{transform:rotate(180deg) scale(1.06);opacity:.92}
+      100%{transform:rotate(0deg) scale(.94);opacity:.56}
     }
     @keyframes nebulaRadiance{
       to{transform:rotate(-360deg)}
