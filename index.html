@@ -963,7 +963,9 @@
       const PRIME_DURATION = 120;
       const OPEN_DURATION = 680;
       const CLOSE_DURATION = 560;
-      const LOCAL_CONNECT_TIMEOUT = 1800;
+      const LOCAL_CONNECT_TIMEOUT = 1500;
+      const RECENT_LOCAL_KEY = 'lw5_nebula_recent_local_v1';
+      const RECENT_LOCAL_TTL = 5 * 60 * 1000;
       let toastTimer = null;
       let nebulaStep = 0;
       let nebulaMode = 'mini';
@@ -1009,6 +1011,31 @@
         }
       }
 
+      function rememberRecentLocalHandoff(){
+        try {
+          localStorage.setItem(RECENT_LOCAL_KEY, String(Date.now()));
+        } catch (_) { }
+      }
+
+      function hasRecentLocalHandoff(){
+        try {
+          const lastHandoff = Number(localStorage.getItem(RECENT_LOCAL_KEY));
+          return Number.isFinite(lastHandoff) && Date.now() - lastHandoff < RECENT_LOCAL_TTL;
+        } catch (_) {
+          return false;
+        }
+      }
+
+      function enterLocalControl(sequence, message){
+        rememberRecentLocalHandoff();
+        setLocalControlState('connecting', message || '已找到本地控制，正在进入…');
+        window.setTimeout(() => {
+          if (sequence === localConnectSequence && nebulaMode === 'expanded') {
+            window.location.assign(LOCAL_CONTROL_URL + '&ts=' + Date.now());
+          }
+        }, 80);
+      }
+
       function resetLocalControlConnection(){
         localConnectSequence += 1;
         localConnectController?.abort();
@@ -1031,6 +1058,12 @@
         }
         if (localConnectPromise) return localConnectPromise;
 
+        if (hasRecentLocalHandoff()) {
+          const recentSequence = ++localConnectSequence;
+          enterLocalControl(recentSequence, '正在恢复本地控制…');
+          return Promise.resolve(true);
+        }
+
         const sequence = ++localConnectSequence;
         const controller = new AbortController();
         const image = new Image();
@@ -1039,7 +1072,12 @@
 
         localConnectPromise = new Promise((resolve) => {
           let settled = false;
+          let failedProbes = 0;
           const timeout = window.setTimeout(() => finish(false), LOCAL_CONNECT_TIMEOUT);
+          const probeFailed = () => {
+            failedProbes += 1;
+            if (failedProbes >= 2) finish(false);
+          };
           const finish = (available) => {
             if (settled) return;
             settled = true;
@@ -1053,13 +1091,9 @@
             localConnectController = null;
             localConnectPromise = null;
             localControlConnected = false;
+            controller.abort();
             if (available) {
-              setLocalControlState('connecting', '已找到本地控制，正在进入…');
-              window.setTimeout(() => {
-                if (sequence === localConnectSequence && nebulaMode === 'expanded') {
-                  window.location.assign(LOCAL_CONTROL_URL + '&ts=' + Date.now());
-                }
-              }, 80);
+              enterLocalControl(sequence);
               resolve(true);
               return;
             }
@@ -1068,8 +1102,19 @@
           };
           controller.signal.addEventListener('abort', () => finish(false), { once:true });
           image.onload = () => finish(true);
-          image.onerror = () => finish(false);
+          image.onerror = probeFailed;
           image.src = LOCAL_PROBE_URL + '?probe=' + Date.now();
+          fetch(LOCAL_ORIGIN + '/api/ping?ts=' + Date.now(), {
+            mode:'cors',
+            cache:'no-store',
+            credentials:'omit',
+            targetAddressSpace:'local',
+            signal:controller.signal,
+          }).then(async (response) => {
+            const data = await response.json().catch(() => ({}));
+            if (!response.ok || data.ok !== true) throw new Error('本地服务未响应');
+            finish(true);
+          }).catch(probeFailed);
         });
         return localConnectPromise;
       }
@@ -1314,6 +1359,7 @@
         nebulaHint.classList.remove('retry');
         nebulaHint.classList.add('connecting');
         nebulaHint.textContent = '正在进入本地控制…';
+        rememberRecentLocalHandoff();
       });
       sunBtn?.addEventListener('click', pressSun);
       window.addEventListener('resize', syncSunGeometry, { passive:true });

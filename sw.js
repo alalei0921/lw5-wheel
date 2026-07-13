@@ -1,5 +1,5 @@
 // Simple service worker for Lw&5之家 (offline-ish)
-const CACHE = 'lw5-home-v31';
+const CACHE = 'lw5-home-v32';
 const ASSETS = [
   './',
   './index.html',
