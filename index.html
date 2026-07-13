@@ -691,11 +691,13 @@
     .nebula-hint{
       padding:10px 14px;
       width:100%;
+      display:block;
       border:1px solid rgba(255,255,255,.22);
       font-size:12px;
       font-weight:750;
       font-family:inherit;
       line-height:1.35;
+      text-decoration:none;
       color:rgba(255,255,255,.78);
       background:rgba(3,6,18,.18);
       appearance:none;
@@ -723,7 +725,7 @@
       transform:scale(.985);
       background:rgba(178,124,34,.34);
     }
-    .nebula-hint:disabled{
+    .nebula-hint[aria-disabled="true"]{
       opacity:1;
     }
     @keyframes nebulaDrift{
@@ -850,7 +852,7 @@
     </div>
     <div class="nebula-status-wrap">
       <div class="nebula-status" id="nebulaStatus">向右旋转点亮灯光</div>
-      <button class="nebula-hint retry" id="nebulaHint" type="button" aria-live="polite">未连接，点击重试</button>
+      <a class="nebula-hint retry" id="nebulaHint" href="http://192.168.1.105:8788/sun-mode?from=home" target="_top" role="button" aria-live="polite">未连接，点击重试</a>
     </div>
   </div>
   <audio id="homeBgm" preload="auto" loop playsinline webkit-playsinline>
@@ -942,6 +944,8 @@
       const nebulaBack = document.getElementById('nebulaBack');
       const nebulaBurst = nebulaOverlay?.querySelector('.nebula-burst');
       const LOCAL_ORIGIN = 'http://192.168.1.105:8788';
+      const LOCAL_CONTROL_URL = LOCAL_ORIGIN + '/sun-mode?from=home';
+      const LOCAL_PROBE_URL = LOCAL_ORIGIN + '/assets/hyperion-bg.jpg';
       const VISUAL_TEST = new URL(location.href).searchParams.get('visual-test') === '1';
       const LIGHT_SEQUENCE = [
         { loop: 9, name: '主卧射灯' },
@@ -959,7 +963,7 @@
       const PRIME_DURATION = 120;
       const OPEN_DURATION = 680;
       const CLOSE_DURATION = 560;
-      const LOCAL_CONNECT_TIMEOUT = 2800;
+      const LOCAL_CONNECT_TIMEOUT = 1800;
       let toastTimer = null;
       let nebulaStep = 0;
       let nebulaMode = 'mini';
@@ -996,7 +1000,13 @@
         nebulaHint.classList.remove('idle', 'connecting', 'connected', 'retry');
         nebulaHint.classList.add(state);
         nebulaHint.textContent = message || labels[state] || labels.retry;
-        nebulaHint.disabled = state !== 'retry';
+        const canEnterLocal = state === 'retry';
+        nebulaHint.setAttribute('aria-disabled', String(!canEnterLocal));
+        if (canEnterLocal) {
+          nebulaHint.setAttribute('href', LOCAL_CONTROL_URL);
+        } else {
+          nebulaHint.removeAttribute('href');
+        }
       }
 
       function resetLocalControlConnection(){
@@ -1023,36 +1033,44 @@
 
         const sequence = ++localConnectSequence;
         const controller = new AbortController();
+        const image = new Image();
         localConnectController = controller;
         setLocalControlState('connecting');
-        const timeout = window.setTimeout(() => controller.abort(), LOCAL_CONNECT_TIMEOUT);
 
-        localConnectPromise = (async () => {
-          try {
-            const response = await fetch(LOCAL_ORIGIN + '/api/ping?ts=' + Date.now(), {
-              mode:'cors',
-              cache:'no-store',
-              signal:controller.signal,
-            });
-            const data = await response.json().catch(() => ({}));
-            if (!response.ok || data.ok !== true) throw new Error('本地服务未响应');
-            if (sequence !== localConnectSequence || nebulaMode !== 'expanded') return false;
-            localControlConnected = true;
-            setLocalControlState('connected');
-            return true;
-          } catch (error) {
-            if (sequence !== localConnectSequence) return false;
-            localControlConnected = false;
-            setLocalControlState('retry');
-            return false;
-          } finally {
+        localConnectPromise = new Promise((resolve) => {
+          let settled = false;
+          const timeout = window.setTimeout(() => finish(false), LOCAL_CONNECT_TIMEOUT);
+          const finish = (available) => {
+            if (settled) return;
+            settled = true;
             window.clearTimeout(timeout);
-            if (sequence === localConnectSequence) {
-              localConnectController = null;
-              localConnectPromise = null;
+            image.onload = null;
+            image.onerror = null;
+            if (sequence !== localConnectSequence || controller.signal.aborted || nebulaMode !== 'expanded') {
+              resolve(false);
+              return;
             }
-          }
-        })();
+            localConnectController = null;
+            localConnectPromise = null;
+            localControlConnected = false;
+            if (available) {
+              setLocalControlState('connecting', '已找到本地控制，正在进入…');
+              window.setTimeout(() => {
+                if (sequence === localConnectSequence && nebulaMode === 'expanded') {
+                  window.location.assign(LOCAL_CONTROL_URL + '&ts=' + Date.now());
+                }
+              }, 80);
+              resolve(true);
+              return;
+            }
+            setLocalControlState('retry');
+            resolve(false);
+          };
+          controller.signal.addEventListener('abort', () => finish(false), { once:true });
+          image.onload = () => finish(true);
+          image.onerror = () => finish(false);
+          image.src = LOCAL_PROBE_URL + '?probe=' + Date.now();
+        });
         return localConnectPromise;
       }
 
@@ -1288,8 +1306,14 @@
         preview: setNebulaVisualStep,
       };
       nebulaBack?.addEventListener('click', closeNebula);
-      nebulaHint?.addEventListener('click', () => {
-        if (nebulaMode === 'expanded' && !localControlConnected) connectLocalControl();
+      nebulaHint?.addEventListener('click', (event) => {
+        if (nebulaMode !== 'expanded' || nebulaHint.getAttribute('aria-disabled') === 'true') {
+          event.preventDefault();
+          return;
+        }
+        nebulaHint.classList.remove('retry');
+        nebulaHint.classList.add('connecting');
+        nebulaHint.textContent = '正在进入本地控制…';
       });
       sunBtn?.addEventListener('click', pressSun);
       window.addEventListener('resize', syncSunGeometry, { passive:true });
