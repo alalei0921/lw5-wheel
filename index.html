@@ -1334,7 +1334,8 @@
         if (direction < 0 && nebulaStep <= 0) return;
         const nextStep = nebulaStep + direction;
         const light = direction > 0 ? LIGHT_SEQUENCE[nextStep - 1] : LIGHT_SEQUENCE[nebulaStep - 1];
-        setNebulaStep(nextStep, (direction > 0 ? '点亮：' : '熄灭：') + light.name);
+        const label = '当前亮着 ' + nextStep + ' / ' + STEP_COUNT + ' 盏灯｜' + (direction > 0 ? '打开：' : '关闭：') + light.name;
+        setNebulaStep(nextStep, label);
         pulseNebula(direction);
         commandQueue = commandQueue.then(() => sendLightCommand(light, direction > 0));
       }
