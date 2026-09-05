@@ -1,5 +1,5 @@
 // Simple service worker for Lw&5之家 (offline-ish)
-const CACHE = 'lw5-home-v33';
+const CACHE = 'lw5-home-v34-wheel-360';
 const ASSETS = [
   './',
   './index.html',
@@ -11,6 +11,17 @@ const ASSETS = [
   './bgm.mp3',
   './wheel/',
   './wheel/index.html',
+  './wheel/style.css',
+  './wheel/main.js',
+  './wheel/scene.js',
+  './wheel/audio.js',
+  './wheel/wheel-core.js',
+  './wheel/view-core.js',
+  './wheel/background.js',
+  './wheel/assets/start.png',
+  './wheel/assets/reward-bg.jpg',
+  './wheel/vendor/three.module.min.js',
+  './wheel/vendor/three.core.min.js',
   './stock/',
   './stock/index.html',
   './travel/',
@@ -50,9 +61,9 @@ self.addEventListener('fetch', (event) => {
     caches.match(req).then((cached) => {
       if (cached) return cached;
       return fetch(req).then((res) => {
-        // Cache successful basic responses
+        // Cache only successful same-origin responses
         const copy = res.clone();
-        caches.open(CACHE).then((cache) => cache.put(req, copy)).catch(() => {});
+        if (res.ok && res.type === 'basic') caches.open(CACHE).then((cache) => cache.put(req, copy)).catch(() => {});
         return res;
       }).catch(() => cached);
     })

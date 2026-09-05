@@ -828,6 +828,13 @@
       .tool-btn{font-size:14.5px;padding:10px}
       .tool-btn.wide{font-size:15px;padding:10px 12px}
     }
+
+    /* The 3D wheel gets the entire app viewport, including on installed PWAs. */
+    .tool-panel.wheel-fullscreen{inset:0;width:100%;height:100%;transform:none;border:0;border-radius:0;background:#070e24;display:flex;flex-direction:column;}
+    .wheel-fullscreen .tool-topbar{flex:none;padding:calc(6px + env(safe-area-inset-top,0px)) max(12px,env(safe-area-inset-right,0px)) 6px max(12px,env(safe-area-inset-left,0px));background:#090f25;border-bottom:1px solid #b7e5fa20;}
+    .wheel-fullscreen .tool-title{color:#c8e9ec;font-size:14px;font-weight:600;}
+    .wheel-fullscreen .cute-close{padding:6px 12px;background:#142339;color:#d4eaf0;border-color:#739ca433;box-shadow:none;}
+    .wheel-fullscreen .tool-iframe{display:block;flex:1;min-height:0;height:auto;background:#070e24;padding-bottom:env(safe-area-inset-bottom,0px);}
   </style>
 </head>
 <body>
@@ -1438,10 +1445,11 @@
 
       function openTool(tool){
         if (!overlay || !panel || !frame) return;
+        panel.classList.toggle('wheel-fullscreen', tool === 'wheel');
 
         if (tool === 'wheel'){
-          panel.classList.remove('full');
-          panel.classList.add('sheet');
+          panel.classList.remove('sheet');
+          panel.classList.add('full');
           titleEl.textContent = '🍜🎡 美食转盘';
           frame.src = './wheel/?v=' + Date.now();
           location.hash = '#wheel';

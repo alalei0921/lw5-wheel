@@ -1,0 +1,11 @@
+export class Soundtrack {
+  constructor(muted=false){this.muted=muted;this.ctx=null;this.voices=new Set();this.lastTick=0;}
+  unlock(){if(!this.ctx){const C=window.AudioContext||window.webkitAudioContext;if(!C)return;try{this.ctx=new C();this.master=this.ctx.createGain();this.master.gain.value=this.muted?0:.48;const compressor=this.ctx.createDynamicsCompressor();compressor.threshold.value=-16;compressor.ratio.value=5;this.master.connect(compressor);compressor.connect(this.ctx.destination)}catch{return}}if(this.ctx.state==='suspended')this.ctx.resume().catch(()=>{});}
+  setMuted(value){this.muted=value;if(this.ctx)this.master.gain.setTargetAtTime(value?0:.48,this.ctx.currentTime,.025)}
+  tone(freq,start,duration,type='sine',volume=.15,endFreq){if(!this.ctx||this.muted)return;const t=this.ctx.currentTime+start,o=this.ctx.createOscillator(),g=this.ctx.createGain();o.type=type;o.frequency.setValueAtTime(freq,t);if(endFreq)o.frequency.exponentialRampToValueAtTime(endFreq,t+duration);g.gain.setValueAtTime(.0001,t);g.gain.exponentialRampToValueAtTime(Math.max(.0002,volume),t+.009);g.gain.exponentialRampToValueAtTime(.0001,t+duration);o.connect(g);g.connect(this.master);o.start(t);o.stop(t+duration+.03);this.voices.add(o);o.onended=()=>{this.voices.delete(o);o.disconnect();g.disconnect()};}
+  start(){this.tone(80,0,.55,'sine',.23,320);this.tone(220,.06,.42,'triangle',.07,880);this.tone(660,.3,.3,'sine',.08);}
+  tick(energy){if(!this.ctx||this.muted)return;const now=this.ctx.currentTime;if(now-this.lastTick<.037)return;this.lastTick=now;this.tone(900+energy*1000,0,.035,'triangle',.05);this.tone(160,0,.045,'sine',.1)}
+  reveal(gold){const notes=gold?[523.25,659.25,783.99,1046.5,1318.5,1567.98]:[523.25,659.25,783.99,1046.5];notes.forEach((n,i)=>{this.tone(n,i*.095,.8,'sine',.11);this.tone(n*2,i*.095,.38,'sine',.026)});const delay=gold?.55:.34;[261.63,329.63,392,523.25].forEach(n=>this.tone(n,delay,gold?1.7:1.1,'triangle',.033));if(gold){this.tone(65.4,0,.8,'sine',.22);[2093,2637,3136].forEach((n,i)=>this.tone(n,.85+i*.13,.7,'sine',.04))}}
+  confirm(){this.tone(659.25,0,.2,'sine',.07);this.tone(987.77,.1,.35,'sine',.06)}
+  stop(){this.voices.forEach(o=>{try{o.stop()}catch{}});this.voices.clear()}
+}
