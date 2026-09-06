@@ -1,5 +1,5 @@
 // Simple service worker for Lw&5之家 (offline-ish)
-const CACHE = 'lw5-home-v40-spatial-salon';
+const CACHE = 'lw5-home-v41-grounded-salon';
 const ASSETS = [
   './',
   './index.html',

@@ -2,7 +2,7 @@ import * as THREE from './vendor/three.module.min.js';
 import {segments,TAU} from './wheel-core.js';
 import {annularSurface,BOWL_PROFILE,CONE_PROFILE,BALL_RADIUS} from './physics.js';
 import {DEFAULT_PITCH,dragView,dragRoomView,frontYaw} from './view-core.js';
-import {SpatialRoom,salonCamera} from './spatial-room.js';
+import {SpatialRoom,salonCamera,TABLE_SCALE,TABLE_POSITION,SALON_GROUND} from './spatial-room.js';
 
 function woodTexture(){
  const c=document.createElement('canvas');c.width=c.height=1024;const ctx=c.getContext('2d');ctx.fillStyle='#493527';ctx.fillRect(0,0,1024,1024);
@@ -18,7 +18,7 @@ export function makeWheelTexture(size=2048){
 export class WheelScene {
  constructor(host,{reduced=false,onStart=()=>{},onEnter=()=>{},onArrive=()=>{}}={}){
   this.host=host;this.onEnter=onEnter;this.onArrive=onArrive;this.roomTarget=new THREE.Vector2();this.roomView=new THREE.Vector2();this.arrived=false;this.reduced=reduced;this.onStart=onStart;this.energy=0;this.viewYaw=0;this.viewPitch=DEFAULT_PITCH;this.velocity=0;this.dragging=false;this.spinActive=false;this.pointers=new Map();this.bursts=[];this.active=true;this.angle=0;this.entered=false;this.zoom=0;this.cameraYaw=0;this.cameraPitch=0;
-  this.scene=new THREE.Scene();this.camera=new THREE.PerspectiveCamera(48,1,.1,90);this.camera.position.set(0,8.6,9.3);this.camera.lookAt(0,.05,0);
+  this.scene=new THREE.Scene();this.scene.scale.setScalar(TABLE_SCALE);this.scene.position.copy(TABLE_POSITION);this.camera=new THREE.PerspectiveCamera(48,1,.1,90);this.camera.position.set(0,8.6,9.3);this.camera.lookAt(0,.05,0);
   this.renderer=new THREE.WebGLRenderer({alpha:false,antialias:true,powerPreference:'high-performance'});this.renderer.setPixelRatio(Math.min(Math.max(devicePixelRatio,1.5),2));this.renderer.setClearColor(0x070604,1);this.renderer.outputColorSpace=THREE.SRGBColorSpace;this.renderer.toneMapping=THREE.ACESFilmicToneMapping;this.renderer.toneMappingExposure=1.12;this.renderer.shadowMap.enabled=true;this.renderer.shadowMap.type=THREE.PCFSoftShadowMap;this.renderer.shadowMap.autoUpdate=false;this.renderer.shadowMap.needsUpdate=true;this.renderer.autoClear=false;host.append(this.renderer.domElement);
   this.scene.add(new THREE.HemisphereLight(0xffebc9,0x18100a,.58));this.scene.fog=new THREE.FogExp2(0x070604,.018);
   this.spot=new THREE.SpotLight(0xffe1a4,200,26,.62,.6,1.5);this.spot.position.set(0,10.15,0);this.spot.target.position.set(0,0,0);this.spot.castShadow=true;this.spot.shadow.mapSize.set(1024,1024);this.spot.shadow.bias=-.0003;this.spot.shadow.normalBias=.025;this.scene.add(this.spot,this.spot.target);
@@ -48,7 +48,7 @@ export class WheelScene {
   this.ballMesh=new THREE.Mesh(new THREE.SphereGeometry(BALL_RADIUS,32,24),new THREE.MeshPhysicalMaterial({color:0xfff6dc,metalness:.12,roughness:.16,clearcoat:1,clearcoatRoughness:.08}));this.ballMesh.castShadow=true;this.ballMesh.position.set(2.65,.69,1.96);this.rig.add(this.ballMesh);
   const ballStripe=new THREE.Mesh(new THREE.TorusGeometry(BALL_RADIUS+.0005,.004,6,48),brass);this.ballMesh.add(ballStripe);
   this.marker=this.surface([[1.72,-.103],[2.43,-.103]],new THREE.MeshBasicMaterial({color:0xffd377,transparent:true,opacity:.42,side:THREE.DoubleSide,depthWrite:false}),2.43,0,TAU/19);this.marker.visible=false;this.rotor.add(this.marker);
-  this.glowTexture=this.makeGlowTexture();this.createAtmosphere();this.createCeilingLamp();this.createRoom();this.room=new SpatialRoom();this.createCloseRoom();this.createBackplate(wood,darkBrass);
+  this.glowTexture=this.makeGlowTexture();this.createAtmosphere();this.createCeilingLamp();this.createRoom();this.room=new SpatialRoom();this.createCloseRoom();this.createGroundReflection();this.createBackplate(wood,darkBrass);
   this.raycaster=new THREE.Raycaster();this.pointerNdc=new THREE.Vector2();this.centerButton=host.parentElement.querySelector('.center-start');this.hubPoint=new THREE.Vector3();this.hubNormal=new THREE.Vector3();host.parentElement.classList.add('webgl-ready');
   this.setupInteraction();this.resize();this.observer=new ResizeObserver(()=>this.resize());this.observer.observe(host);document.addEventListener('visibilitychange',()=>{this.active=!document.hidden;this.lastTime=performance.now()});
   this.lastTime=performance.now();this.animate=this.animate.bind(this);this.frame=requestAnimationFrame(this.animate);
@@ -79,11 +79,31 @@ export class WheelScene {
  createCloseRoom(){
   this.closeRoom=new THREE.Group();this.scene.add(this.closeRoom);this.closeMaterials=[];
   const material=(color,roughness=.45,metalness=.2)=>{const m=new THREE.MeshStandardMaterial({color,roughness,metalness,transparent:true,opacity:0});this.closeMaterials.push(m);return m};
-  const floor=new THREE.Mesh(new THREE.CircleGeometry(25,96),material(0x17120d,.35,.35));floor.rotation.x=-Math.PI/2;floor.position.y=-3.51;floor.receiveShadow=true;this.closeRoom.add(floor);
+  const floor=new THREE.Mesh(new THREE.CircleGeometry(25,96),material(0x0c0907,.88,.02));floor.rotation.x=-Math.PI/2;floor.position.y=-3.475;floor.receiveShadow=true;this.closeRoom.add(floor);
   const wall=new THREE.Mesh(new THREE.CylinderGeometry(23,23,22,48,1,true),material(0x130f0b,.65,.15));wall.material.side=THREE.BackSide;wall.position.y=6;this.closeRoom.add(wall);
   const trim=material(0x8d6939,.32,.9);for(let i=0;i<20;i++){const a=i/20*TAU,m=new THREE.Mesh(new THREE.CylinderGeometry(.1,.1,18,8),trim);m.position.set(Math.sin(a)*22,4.5,Math.cos(a)*22);this.closeRoom.add(m)}
   // Soft contact footprint is visible even while the floor is photographic.
-  const shadow=new THREE.Mesh(new THREE.PlaneGeometry(8,8),new THREE.ShaderMaterial({transparent:true,depthWrite:false,uniforms:{},vertexShader:'varying vec2 vUv;void main(){vUv=uv;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}',fragmentShader:'varying vec2 vUv;void main(){float a=1.-smoothstep(.22,.5,length(vUv-.5));gl_FragColor=vec4(0.,0.,0.,a*.68);}'}));shadow.rotation.x=-Math.PI/2;shadow.position.y=-3.48;this.scene.add(shadow);
+  const shadow=new THREE.Mesh(new THREE.PlaneGeometry(8,8),new THREE.ShaderMaterial({transparent:true,depthWrite:false,uniforms:{},vertexShader:'varying vec2 vUv;void main(){vUv=uv;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}',fragmentShader:'varying vec2 vUv;void main(){float a=1.-smoothstep(.22,.5,length(vUv-.5));gl_FragColor=vec4(0.,0.,0.,a*.68);}'}));shadow.rotation.x=-Math.PI/2;shadow.position.y=-3.464;this.scene.add(shadow);this.contactShadow=shadow;
+  const receiver=new THREE.Mesh(new THREE.PlaneGeometry(35,35),new THREE.ShadowMaterial({opacity:.32,depthWrite:false,polygonOffset:true,polygonOffsetFactor:-1,polygonOffsetUnits:-1}));receiver.rotation.x=-Math.PI/2;receiver.position.y=-3.469;receiver.receiveShadow=true;this.scene.add(receiver);this.shadowReceiver=receiver;
+ }
+ createGroundReflection(){
+  this.mirrorTarget=new THREE.WebGLRenderTarget(256,512,{depthBuffer:true});this.mirrorCamera=new THREE.PerspectiveCamera();
+  this.mirrorMatrix=new THREE.Matrix4();this.mirrorLast=-Infinity;
+  this.reflection=new THREE.Mesh(new THREE.PlaneGeometry(13,13),new THREE.ShaderMaterial({transparent:true,depthWrite:false,polygonOffset:true,polygonOffsetFactor:-2,polygonOffsetUnits:-2,
+   uniforms:{map:{value:this.mirrorTarget.texture},projector:{value:this.mirrorMatrix},strength:{value:.18},texel:{value:new THREE.Vector2(1/256,1/512)}},
+   vertexShader:'uniform mat4 projector;varying vec4 vMirror;varying vec2 vUv;void main(){vec4 world=modelMatrix*vec4(position,1.);vMirror=projector*world;vUv=uv;gl_Position=projectionMatrix*viewMatrix*world;}',
+   fragmentShader:'uniform sampler2D map;uniform vec2 texel;uniform float strength;varying vec4 vMirror;varying vec2 vUv;void main(){vec2 uv=vMirror.xy/vMirror.w;if(any(lessThan(uv,vec2(0.)))||any(greaterThan(uv,vec2(1.))))discard;vec4 c=vec4(0.);for(int x=-1;x<=1;x++)for(int y=-1;y<=1;y++)c+=texture2D(map,uv+vec2(float(x),float(y))*texel*2.2);c/=9.;float mask=1.-smoothstep(.25,.5,length(vUv-.5));gl_FragColor=vec4(c.rgb,c.a*strength*mask);\n#include <colorspace_fragment>\n}'}));
+  this.reflection.rotation.x=-Math.PI/2;this.reflection.position.y=-3.462;this.scene.add(this.reflection);
+ }
+ renderReflection(now,progress){
+  this.reflection.material.uniforms.strength.value=.22*(1-THREE.MathUtils.smoothstep(progress,.25,.6));
+  if(progress>.6||now-this.mirrorLast<1000/15)return;this.mirrorLast=now;
+  const c=this.mirrorCamera;c.copy(this.camera);c.position.y=2*SALON_GROUND-this.camera.position.y;
+  const target=this.camera.position.clone().add(this.camera.getWorldDirection(new THREE.Vector3()));target.y=2*SALON_GROUND-target.y;c.up.copy(this.camera.up);c.up.y*=-1;c.lookAt(target);c.updateMatrixWorld();
+  this.mirrorMatrix.set(.5,0,0,.5,0,.5,0,.5,0,0,.5,.5,0,0,0,1).multiply(c.projectionMatrix).multiply(c.matrixWorldInverse);
+  const hide=[this.reflection,this.contactShadow,this.shadowReceiver,this.closeRoom,this.lamp,this.beam,this.dust],visibility=hide.map(o=>o.visible);hide.forEach(o=>o.visible=false);
+  this.renderer.setRenderTarget(this.mirrorTarget);this.renderer.setClearColor(0x000000,0);this.renderer.clear();this.renderer.render(this.scene,c);
+  this.renderer.setRenderTarget(null);this.renderer.setClearColor(0x070604,1);hide.forEach((o,i)=>o.visible=visibility[i]);
  }
  cylinder(rt,rb,height,y,material,parent){const m=new THREE.Mesh(new THREE.CylinderGeometry(rt,rb,height,128),material);m.position.y=y;m.receiveShadow=true;m.castShadow=true;parent.add(m);return m}
  surface(profile,material,uvRadius=3.8,start=0,length=TAU){
@@ -136,21 +156,21 @@ export class WheelScene {
   const framedDistance=aspect<1?11.8/aspect**.77:11.2,elevation=.70+this.cameraPitch;
   const distance=Math.min(framedDistance,14.5,10.5/Math.sin(elevation),8.4/Math.cos(elevation));
   this.camera.fov=THREE.MathUtils.lerp(48,2*Math.atan(Math.tan(24*Math.PI/180)*framedDistance/distance)*180/Math.PI,z);this.camera.updateProjectionMatrix();
-  const close=new THREE.Vector3(Math.sin(-this.cameraYaw)*Math.cos(elevation)*distance,Math.sin(elevation)*distance,Math.cos(-this.cameraYaw)*Math.cos(elevation)*distance);
+  const close=new THREE.Vector3(Math.sin(-this.cameraYaw)*Math.cos(elevation)*distance,Math.sin(elevation)*distance,Math.cos(-this.cameraYaw)*Math.cos(elevation)*distance).multiplyScalar(TABLE_SCALE).add(TABLE_POSITION);
   const reference=salonCamera(aspect),offset=reference.position.clone().sub(reference.target);
   offset.applyAxisAngle(new THREE.Vector3(0,1,0),-this.roomView.x);
   const side=new THREE.Vector3(1,0,0).applyAxisAngle(new THREE.Vector3(0,1,0),-this.roomView.x);
   offset.applyAxisAngle(side,this.roomView.y);
   const far=reference.target.clone().add(offset);
   this.host.dataset.roomYaw=this.roomView.x.toFixed(3);this.host.dataset.roomPitch=this.roomView.y.toFixed(3);
-  this.camera.position.lerpVectors(far,close,z);this.camera.lookAt(reference.target.clone().lerp(new THREE.Vector3(0,.15,0),z));
+  this.camera.position.lerpVectors(far,close,z);this.camera.lookAt(reference.target.clone().lerp(new THREE.Vector3(0,.15,0).multiplyScalar(TABLE_SCALE).add(TABLE_POSITION),z));
   this.closeRoom.visible=z>.24;for(const m of this.closeMaterials)m.opacity=THREE.MathUtils.smoothstep(z,.24,.88);
   if(t===1&&!this.arrived){this.arrived=true;this.onArrive()}
   this.host.dataset.stage=!this.entered?'room':this.zoom<1?'approaching':'table';this.host.dataset.cameraPosition=this.camera.position.toArray().map(x=>x.toFixed(2)).join(',');
 
   if(!this.reduced){const pos=this.dust.geometry.attributes.position;for(let i=0;i<pos.count;i++){pos.array[i*3]+=.00012*Math.sin(now*.0003+i);pos.array[i*3+1]+=dt*.025;if(pos.array[i*3+1]>9.6)pos.array[i*3+1]=1.4}pos.needsUpdate=true;this.dust.material.opacity=.65+Math.sin(now*.0005)*.08}
   for(const b of this.bursts){b.age+=dt;const p=b.p.geometry.attributes.position;for(let i=0;i<p.count;i++){b.vel[i*3+1]-=dt*2;p.array[i*3]+=b.vel[i*3]*dt;p.array[i*3+1]+=b.vel[i*3+1]*dt;p.array[i*3+2]+=b.vel[i*3+2]*dt}p.needsUpdate=true;b.p.material.opacity=Math.max(0,1-b.age/2)}if(this.bursts.some(b=>b.age>2.2))this.clearBursts();
-  this.host.dataset.viewYaw=this.cameraYaw.toFixed(3);this.host.dataset.viewPitch=this.cameraPitch.toFixed(3);this.renderer.clear();this.room.render(this.renderer,this.camera,z);this.renderer.clearDepth();this.renderer.render(this.scene,this.camera);this.host.dataset.drawCalls=String(this.renderer.info.render.calls);this.host.dataset.triangles=String(this.renderer.info.render.triangles);
+  this.host.dataset.viewYaw=this.cameraYaw.toFixed(3);this.host.dataset.viewPitch=this.cameraPitch.toFixed(3);this.renderReflection(now,z);this.renderer.clear();this.room.render(this.renderer,this.camera,z);this.renderer.render(this.scene,this.camera);this.host.dataset.drawCalls=String(this.renderer.info.render.calls);this.host.dataset.triangles=String(this.renderer.info.render.triangles);
   if(this.centerButton){this.hubPoint.set(0,.73,0);this.rig.localToWorld(this.hubPoint);const normal=new THREE.Vector3(0,1,0).transformDirection(this.rig.matrixWorld),visible=normal.dot(this.camera.position.clone().sub(this.hubPoint).normalize())>.15;this.hubPoint.project(this.camera);this.centerButton.style.left=`${(this.hubPoint.x+1)*.5*this.host.clientWidth+this.host.offsetLeft}px`;this.centerButton.style.top=`${(1-this.hubPoint.y)*.5*this.host.clientHeight+this.host.offsetTop}px`;this.centerButton.style.width=`${this.host.clientHeight*.18}px`;this.centerButton.style.height=`${this.host.clientHeight*.14}px`;this.centerButton.style.visibility=visible?'visible':'hidden'}
  }
 }
