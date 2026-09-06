@@ -9,7 +9,7 @@ const reduceQuery=matchMedia('(prefers-reduced-motion: reduce)');
 let reduced=preference('lw5-reduced-motion',String(reduceQuery.matches))==='true';
 let muted=preference('lw5-sound-muted','false')==='true';
 const audio=new Soundtrack(muted);
-let room=null,entered=false,scene=null,background=null,angle=0,spinning=false,ready=false,lastResult=null,spinFrame=0;
+let entered=false,scene=null,background=null,angle=0,spinning=false,ready=false,lastResult=null,spinFrame=0;
 let fallbackTexture=null;const simulation=new RoulettePhysics({onCollision:hit=>audio.impact(hit)});
 function renderPrefs(){$('soundText').textContent=muted?'音效关闭':'音效开启';$('muteBtn').classList.toggle('muted',muted);$('muteBtn').setAttribute('aria-pressed',String(muted));$('muteBtn').setAttribute('aria-label',muted?'开启音效':'关闭音效');document.body.classList.toggle('reduced-motion',reduced);scene?.setReduced(reduced);background?.setReduced(reduced)}
 renderPrefs();$('spinBtn').disabled=true;$('centerStart').disabled=true;
@@ -18,16 +18,13 @@ reduceQuery.addEventListener('change',e=>{reduced=e.matches;renderPrefs()});
 function cryptorandom(){if(globalThis.crypto?.getRandomValues){const b=new Uint32Array(1);crypto.getRandomValues(b);return b[0]/4294967296}return Math.random()}
 function setStatus(text){$('status').replaceChildren();const dot=document.createElement('span');dot.className='status-dot';$('status').append(dot,document.createTextNode(text))}
 function drawFallback(){const c=$('fallbackCanvas').getContext('2d');c.clearRect(0,0,900,900);c.save();c.translate(450,450);c.rotate(angle);c.drawImage(fallbackTexture,-279.45,-279.45,558.9,558.9);c.restore();const p=simulation.ball.position;c.beginPath();c.arc(450+p.x*115,450-p.z*115,13,0,TAU);c.fillStyle='#fff5d6';c.shadowColor='#ffe1a4';c.shadowBlur=12;c.fill();c.shadowBlur=0;}
-async function init(){try{const {WheelScene,makeWheelTexture}=await import('./scene.js');fallbackTexture=makeWheelTexture(900);try{scene=new WheelScene($('scene'),{reduced,onStart:startSpin});}catch(error){console.warn('3D unavailable; using the accessible canvas wheel.',error);$('scene').replaceChildren();$('fallbackWheel').hidden=false;$('resetView').hidden=true;drawFallback();}}catch(error){console.error('Wheel could not load',error);setStatus('轮盘加载失败，请刷新重试');$('loadingMark').querySelector('span').textContent='加载失败，请刷新页面';return}ready=true;$('spinBtn').disabled=false;$('centerStart').disabled=false;$('loadingMark').classList.add('loaded');setTimeout(()=>$('loadingMark').hidden=true,450)}
-async function initRoom(){
- await init();
- try{const {CasinoRoom}=await import('./room.js');room=new CasinoRoom($('casinoRoom'),{reduced,onEnter:enterWheel})}catch(error){console.warn('Room relief unavailable',error);$('casinoRoom').addEventListener('click',enterWheel);$('casinoRoom').addEventListener('keydown',e=>{if(e.key==='Enter')enterWheel()})}
-}
-function enterWheel(){if(entered||!ready)return;entered=true;audio.unlock();document.body.classList.add('approaching');scene?.enter();setTimeout(()=>{document.body.classList.remove('room-view','approaching');document.body.classList.add('table-view');document.querySelector('.casino-dock').inert=false;$('casinoRoom').hidden=true;$('scene').tabIndex=0;$('centerStart').tabIndex=0;$('scene').focus({preventScroll:true});room?.dispose()},reduced?60:1650)}
+async function init(){try{const {WheelScene,makeWheelTexture}=await import('./scene.js');fallbackTexture=makeWheelTexture(900);try{scene=new WheelScene($('scene'),{reduced,onStart:startSpin,onEnter:enterWheel,onArrive:activateControls});}catch(error){console.warn('3D unavailable; using the accessible canvas wheel.',error);$('scene').replaceChildren();$('fallbackWheel').hidden=false;$('resetView').hidden=true;drawFallback();}}catch(error){console.error('Wheel could not load',error);setStatus('轮盘加载失败，请刷新重试');$('loadingMark').querySelector('span').textContent='加载失败，请刷新页面';return}ready=true;$('spinBtn').disabled=false;$('centerStart').disabled=false;$('loadingMark').classList.add('loaded');setTimeout(()=>$('loadingMark').hidden=true,450)}
+function activateControls(){document.body.classList.remove('room-view','approaching');document.body.classList.add('table-view');document.querySelector('.casino-dock').inert=false;$('scene').setAttribute('aria-label','左右拖动360度查看轮盘，上下拖动调整角度。方向键调整，Home回归视角，Enter投球。');$('centerStart').tabIndex=0;$('scene').focus({preventScroll:true})}
+function enterWheel(){if(entered||!ready)return;entered=true;audio.unlock();document.body.classList.add('approaching');if(scene)scene.enter();else activateControls()}
 $('homeBtn').href=location.pathname.includes('/wheel/')?'../':'https://alalei0921.github.io/lw5-wheel/';
-initRoom();
+init().then(()=>{if(!scene&&ready){entered=true;activateControls();setStatus('此设备使用轻量转盘')}});
 function startSpin(){
- if(spinning||!ready||!entered)return;spinning=true;scene?.setSpinning(true);$('centerStart').disabled=true;$('spinBtn').disabled=true;audio.unlock();audio.stop();audio.start();$('spinText').textContent='蓄力中';$('spinProgress').style.width='0%';setStatus('准备投球…');
+ if(spinning||!ready||!entered||(scene&&!scene.arrived))return;spinning=true;scene?.setSpinning(true);$('centerStart').disabled=true;$('spinBtn').disabled=true;audio.unlock();audio.stop();audio.start();$('spinText').textContent='蓄力中';$('spinProgress').style.width='0%';setStatus('准备投球…');
  const charge=reduced?0:480;let last=performance.now(),chargeElapsed=0,accumulator=0,launched=false,phase='charge';
  function frame(now){
   if(document.hidden){last=now;spinFrame=requestAnimationFrame(frame);return}

@@ -1,5 +1,5 @@
 // Simple service worker for Lw&5之家 (offline-ish)
-const CACHE = 'lw5-home-v36-casino-room';
+const CACHE = 'lw5-home-v37-modeled-casino';
 const ASSETS = [
   './',
   './index.html',
@@ -20,7 +20,6 @@ const ASSETS = [
   './wheel/background.js',
   './wheel/physics.js',
   './wheel/room.js',
-  './wheel/assets/casino-room.jpg',
   './wheel/vendor/cannon-es.js',
   './wheel/assets/start.png',
   './wheel/assets/reward-bg.jpg',
