@@ -1,5 +1,5 @@
 // Simple service worker for Lw&5之家 (offline-ish)
-const CACHE = 'lw5-home-v38-pachinko-room';
+const CACHE = 'lw5-home-v39-sculpted-salon';
 const ASSETS = [
   './',
   './index.html',
@@ -20,6 +20,10 @@ const ASSETS = [
   './wheel/background.js',
   './wheel/physics.js',
   './wheel/room.js',
+  './wheel/vendor/GLTFLoader.js',
+  './wheel/vendor/BufferGeometryUtils.js',
+  './wheel/assets/models/salon-guest.glb',
+  './wheel/assets/models/numa-pachinko.glb',
   './wheel/vendor/cannon-es.js',
   './wheel/assets/start.png',
   './wheel/assets/reward-bg.jpg',
