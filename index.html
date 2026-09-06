@@ -1444,6 +1444,7 @@
       const titleEl = document.getElementById('toolTitle');
 
       function openTool(tool){
+        if (tool === 'wheel') { location.href = './wheel/'; return; }
         if (!overlay || !panel || !frame) return;
         panel.classList.toggle('wheel-fullscreen', tool === 'wheel');
 
