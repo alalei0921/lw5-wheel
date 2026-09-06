@@ -1,5 +1,5 @@
 // Simple service worker for Lw&5之家 (offline-ish)
-const CACHE = 'lw5-home-v39-sculpted-salon';
+const CACHE = 'lw5-home-v40-spatial-salon';
 const ASSETS = [
   './',
   './index.html',
@@ -19,11 +19,12 @@ const ASSETS = [
   './wheel/view-core.js',
   './wheel/background.js',
   './wheel/physics.js',
-  './wheel/room.js',
-  './wheel/vendor/GLTFLoader.js',
-  './wheel/vendor/BufferGeometryUtils.js',
-  './wheel/assets/models/salon-guest.glb',
-  './wheel/assets/models/numa-pachinko.glb',
+  './wheel/spatial-room.js',
+  './wheel/room-motion.js',
+  './wheel/portrait-core.js',
+  './wheel/assets/salon/room-v2.png',
+  './wheel/assets/salon/depth.json',
+  './wheel/assets/salon/depth.bin',
   './wheel/vendor/cannon-es.js',
   './wheel/assets/start.png',
   './wheel/assets/reward-bg.jpg',

@@ -1,0 +1,1 @@
+{"width": 512, "height": 640, "type": "uint16-le", "sourceWidth": 1024, "sourceHeight": 1280, "near": "high", "model": "depth-anything/Depth-Anything-V2-Small-hf"}
