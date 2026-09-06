@@ -1,7 +1,7 @@
 import * as THREE from './vendor/three.module.min.js';
 import {segments,TAU} from './wheel-core.js';
 import {annularSurface,BOWL_PROFILE,CONE_PROFILE,BALL_RADIUS} from './physics.js';
-import {DEFAULT_PITCH,dragView,frontYaw} from './view-core.js';
+import {DEFAULT_PITCH,dragView,dragRoomView,frontYaw} from './view-core.js';
 import {CasinoRoom} from './room.js';
 
 function woodTexture(){
@@ -88,15 +88,13 @@ export class WheelScene {
   const hit=e=>{const r=host.getBoundingClientRect();this.pointerNdc.set((e.clientX-r.left)/r.width*2-1,1-(e.clientY-r.top)/r.height*2);this.raycaster.setFromCamera(this.pointerNdc,this.camera)};
   host.addEventListener('pointerdown',e=>{if(e.button!==0&&e.pointerType==='mouse')return;if(this.entered&&this.zoom<1)return;this.pointers.set(e.pointerId,{x:e.clientX,y:e.clientY});host.setPointerCapture(e.pointerId);this.dragging=true;this.velocity=0;this.dragDistance=0;host.classList.add('dragging')});
   host.addEventListener('pointermove',e=>{
-   if(!this.entered){const r=host.getBoundingClientRect();this.roomTarget.set((e.clientX-r.left)/r.width-.5,(e.clientY-r.top)/r.height-.5);}
-   if(!this.pointers.has(e.pointerId))return;const p=this.pointers.get(e.pointerId),dx=e.clientX-p.x,dy=e.clientY-p.y;this.pointers.set(e.pointerId,{x:e.clientX,y:e.clientY});this.dragDistance+=Math.hypot(dx,dy);if(!this.entered)return;
+   if(!this.pointers.has(e.pointerId))return;const p=this.pointers.get(e.pointerId),dx=e.clientX-p.x,dy=e.clientY-p.y;this.pointers.set(e.pointerId,{x:e.clientX,y:e.clientY});this.dragDistance+=Math.hypot(dx,dy);if(!this.entered){const v=dragRoomView(this.roomTarget.x,this.roomTarget.y,dx,dy,host.clientWidth,host.clientHeight);this.roomTarget.set(v.yaw,v.pitch);return;}
    const v=dragView(this.viewYaw,this.viewPitch,dx,dy,host.clientWidth);this.viewYaw=v.yaw;this.viewPitch=Math.max(-.25,Math.min(.80,v.pitch));this.velocity=this.reduced?0:dx/Math.max(host.clientWidth,240)*TAU*.3;
   });
-  host.addEventListener('pointerleave',()=>this.roomTarget.set(0,0));
   const finish=e=>{if(!this.pointers.has(e.pointerId))return;this.pointers.delete(e.pointerId);this.dragging=this.pointers.size>0;if(!this.dragging)host.classList.remove('dragging');if(e.type==='pointerup'&&this.dragDistance<7&&!this.spinActive){hit(e);if(!this.entered){if(this.raycaster.intersectObjects([this.rig,this.beam],true).length)this.onEnter()}else if(this.zoom===1&&this.raycaster.intersectObject(this.hubFace).length)this.onStart()}if(e.type==='pointercancel')this.velocity=0};
   host.addEventListener('pointerup',finish);host.addEventListener('pointercancel',finish);host.addEventListener('lostpointercapture',finish);
   host.addEventListener('keydown',e=>{
-   if(!this.entered){if(e.key==='Enter'||e.key===' '){e.preventDefault();this.onEnter()}else if(['ArrowLeft','ArrowRight','ArrowUp','ArrowDown'].includes(e.key)){e.preventDefault();this.roomTarget.x=Math.max(-.5,Math.min(.5,this.roomTarget.x+(e.key==='ArrowLeft'?-.1:e.key==='ArrowRight'?.1:0)));this.roomTarget.y=Math.max(-.5,Math.min(.5,this.roomTarget.y+(e.key==='ArrowUp'?-.1:e.key==='ArrowDown'?.1:0)))}return}if(this.zoom<1)return;
+   if(!this.entered){if(e.key==='Enter'||e.key===' '){e.preventDefault();this.onEnter()}else if(['ArrowLeft','ArrowRight','ArrowUp','ArrowDown'].includes(e.key)){e.preventDefault();const v=dragRoomView(this.roomTarget.x,this.roomTarget.y,e.key==='ArrowLeft'?-18:e.key==='ArrowRight'?18:0,e.key==='ArrowUp'?-18:e.key==='ArrowDown'?18:0,240,240);this.roomTarget.set(v.yaw,v.pitch)}return}if(this.zoom<1)return;
    const keys={ArrowLeft:[-.18,0],ArrowRight:[.18,0],ArrowUp:[0,-.12],ArrowDown:[0,.12]};if(keys[e.key]){e.preventDefault();this.velocity=0;this.viewYaw+=keys[e.key][0];this.viewPitch=Math.max(-.25,Math.min(.80,this.viewPitch+keys[e.key][1]))}else if(e.key==='Home'){e.preventDefault();this.resetView()}else if(e.key==='Enter'||e.key===' '){e.preventDefault();this.onStart()}
   });
  }
@@ -114,12 +112,14 @@ export class WheelScene {
  animate(now){this.frame=requestAnimationFrame(this.animate);if(!this.active){this.lastTime=now;return;}if(!this.spinActive&&!this.dragging&&(!this.entered||this.zoom===1)&&Math.abs(this.velocity)<.001&&now-this.lastTime<1000/30)return;const dt=Math.min((now-this.lastTime)/1000,.05);this.lastTime=now;if(!this.dragging&&!this.reduced&&!this.spinActive){this.viewYaw+=this.velocity*dt*60;this.velocity*=Math.exp(-dt*7)}const blend=this.reduced?1:1-Math.exp(-dt*10);this.cameraYaw+=(this.viewYaw-this.cameraYaw)*blend;this.cameraPitch+=(this.viewPitch-this.cameraPitch)*blend;
   if(this.entered)this.zoom=Math.min(1,this.zoom+dt/(this.reduced?.05:2.3));
   const t=this.zoom,z=t*t*t*(t*(t*6-15)+10),aspect=this.camera.aspect;
-  this.roomView.lerp(this.reduced?new THREE.Vector2():this.roomTarget,1-Math.exp(-dt*3));
+  this.roomView.lerp(this.roomTarget,this.reduced?1:1-Math.exp(-dt*9));
   const framedDistance=aspect<1?11.8/aspect**.77:11.2,elevation=.70+this.cameraPitch;
   const distance=Math.min(framedDistance,14.5,10.5/Math.sin(elevation),8.4/Math.cos(elevation));
   this.camera.fov=THREE.MathUtils.lerp(48,2*Math.atan(Math.tan(24*Math.PI/180)*framedDistance/distance)*180/Math.PI,z);this.camera.updateProjectionMatrix();
   const close=new THREE.Vector3(Math.sin(-this.cameraYaw)*Math.cos(elevation)*distance,Math.sin(elevation)*distance,Math.cos(-this.cameraYaw)*Math.cos(elevation)*distance);
-  const far=new THREE.Vector3(4.0+this.roomView.x*.55,10.0-this.roomView.y*.25,aspect<.65?30:26);
+  const roomDistance=aspect<.65?34:30,roomYaw=.118-this.roomView.x,roomElevation=.29+this.roomView.y*.5;
+  const far=new THREE.Vector3(Math.sin(roomYaw)*Math.cos(roomElevation)*roomDistance,Math.sin(roomElevation)*roomDistance+.6,Math.cos(roomYaw)*Math.cos(roomElevation)*roomDistance-3);
+  this.host.dataset.roomYaw=this.roomView.x.toFixed(3);this.host.dataset.roomPitch=this.roomView.y.toFixed(3);
   this.camera.position.lerpVectors(far,close,z);this.camera.lookAt(new THREE.Vector3(.1,.6,-3).lerp(new THREE.Vector3(0,.15,0),z));
   if(t===1&&!this.arrived){this.arrived=true;this.onArrive()}
   this.host.dataset.stage=!this.entered?'room':this.zoom<1?'approaching':'table';this.host.dataset.cameraPosition=this.camera.position.toArray().map(x=>x.toFixed(2)).join(',');
