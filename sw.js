@@ -1,5 +1,5 @@
 // Simple service worker for Lw&5之家 (offline-ish)
-const CACHE = 'lw5-home-v34-wheel-360';
+const CACHE = 'lw5-home-v35-roulette-physics';
 const ASSETS = [
   './',
   './index.html',
@@ -18,6 +18,8 @@ const ASSETS = [
   './wheel/wheel-core.js',
   './wheel/view-core.js',
   './wheel/background.js',
+  './wheel/physics.js',
+  './wheel/vendor/cannon-es.js',
   './wheel/assets/start.png',
   './wheel/assets/reward-bg.jpg',
   './wheel/vendor/three.module.min.js',
@@ -40,7 +42,7 @@ const ASSETS = [
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
-    caches.open(CACHE).then((cache) => cache.addAll(ASSETS)).then(() => self.skipWaiting())
+    caches.open(CACHE).then((cache) => cache.addAll(ASSETS.map(url => new Request(new URL(url, self.location.href), { cache: 'reload' })))).then(() => self.skipWaiting())
   );
 });
 

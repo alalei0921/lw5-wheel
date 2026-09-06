@@ -1,4 +1,4 @@
-export const DEFAULT_PITCH = -.30;
+export const DEFAULT_PITCH = 0;
 export const clamp = (value,min,max) => Math.max(min,Math.min(max,value));
 export function dragView(yaw,pitch,dx,dy,width){
   const sensitivity=Math.PI*2/Math.max(width,240);

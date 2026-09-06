@@ -21,27 +21,27 @@
     </header>
 
     <main>
-      <div class="heading"><p class="eyebrow"><span></span> A LITTLE SPIN. A LOVELY MEAL.</p><h1>今天的美味，<span>交给宇宙。</span></h1><p class="intro">LW & 5 的美食命运轮</p></div>
+      <div class="heading"><p class="eyebrow"><span></span> BRASS, WALNUT & A LITTLE LUCK.</p><h1>一颗幸运球，<span>一顿好时光。</span></h1><p class="intro">LW & 5 · 美食嘉年华</p></div>
       <div class="experience">
-        <aside class="side-note left-note" aria-label="转盘说明"><span class="micro-label">THE MENU</span><p><strong>19</strong><span>种美味可能</span></p><div class="fine-rule"></div><span class="note-copy">日常的小幸福<br/>也值得一点仪式感。</span></aside>
+        <aside class="side-note left-note" aria-label="转盘说明"><span class="micro-label">THE MENU</span><p><strong>19</strong><span>种美味可能</span></p><div class="fine-rule"></div><span class="note-copy">投入一颗幸运球<br/>让美味自己找上门。</span></aside>
 
         <section class="wheel-stage" aria-label="3D 美食转盘">
           <div class="stage-halo" aria-hidden="true"></div>
-          <div id="scene" tabindex="0" aria-label="可拖动的3D美食转盘。左右拖动查看360度，上下拖动调整俯仰。键盘方向键调整角度，Home回到正面，Enter开始。"></div>
-          <div class="fallback-wheel" id="fallbackWheel" hidden><canvas id="fallbackCanvas" width="900" height="900"></canvas><span class="fallback-pointer" aria-hidden="true">▼</span></div>
+          <div id="scene" tabindex="0" aria-label="可拖动的3D美食转盘。左右拖动查看360度，上下拖动调整俯仰。键盘方向键调整角度，Home回到俯视，Enter开始。"></div>
+          <div class="fallback-wheel" id="fallbackWheel" hidden><canvas id="fallbackCanvas" width="900" height="900"></canvas></div>
           <div class="loading-mark" id="loadingMark">✦<span>正在点亮星空</span></div>
           <button class="center-start" id="centerStart" aria-label="开始抽取：两只小狗 START 按钮"><img src="./assets/start.png" alt="两只小狗，开始 START" draggable="false" /></button>
           
         </section>
 
-        <aside class="side-note right-note" aria-label="特别奖励"><span class="micro-label gold-text">SPECIAL PICKS</span><p><strong class="gold-text">03</strong><span>份金色惊喜</span></p><div class="fine-rule gold-rule"></div><span class="note-copy">一杯奶茶，一顿大餐<br/>或是专属的蛋包饭。</span><button class="text-button" id="menuBtn">看看今日菜单 <span aria-hidden="true">↗</span></button></aside>
+        <aside class="side-note right-note" aria-label="特别奖励"><span class="micro-label gold-text">SPECIAL PICKS</span><p><strong class="gold-text">03</strong><span>份金色惊喜</span></p><div class="fine-rule gold-rule"></div><span class="note-copy">黄铜与木头的回响<br/>落定一份今晚的惊喜。</span><button class="text-button" id="menuBtn">看看今日菜单 <span aria-hidden="true">↗</span></button></aside>
       </div>
 
-      <div class="view-controls"><span id="dragHint">↔ 拖动转盘 · 360° 自由查看</span><button id="resetView" class="quiet-button" aria-label="回到转盘正面">↺ 回到正面</button></div>
+      <div class="view-controls"><span id="dragHint">↔ 拖动转盘 · 360° 自由查看</span><button id="resetView" class="quiet-button" aria-label="回到转盘正面">↺ 回到俯视</button></div>
       <section class="controls" aria-label="开始抽取">
         <p id="status" class="status" role="status" aria-live="polite"><span class="status-dot"></span>星光就绪，等你开启</p>
-        <button class="spin-button" id="spinBtn"><span class="button-star" aria-hidden="true">✦</span><span id="spinText">让命运开席</span><span class="button-arrow" aria-hidden="true">↗</span></button>
-        <p class="control-hint" id="controlHint">点小狗 START 或下方按钮 <span>·</span> 建议打开声音</p>
+        <button class="spin-button" id="spinBtn"><span class="button-star" aria-hidden="true">✦</span><span id="spinText">投入幸运球</span><span class="button-arrow" aria-hidden="true">↗</span></button>
+        <p class="control-hint" id="controlHint">点小狗 START 投球 <span>·</span> 建议打开声音</p>
         <div class="progress-track" aria-hidden="true"><div id="spinProgress"></div></div>
       </section>
       <div class="menu-strip"><span><i class="mint-dot"></i>16 道日常美味</span><span class="menu-divider"></span><span><i class="gold-dot"></i>3 份特别奖励</span><button class="text-button mobile-menu" id="mobileMenuBtn">查看菜单 ↗</button></div>
@@ -56,7 +56,7 @@
     <div class="result-content"><p class="eyebrow" id="resultEyebrow">THE UNIVERSE HAS DECIDED</p><span class="result-symbol" id="resultSymbol" aria-hidden="true">✦</span><p class="result-kicker" id="resultKicker">今天的美味是</p><h2 id="resultTitle"></h2><p id="resultDescription">和你一起，吃什么都是好日子。</p><div class="result-actions"><button class="spin-button" id="acceptBtn">就吃这家 <span aria-hidden="true">♡</span></button><button class="quiet-button" id="againBtn">再转一次 <span aria-hidden="true">↻</span></button></div></div>
   </dialog>
 
-  <dialog id="menuDialog" class="menu-dialog" aria-labelledby="menuTitle"><button class="close-button" id="menuClose" aria-label="关闭菜单">×</button><p class="eyebrow">SOMETHING DELICIOUS AWAITS</p><h2 id="menuTitle">今天的美味宇宙</h2><p class="menu-intro">19 个选项，每一份都有同样的机会。</p><div id="menuList" class="menu-list"></div><p class="menu-footnote"><i class="gold-dot"></i> 金色选项附送专属庆祝光效</p></dialog>
+  <dialog id="menuDialog" class="menu-dialog" aria-labelledby="menuTitle"><button class="close-button" id="menuClose" aria-label="关闭菜单">×</button><p class="eyebrow">SOMETHING DELICIOUS AWAITS</p><h2 id="menuTitle">今天的美味宇宙</h2><p class="menu-intro">19 个美食格子，由小球最终停留的位置决定。</p><div id="menuList" class="menu-list"></div><p class="menu-footnote"><i class="gold-dot"></i> 金色选项附送专属庆祝光效</p></dialog>
   <script type="module" src="./main.js"></script>
 </body>
 </html>
