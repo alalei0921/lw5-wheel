@@ -45,7 +45,7 @@ export class WheelScene {
   this.cylinder(.76,.85,.12,.64,darkBrass,this.rig);this.torus(.77,.034,brass,this.rig,.71);
   const start=new THREE.TextureLoader().load(new URL('./assets/start.png',import.meta.url).href);start.colorSpace=THREE.SRGBColorSpace;start.anisotropy=this.renderer.capabilities.getMaxAnisotropy();
   this.hubFace=new THREE.Mesh(new THREE.CircleGeometry(.745,80),new THREE.MeshBasicMaterial({map:start,color:0xe7d7b3,toneMapped:false}));this.hubFace.rotation.x=-Math.PI/2;this.hubFace.position.y=.706;this.hubFace.receiveShadow=true;this.rig.add(this.hubFace);
-  this.ballMesh=new THREE.Mesh(new THREE.SphereGeometry(BALL_RADIUS,32,24),new THREE.MeshPhysicalMaterial({color:0xfff6dc,metalness:.12,roughness:.16,clearcoat:1,clearcoatRoughness:.08}));this.ballMesh.castShadow=true;this.ballMesh.position.set(2.65,.69,1.96);this.rig.add(this.ballMesh);
+  this.ballMesh=new THREE.Mesh(new THREE.SphereGeometry(BALL_RADIUS,32,24),new THREE.MeshPhysicalMaterial({color:0xcbd2d8,metalness:1,roughness:.19,envMapIntensity:1.55,clearcoat:.18,clearcoatRoughness:.13}));this.ballMesh.castShadow=true;this.ballMesh.position.set(2.65,.69,1.96);this.rig.add(this.ballMesh);
   const ballStripe=new THREE.Mesh(new THREE.TorusGeometry(BALL_RADIUS+.0005,.004,6,48),brass);this.ballMesh.add(ballStripe);
   this.marker=this.surface([[1.72,-.103],[2.43,-.103]],new THREE.MeshBasicMaterial({color:0xffd377,transparent:true,opacity:.42,side:THREE.DoubleSide,depthWrite:false}),2.43,0,TAU/19);this.marker.visible=false;this.rotor.add(this.marker);
   this.glowTexture=this.makeGlowTexture();this.createAtmosphere();this.createCeilingLamp();this.createRoom();this.room=new SpatialRoom();this.createCloseRoom();this.createGroundReflection();this.createBackplate(wood,darkBrass);

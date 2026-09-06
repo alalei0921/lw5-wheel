@@ -1,5 +1,5 @@
 // Simple service worker for Lw&5之家 (offline-ish)
-const CACHE = 'lw5-home-v42-soft-room-edges';
+const CACHE = 'lw5-home-v43-steel-ball-motion';
 const ASSETS = [
   './',
   './index.html',

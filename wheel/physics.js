@@ -14,8 +14,8 @@ export function pocketAt(x,z,rotorAngle){return Math.floor(modulo(Math.atan2(x,z
 export class RoulettePhysics {
  constructor({onCollision=()=>{}}={}){
   this.world=new CANNON.World({gravity:new CANNON.Vec3(0,-9.81,0),allowSleep:false});this.world.solver.iterations=14;this.world.defaultContactMaterial.contactEquationStiffness=1e7;
-  this.materials={ball:new CANNON.Material('ceramic'),metal:new CANNON.Material('metal'),wood:new CANNON.Material('wood')};
-  for(const [name,friction,restitution] of [['wood',.17,.28],['metal',.10,.52]])this.world.addContactMaterial(new CANNON.ContactMaterial(this.materials.ball,this.materials[name],{friction,restitution,contactEquationStiffness:1e7,contactEquationRelaxation:4}));
+  this.materials={ball:new CANNON.Material('steel'),metal:new CANNON.Material('metal'),wood:new CANNON.Material('wood')};
+  for(const [name,friction,restitution] of [['wood',.17,.36],['metal',.10,.72]])this.world.addContactMaterial(new CANNON.ContactMaterial(this.materials.ball,this.materials[name],{friction,restitution,contactEquationStiffness:1e7,contactEquationRelaxation:4}));
   const race=new CANNON.Material('wood');this.world.addContactMaterial(new CANNON.ContactMaterial(this.materials.ball,race,{friction:.025,restitution:.08}));const bowl=new CANNON.Body({mass:0,material:race});bowl.addShape(this.surface(BOWL_PROFILE));this.world.addBody(bowl);
   // The outer brass lip closes the wooden raceway; metal diamonds scatter the ball as it descends.
   const rail=new CANNON.Body({mass:0,material:this.materials.metal});const railMaterial=new CANNON.Material('metal');this.world.addContactMaterial(new CANNON.ContactMaterial(this.materials.ball,railMaterial,{friction:.015,restitution:.08}));const outerRail=this.surface([[3.65,.85],[3.65,1.6]]);outerRail.material=railMaterial;rail.addShape(outerRail);
@@ -35,15 +35,22 @@ export class RoulettePhysics {
  }
  surface(profile){const {vertices,indices}=annularSurface(profile);return new CANNON.Trimesh(vertices,indices)}
  launch(random=Math.random){
-  const a=random()*TAU,speed=7.4+random()*.6,r=3.53;
-  this.angle=random()*TAU;this.initialOmega=-(3.0+random()*.5);this.rotor.quaternion.setFromAxisAngle(new CANNON.Vec3(0,1,0),this.angle);
+  const a=random()*TAU,speed=8.3+random()*.6,r=3.53;
+  this.angle=random()*TAU;this.initialOmega=-(3.9+random()*.6);this.rotor.quaternion.setFromAxisAngle(new CANNON.Vec3(0,1,0),this.angle);
   this.ball.position.set(Math.sin(a)*r,.96+random()*.015,Math.cos(a)*r);this.ball.velocity.set(Math.cos(a)*speed,-.25,-Math.sin(a)*speed);this.ball.angularVelocity.set(-Math.sin(a)*speed/BALL_RADIUS,0,-Math.cos(a)*speed/BALL_RADIUS);this.ball.force.setZero();this.ball.torque.setZero();this.ball.wakeUp();this.ball.aabbNeedsUpdate=true;
-  this.time=0;this.running=true;this.result=null;this.stableTime=0;this.lastPocket=-1;this.failed=false;this.world.time=0;
+  this.ball.linearDamping=.10;this.ball.angularDamping=.18;this.time=0;this.running=true;this.result=null;this.stableTime=0;this.lastPocket=-1;this.failed=false;this.world.time=0;
  }
  step(dt=1/120){
   if(!this.running)return;
   this.time+=dt;
-  const speedScale=Math.max(0,1-this.time/10.5);this.omega=this.initialOmega*speedScale*speedScale;
+  // Keep useful rotor speed through the first inner-ring impacts, then brake
+  // smoothly within the existing throw duration. Dissipation never chooses a pocket.
+  const brake=Math.max(0,Math.min(1,(this.time-2.6)/6.7));
+  this.omega=this.initialOmega*(1-brake*brake*(3-2*brake));
+  const drag=Math.max(0,Math.min(1,(this.time-2.5)/3));
+  const inRotor=Math.hypot(this.ball.position.x,this.ball.position.z)<2.5;
+  this.ball.linearDamping=this.time>7.8?.55:inRotor?.04:.10+.20*drag;
+  this.ball.angularDamping=this.time>7.8?.36:inRotor?.10:.18;
   this.rotor.angularVelocity.set(0,this.omega,0);this.world.step(dt);this.angle+=this.omega*dt;
   // Quaternion and analytical angle share the same integration to avoid drift in pocket mapping.
   this.rotor.quaternion.setFromAxisAngle(new CANNON.Vec3(0,1,0),this.angle);this.rotor.aabbNeedsUpdate=true;
