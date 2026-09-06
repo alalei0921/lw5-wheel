@@ -10,3 +10,13 @@ export function frontYaw(yaw){return Math.round(yaw/(Math.PI*2))*Math.PI*2;}
 export function dragRoomView(yaw,pitch,dx,dy,width,height){
  return {yaw:clamp(yaw+dx/Math.max(width,240)*.42,-.14,.14),pitch:clamp(pitch+dy/Math.max(height,240)*.30,-.095,.095)};
 }
+
+// Keep ordinary room gestures unchanged. Ease the combined parallax toward a
+// safe ellipse; independent hard limits made diagonal corners stretch the most.
+export function roomCameraView(yaw,pitch){
+ const maxYaw=.095,maxPitch=.064;
+ const radius=Math.hypot(yaw/maxYaw,pitch/maxPitch);
+ if(radius<=.55)return {yaw,pitch};
+ const eased=.55+.45*(1-Math.exp(-(radius-.55)/.45));
+ return {yaw:yaw*eased/radius,pitch:pitch*eased/radius};
+}

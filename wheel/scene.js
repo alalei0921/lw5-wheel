@@ -1,7 +1,7 @@
 import * as THREE from './vendor/three.module.min.js';
 import {segments,TAU} from './wheel-core.js';
 import {annularSurface,BOWL_PROFILE,CONE_PROFILE,BALL_RADIUS} from './physics.js';
-import {DEFAULT_PITCH,dragView,dragRoomView,frontYaw} from './view-core.js';
+import {DEFAULT_PITCH,dragView,dragRoomView,roomCameraView,frontYaw} from './view-core.js';
 import {SpatialRoom,salonCamera,TABLE_SCALE,TABLE_POSITION,SALON_GROUND} from './spatial-room.js';
 
 function woodTexture(){
@@ -157,12 +157,12 @@ export class WheelScene {
   const distance=Math.min(framedDistance,14.5,10.5/Math.sin(elevation),8.4/Math.cos(elevation));
   this.camera.fov=THREE.MathUtils.lerp(48,2*Math.atan(Math.tan(24*Math.PI/180)*framedDistance/distance)*180/Math.PI,z);this.camera.updateProjectionMatrix();
   const close=new THREE.Vector3(Math.sin(-this.cameraYaw)*Math.cos(elevation)*distance,Math.sin(elevation)*distance,Math.cos(-this.cameraYaw)*Math.cos(elevation)*distance).multiplyScalar(TABLE_SCALE).add(TABLE_POSITION);
-  const reference=salonCamera(aspect),offset=reference.position.clone().sub(reference.target);
-  offset.applyAxisAngle(new THREE.Vector3(0,1,0),-this.roomView.x);
-  const side=new THREE.Vector3(1,0,0).applyAxisAngle(new THREE.Vector3(0,1,0),-this.roomView.x);
-  offset.applyAxisAngle(side,this.roomView.y);
+  const reference=salonCamera(aspect),offset=reference.position.clone().sub(reference.target),safeView=roomCameraView(this.roomView.x,this.roomView.y);
+  offset.applyAxisAngle(new THREE.Vector3(0,1,0),-safeView.yaw);
+  const side=new THREE.Vector3(1,0,0).applyAxisAngle(new THREE.Vector3(0,1,0),-safeView.yaw);
+  offset.applyAxisAngle(side,safeView.pitch);
   const far=reference.target.clone().add(offset);
-  this.host.dataset.roomYaw=this.roomView.x.toFixed(3);this.host.dataset.roomPitch=this.roomView.y.toFixed(3);
+  this.host.dataset.roomYaw=safeView.yaw.toFixed(3);this.host.dataset.roomPitch=safeView.pitch.toFixed(3);
   this.camera.position.lerpVectors(far,close,z);this.camera.lookAt(reference.target.clone().lerp(new THREE.Vector3(0,.15,0).multiplyScalar(TABLE_SCALE).add(TABLE_POSITION),z));
   this.closeRoom.visible=z>.24;for(const m of this.closeMaterials)m.opacity=THREE.MathUtils.smoothstep(z,.24,.88);
   if(t===1&&!this.arrived){this.arrived=true;this.onArrive()}
