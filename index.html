@@ -111,7 +111,7 @@
       position: fixed;
       inset: 0;
       display: none;
-      z-index: 80;
+      z-index: 160;
     }
     .tool-overlay.show{ display:block; }
     .tool-overlay .backdrop{
@@ -132,9 +132,20 @@
       overflow: hidden;
     }
     .tool-panel.full{
-      top: 10px;
-      bottom: 10px;
+      inset:0;
+      width:100%;
+      height:100%;
+      transform:none;
+      border:0;
+      border-radius:0;
+      background:#fff;
+      box-shadow:none;
+      display:flex;
+      flex-direction:column;
     }
+    .full .tool-topbar{flex:none;padding:calc(8px + env(safe-area-inset-top,0px)) max(12px,env(safe-area-inset-right,0px)) 8px max(12px,env(safe-area-inset-left,0px));}
+    .full .tool-iframe{display:block;flex:1;min-height:0;height:auto;padding-bottom:env(safe-area-inset-bottom,0px);}
+    body.tool-active .sun-press,body.tool-active .nebula-overlay{visibility:hidden;pointer-events:none;}
     .tool-panel.sheet{
       bottom: 10px;
       height: min(78vh, 720px);
@@ -1487,12 +1498,14 @@
 
         overlay.classList.add('show');
         overlay.setAttribute('aria-hidden','false');
+        document.body.classList.add('tool-active');
       }
 
       function closeTool(){
         if (!overlay) return;
         overlay.classList.remove('show');
         overlay.setAttribute('aria-hidden','true');
+        document.body.classList.remove('tool-active');
         // 停留在主页；保留BGM
         frame.src = 'about:blank';
         location.hash = '';
@@ -1856,7 +1869,7 @@
     function animateNebula(time = 0) {
       frame = requestAnimationFrame(animateNebula);
       const expansion = getExpansion();
-      if (document.hidden) return;
+      if (document.hidden || document.body.classList.contains('tool-active')) return;
       const miniIdle = expansion < .01 && !overlay?.classList.contains('expanding') && !overlay?.classList.contains('collapsing');
       if (miniIdle && time - lastRenderTime < 45) return;
       lastRenderTime = time;

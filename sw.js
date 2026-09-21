@@ -1,5 +1,5 @@
 // Simple service worker for Lw&5之家 (offline-ish)
-const CACHE = 'lw5-home-v45-nebula-sun-preview';
+const CACHE = 'lw5-home-v46-fullscreen-tools';
 const ASSETS = [
   './',
   './index.html',
