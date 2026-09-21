@@ -728,6 +728,10 @@
     .nebula-hint[aria-disabled="true"]{
       opacity:1;
     }
+    .nebula-overlay.webgl-ready{background:#030609}
+    .nebula-overlay.webgl-ready::before,.nebula-overlay.webgl-ready::after{display:none}
+    .webgl-ready .nebula-canvas{filter:none}
+    .webgl-ready .nebula-stage > :not(.nebula-burst){visibility:hidden;animation:none}
     @keyframes nebulaDrift{
       to{transform:rotate(360deg)}
     }
@@ -1512,6 +1516,7 @@
   </script>
   <script type="module">
     import * as THREE from './vendor/three.module.min.js';
+    import { createNebulaVisuals } from './vendor/nebula-visuals-v1.js';
 
     const overlay = document.getElementById('nebulaOverlay');
     const canvas = document.getElementById('nebulaCanvas');
@@ -1519,11 +1524,7 @@
     let scene;
     let camera;
     let group;
-    let coreMesh;
-    let haloMesh;
-    let trailMesh;
-    let cloudMeshes = [];
-    let orbitRings = [];
+    let nebulaVisuals;
     let frame = 0;
     let fallbackMode = false;
     let ctx2d = null;
@@ -1544,12 +1545,7 @@
     let flashDirection = 1;
     let lastRenderTime = 0;
     let highQuality = false;
-    const coreDimColor = new THREE.Color(0x3d77a8);
-    const coreBrightColor = new THREE.Color(0xfff4ba);
-    const haloDimColor = new THREE.Color(0x315d86);
-    const haloBrightColor = new THREE.Color(0xffd472);
-    const trailDimColor = new THREE.Color(0x426c91);
-    const trailBrightColor = new THREE.Color(0xffe7a4);
+    const reducedVisualMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     const DRAG_STEP_PX = 46;
 
     function clamp(value, min, max) {
@@ -1790,114 +1786,6 @@
       ctx2d.shadowBlur = 0;
     }
 
-    function makePositions(count, inner, outer) {
-      const positions = new Float32Array(count * 3);
-      for (let i = 0; i < count; i += 1) {
-        const theta = Math.random() * Math.PI * 2;
-        const phi = Math.acos((Math.random() * 2) - 1);
-        const radius = inner + Math.pow(Math.random(), .52) * (outer - inner);
-        positions[i * 3] = Math.sin(phi) * Math.cos(theta) * radius;
-        positions[i * 3 + 1] = Math.cos(phi) * radius;
-        positions[i * 3 + 2] = Math.sin(phi) * Math.sin(theta) * radius;
-      }
-      return positions;
-    }
-
-    let particleTexture;
-
-    function getParticleTexture() {
-      if (particleTexture) return particleTexture;
-      const textureCanvas = document.createElement('canvas');
-      textureCanvas.width = 64;
-      textureCanvas.height = 64;
-      const textureContext = textureCanvas.getContext('2d');
-      const glow = textureContext.createRadialGradient(32, 32, 0, 32, 32, 32);
-      glow.addColorStop(0, 'rgba(255,255,255,1)');
-      glow.addColorStop(.22, 'rgba(255,255,255,.96)');
-      glow.addColorStop(.56, 'rgba(255,255,255,.34)');
-      glow.addColorStop(1, 'rgba(255,255,255,0)');
-      textureContext.fillStyle = glow;
-      textureContext.fillRect(0, 0, 64, 64);
-      particleTexture = new THREE.CanvasTexture(textureCanvas);
-      return particleTexture;
-    }
-
-    function makeCloud(count, brightColor, dimColor, size, inner, outer) {
-      const geometry = new THREE.BufferGeometry();
-      geometry.setAttribute('position', new THREE.BufferAttribute(makePositions(count, inner, outer), 3));
-      const material = new THREE.PointsMaterial({
-        color:dimColor,
-        size,
-        map:getParticleTexture(),
-        transparent: true,
-        opacity: .12,
-        depthWrite: false,
-        blending: THREE.AdditiveBlending,
-        sizeAttenuation: true,
-      });
-      const cloud = new THREE.Points(geometry, material);
-      cloud.userData = {
-        baseSize:size,
-        brightColor:new THREE.Color(brightColor),
-        dimColor:new THREE.Color(dimColor),
-      };
-      cloudMeshes.push(cloud);
-      return cloud;
-    }
-
-    function makeEnergyTrails(count = 360) {
-      const positions = new Float32Array(count * 6);
-      const starts = new Float32Array(count * 3);
-      const tangents = new Float32Array(count * 3);
-      for (let i = 0; i < count; i += 1) {
-        const theta = Math.random() * Math.PI * 2;
-        const phi = Math.acos((Math.random() * 2) - 1);
-        const radius = .46 + Math.pow(Math.random(), .56) * 1.22;
-        const x = Math.sin(phi) * Math.cos(theta) * radius;
-        const y = Math.cos(phi) * radius;
-        const z = Math.sin(phi) * Math.sin(theta) * radius;
-        const tangentLength = Math.max(.001, Math.hypot(x, z));
-        starts.set([x, y, z], i * 3);
-        tangents.set([-z / tangentLength, (Math.random() - .5) * .16, x / tangentLength], i * 3);
-      }
-      const geometry = new THREE.BufferGeometry();
-      geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-      const material = new THREE.LineBasicMaterial({
-        color:0x183251,
-        transparent:true,
-        opacity:.02,
-        blending:THREE.AdditiveBlending,
-        depthWrite:false,
-      });
-      const trails = new THREE.LineSegments(geometry, material);
-      trails.userData = { starts, tangents };
-      trails.frustumCulled = false;
-      return trails;
-    }
-
-    function updateEnergyTrails(energy) {
-      if (!trailMesh) return;
-      const attribute = trailMesh.geometry.getAttribute('position');
-      const positions = attribute.array;
-      const { starts, tangents } = trailMesh.userData;
-      const expansion = getExpansion();
-      const direction = spinBoost < -.025 ? -1 : 1;
-      const miniTrailBoost = 1 + (1 - expansion) * 1.65;
-      const trailLength = (.012 + energy * .105 + Math.abs(spinBoost) * .085 + flashEnergy * .055) * miniTrailBoost;
-      for (let i = 0; i < starts.length / 3; i += 1) {
-        const source = i * 3;
-        const target = i * 6;
-        positions[target] = starts[source];
-        positions[target + 1] = starts[source + 1];
-        positions[target + 2] = starts[source + 2];
-        positions[target + 3] = starts[source] - tangents[source] * trailLength * direction;
-        positions[target + 4] = starts[source + 1] - tangents[source + 1] * trailLength * direction;
-        positions[target + 5] = starts[source + 2] - tangents[source + 2] * trailLength * direction;
-      }
-      attribute.needsUpdate = true;
-      trailMesh.material.opacity = .055 + energy * .337 + (1 - expansion) * .17 + Math.abs(spinBoost) * .10 + flashEnergy * .16;
-      trailMesh.material.color.copy(trailDimColor).lerp(trailBrightColor, energy);
-    }
 
     function getNebulaPixelRatio() {
       if (!highQuality) return Math.min(window.devicePixelRatio || 1, 1);
@@ -1928,38 +1816,9 @@
       scene = new THREE.Scene();
       camera = new THREE.PerspectiveCamera(48, 1, .1, 100);
       camera.position.z = 7.15;
-      group = new THREE.Group();
-      group.add(makeCloud(2100, 0xc9f7ff, 0x4a8bb3, .066, .32, 1.36));
-      group.add(makeCloud(1260, 0xffe19a, 0x53648e, .084, .62, 1.58));
-      group.add(makeCloud(960, 0xdab7ff, 0x6b4f92, .058, .16, 1.04));
-      group.add(makeCloud(420, 0xffa47e, 0x594776, .052, 1.08, 1.78));
-      trailMesh = makeEnergyTrails();
-      group.add(trailMesh);
-      haloMesh = new THREE.Mesh(
-        new THREE.SphereGeometry(.72, 32, 24),
-        new THREE.MeshBasicMaterial({ color: 0xffdc86, transparent: true, opacity: .16, blending: THREE.AdditiveBlending, depthWrite: false })
-      );
-      coreMesh = new THREE.Mesh(
-        new THREE.SphereGeometry(.18, 32, 24),
-        new THREE.MeshBasicMaterial({ color: 0xfff1a8, transparent: true, opacity: .92, blending: THREE.AdditiveBlending, depthWrite: false })
-      );
-      group.add(haloMesh);
-      group.add(coreMesh);
-      [
-        { radius:1.18, color:0x9de7ff, opacity:.34, rx:.53, rz:.08 },
-        { radius:1.43, color:0xffdd8a, opacity:.28, rx:.62, rz:.72 },
-        { radius:.92, color:0xd2a8ff, opacity:.30, rx:.46, rz:-.52 },
-      ].forEach((item) => {
-        const ring = new THREE.Mesh(
-          new THREE.TorusGeometry(item.radius, .006, 8, 180),
-          new THREE.MeshBasicMaterial({ color:item.color, transparent:true, opacity:item.opacity, blending:THREE.AdditiveBlending, depthWrite:false })
-        );
-        ring.rotation.x = Math.PI * item.rx;
-        ring.rotation.z = item.rz;
-        ring.userData.baseOpacity = item.opacity;
-        orbitRings.push(ring);
-        group.add(ring);
-      });
+      nebulaVisuals = createNebulaVisuals(THREE);
+      group = nebulaVisuals.root;
+      overlay.classList.add('webgl-ready');
       scene.add(group);
       resizeNebula();
       window.addEventListener('resize', resizeNebula);
@@ -1981,12 +1840,15 @@
       if (!renderer || !camera) return;
       renderer.setSize(width, height, false);
       camera.aspect = width / height;
+      // Leave room for the outer star trails on narrow phone screens.
+      camera.position.z = Math.max(7.15, 2.05 / (Math.tan(camera.fov * Math.PI / 360) * Math.min(camera.aspect, 1) * .86));
       camera.updateProjectionMatrix();
     }
 
     function animateNebula(time = 0) {
       frame = requestAnimationFrame(animateNebula);
       const expansion = getExpansion();
+      if (document.hidden) return;
       const miniIdle = expansion < .01 && !overlay?.classList.contains('expanding') && !overlay?.classList.contains('collapsing');
       if (miniIdle && time - lastRenderTime < 45) return;
       lastRenderTime = time;
@@ -2002,7 +1864,7 @@
       }
       const miniFactor = 1 - expansion;
       const miniRotationBoost = 1 + miniFactor * 2.10;
-      group.rotation.y += (.0048 + energy * .0042) * miniRotationBoost + spinBoost * .036;
+      group.rotation.y += ((.0048 + energy * .0042) * miniRotationBoost + spinBoost * .036) * (reducedVisualMotion ? .2 : 1);
       group.rotation.x = Math.sin(time * .00042) * .24 + pointerY * .34 * expansion;
       group.rotation.z = Math.cos(time * .00032) * .10 - pointerX * .34 * expansion + spinBoost * .52;
       const viewportWidth = window.innerWidth || 1;
@@ -2014,28 +1876,11 @@
       const miniY = -((sunRect.centerY / viewportHeight) - .5) * worldHeight;
       group.position.x = miniX * (1 - expansion) + pointerX * .18 * expansion;
       group.position.y = miniY * (1 - expansion) - pointerY * .14 * expansion;
-      cloudMeshes.forEach((cloud) => {
-        cloud.material.color.copy(cloud.userData.dimColor).lerp(cloud.userData.brightColor, energy);
-        cloud.material.opacity = clamp(.18 + energy * .585 + miniFactor * .16 + flashEnergy * .11 + dragBoost * .025, .16, .94);
-        cloud.material.size = cloud.userData.baseSize * (.90 + energy * .16 + Math.min(.10, dragBoost * .05)) * (1 + miniFactor * 1.58);
+      nebulaVisuals.update({
+        time, energy, drag:dragBoost, pulse:flashEnergy, direction:flashDirection,
+        mini:miniFactor, renderer, camera, height:window.innerHeight || 1,
       });
-      orbitRings.forEach((ring) => {
-        ring.material.opacity = ring.userData.baseOpacity * (.28 + energy * 1.19) + flashEnergy * .08;
-      });
-      updateEnergyTrails(energy);
-      if (coreMesh) {
-        const coreScale = .93 + energy * .10 + Math.sin(time * .0046) * .025 + flashEnergy * .055;
-        coreMesh.scale.setScalar(coreScale);
-        coreMesh.material.color.copy(coreDimColor).lerp(coreBrightColor, energy);
-        coreMesh.material.opacity = clamp((.34 + energy * .64 + flashEnergy * .16) * (1 - miniFactor * .52), .24, 1);
-      }
-      if (haloMesh) {
-        const haloScale = .95 + energy * .08 + Math.sin(time * .0026) * .018 + flashEnergy * .075;
-        haloMesh.scale.setScalar(haloScale);
-        haloMesh.material.color.copy(haloDimColor).lerp(haloBrightColor, energy);
-        haloMesh.material.opacity = clamp((.08 + energy * .308 + flashEnergy * .20) * (1 - miniFactor * .34), .05, .62);
-      }
-      const miniSceneScale = clamp(sunRect.width / Math.max(1, Math.min(viewportWidth, viewportHeight) * .70), .14, .36);
+      const miniSceneScale = (sunRect.width / viewportHeight) * worldHeight / 3.5;
       const sceneExpansionScale = miniSceneScale + (1 - miniSceneScale) * expansion;
       const scale = (.98 + energy * .028 + Math.sin(time * .0022) * .009 + dragBoost * .012) * sceneExpansionScale;
       group.scale.setScalar(scale);
