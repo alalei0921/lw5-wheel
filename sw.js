@@ -1,5 +1,5 @@
 // Simple service worker for Lw&5之家 (offline-ish)
-const CACHE = 'lw5-home-v44-nebula-stardust';
+const CACHE = 'lw5-home-v45-nebula-sun-preview';
 const ASSETS = [
   './',
   './index.html',
@@ -7,7 +7,7 @@ const ASSETS = [
   './home-bg.jpg',
   './vendor/three.module.min.js',
   './vendor/three.core.min.js',
-  './vendor/nebula-visuals-v1.js',
+  './vendor/nebula-visuals-v2.js',
   './bgm.m4a',
   './bgm.mp3',
   './wheel/',

@@ -265,6 +265,7 @@
       pointer-events:none;
     }
     .sun-press:disabled{cursor:wait}
+    .sun-press.nebula-live::before,.sun-press.nebula-live::after{display:none}
     body.nebula-active .card{
       transform:translateY(-78px) scale(.975);
       filter:brightness(.58) saturate(.72) blur(1.2px);
@@ -732,6 +733,12 @@
     .nebula-overlay.webgl-ready::before,.nebula-overlay.webgl-ready::after{display:none}
     .webgl-ready .nebula-canvas{filter:none}
     .webgl-ready .nebula-stage > :not(.nebula-burst){visibility:hidden;animation:none}
+    .nebula-overlay.webgl-ready:not(.priming):not(.expanding):not(.expanded):not(.collapsing){
+      opacity:1;
+      background:radial-gradient(circle calc(var(--sun-size) * .84) at var(--sun-x) var(--sun-y),rgba(4,9,15,.90) 0%,rgba(5,11,16,.74) 34%,rgba(12,21,25,.24) 62%,transparent 86%);
+    }
+    .nebula-overlay.webgl-ready:not(.priming):not(.expanding):not(.expanded):not(.collapsing) .nebula-canvas{filter:none}
+    .nebula-overlay.webgl-ready:not(.priming):not(.expanding):not(.expanded):not(.collapsing) .nebula-portal{display:none}
     @keyframes nebulaDrift{
       to{transform:rotate(360deg)}
     }
@@ -1516,7 +1523,7 @@
   </script>
   <script type="module">
     import * as THREE from './vendor/three.module.min.js';
-    import { createNebulaVisuals } from './vendor/nebula-visuals-v1.js';
+    import { createNebulaVisuals } from './vendor/nebula-visuals-v2.js';
 
     const overlay = document.getElementById('nebulaOverlay');
     const canvas = document.getElementById('nebulaCanvas');
@@ -1819,6 +1826,7 @@
       nebulaVisuals = createNebulaVisuals(THREE);
       group = nebulaVisuals.root;
       overlay.classList.add('webgl-ready');
+      document.getElementById('sunPress')?.classList.add('nebula-live');
       scene.add(group);
       resizeNebula();
       window.addEventListener('resize', resizeNebula);
@@ -1884,8 +1892,8 @@
       const sceneExpansionScale = miniSceneScale + (1 - miniSceneScale) * expansion;
       const scale = (.98 + energy * .028 + Math.sin(time * .0022) * .009 + dragBoost * .012) * sceneExpansionScale;
       group.scale.setScalar(scale);
-      const miniExposure = .43 + energy * .48 + flashEnergy * .18;
-      const fullExposure = .58 + energy * .62 + flashEnergy * .28;
+      const miniExposure = 1.12 + energy * .34 + flashEnergy * .18;
+      const fullExposure = .68 + energy * .74 + flashEnergy * .28;
       renderer.toneMappingExposure = miniExposure + (fullExposure - miniExposure) * expansion;
       renderer.render(scene, camera);
     }
