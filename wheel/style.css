@@ -13,3 +13,5 @@ dialog .eyebrow,.art-badge,.menu-footnote{display:none}
 
 .room-controls{position:fixed;z-index:6;left:50%;bottom:max(26px,env(safe-area-inset-bottom));transform:translateX(-50%);text-align:center;white-space:nowrap;transition:opacity .3s,transform .3s}.room-controls p{font-size:13px;color:#e3d6bb;text-shadow:0 2px 9px #000,0 1px 5px #000;margin:0 0 12px}.room-controls>div{display:flex;gap:10px;justify-content:center}.room-controls #enterRoom{border-color:#dfc38780;background:#23190fd9}.room-controls #motionBtn[aria-pressed=true]{color:#f4d391;border-color:#cfaf6a88}.approaching .room-controls,.table-view .room-controls{opacity:0;pointer-events:none;transform:translate(-50%,12px)}.room-controls button:disabled{opacity:.55}
 @media(prefers-reduced-motion:reduce){.room-controls{transition:none}}
+.loading-mark{align-content:center;gap:20px;padding:24px;text-align:center;letter-spacing:0}
+.loading-actions{display:flex;gap:12px;flex-wrap:wrap;justify-content:center}

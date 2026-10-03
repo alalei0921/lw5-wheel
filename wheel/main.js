@@ -19,7 +19,45 @@ reduceQuery.addEventListener('change',e=>{reduced=e.matches;renderPrefs()});
 function cryptorandom(){if(globalThis.crypto?.getRandomValues){const b=new Uint32Array(1);crypto.getRandomValues(b);return b[0]/4294967296}return Math.random()}
 function setStatus(text){$('status').replaceChildren();const dot=document.createElement('span');dot.className='status-dot';$('status').append(dot,document.createTextNode(text))}
 function drawFallback(){const c=$('fallbackCanvas').getContext('2d');c.clearRect(0,0,900,900);c.save();c.translate(450,450);c.rotate(angle);c.drawImage(fallbackTexture,-279.45,-279.45,558.9,558.9);c.restore();const p=simulation.ball.position;c.beginPath();c.arc(450+p.x*115,450-p.z*115,13,0,TAU);c.fillStyle='#fff5d6';c.shadowColor='#ffe1a4';c.shadowBlur=12;c.fill();c.shadowBlur=0;}
-async function init(){try{const {WheelScene,makeWheelTexture}=await import('./scene.js');fallbackTexture=makeWheelTexture(900);try{scene=new WheelScene($('scene'),{reduced,onStart:startSpin,onEnter:enterWheel,onArrive:activateControls});try{await scene.room.ready;scene.renderer.shadowMap.needsUpdate=true;$('scene').dataset.detailedAssets='loaded';}catch(assetError){console.warn('Spatial room did not load.',assetError);$('scene').dataset.detailedAssets='unavailable';$('roomHint').textContent='房间素材加载失败，请刷新重试';}}catch(error){console.warn('3D unavailable; using the accessible canvas wheel.',error);$('scene').replaceChildren();$('fallbackWheel').hidden=false;$('resetView').hidden=true;drawFallback();}}catch(error){console.error('Wheel could not load',error);setStatus('轮盘加载失败，请刷新重试');$('loadingMark').querySelector('span').textContent='加载失败，请刷新页面';return}ready=true;if(scene){attachRoomMotion(scene,$('motionBtn'),$('roomHint'));$('motionBtn').disabled=false;}else{$('motionBtn').hidden=true;}$('spinBtn').disabled=false;$('centerStart').disabled=false;$('loadingMark').classList.add('loaded');setTimeout(()=>$('loadingMark').hidden=true,450)}
+$('loadingRetry').addEventListener('click',()=>{ $('loadingRetry').disabled=true; location.reload(); });
+async function init(){
+ const slowTimer=setTimeout(()=>{
+  $('loadingMark').querySelector('span').textContent='加载较慢，请检查网络';
+  $('loadingRetry').hidden=false;
+ },12000);
+ try{
+  const {WheelScene,makeWheelTexture}=await import('./scene.js');
+  fallbackTexture=makeWheelTexture(900);
+  try{
+   scene=new WheelScene($('scene'),{reduced,onStart:startSpin,onEnter:enterWheel,onArrive:activateControls});
+   try{
+    await scene.room.ready;
+    scene.renderer.shadowMap.needsUpdate=true;
+    $('scene').dataset.detailedAssets='loaded';
+   }catch(assetError){
+    console.warn('Spatial room did not load.',assetError);
+    $('scene').dataset.detailedAssets='unavailable';
+    $('roomHint').textContent='房间素材加载失败，请刷新重试';
+   }
+  }catch(error){
+   console.warn('3D unavailable; using the accessible canvas wheel.',error);
+   scene=null;
+   $('scene').replaceChildren();$('fallbackWheel').hidden=false;$('resetView').hidden=true;drawFallback();
+  }
+ }catch(error){
+  console.error('Wheel could not load',error);
+  setStatus('轮盘加载失败');
+  $('loadingMark').querySelector('span').textContent='加载失败，请重试';
+  $('loadingRetry').hidden=false;
+  return;
+ }finally{clearTimeout(slowTimer)}
+ ready=true;
+ if(scene){attachRoomMotion(scene,$('motionBtn'),$('roomHint'));$('motionBtn').disabled=false;}
+ else{$('motionBtn').hidden=true;}
+ $('spinBtn').disabled=false;$('centerStart').disabled=false;
+ $('loadingMark').classList.add('loaded');
+ setTimeout(()=>$('loadingMark').hidden=true,reduced?0:450);
+}
 function activateControls(){document.body.classList.remove('room-view','approaching');document.body.classList.add('table-view');document.querySelector('.casino-dock').inert=false;$('scene').setAttribute('aria-label','左右拖动360度查看轮盘，上下拖动调整角度。方向键调整，Home回归视角，Enter投球。');$('centerStart').tabIndex=0;$('scene').focus({preventScroll:true})}
 function enterWheel(){if(entered||!ready)return;entered=true;document.querySelector('.room-controls').inert=true;$('homeBtn').textContent='← 返回房间';audio.unlock();document.body.classList.add('approaching');if(scene)scene.enter();else activateControls()}
 $('enterRoom').addEventListener('click',enterWheel);

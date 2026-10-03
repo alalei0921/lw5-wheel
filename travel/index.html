@@ -80,7 +80,11 @@
     .mini-btn.danger{background:rgba(255,235,238,.9);border-color:rgba(255,205,210,.95)}
 
     @media (max-width:420px){h1{font-size:24px}}
+    header>div{min-width:0}
+    #resetBtn{flex-shrink:0;white-space:nowrap}
   </style>
+  <link rel="stylesheet" href="../shared/app-ui-v1.css" />
+  <script defer src="../shared/app-ui-v1.js"></script>
 </head>
 <body>
   <div class="wrap">
@@ -119,11 +123,11 @@
     </div>
   </div>
 
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script async src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script>
     // ===== UX helpers (tap feedback) =====
     function haptic(ms=18){
-      try{ if(navigator.vibrate) navigator.vibrate(ms); }catch(_){ }
+      window.LW5UI?.haptic(ms);
     }
     function flashTap(el){
       if(!el) return;
@@ -213,7 +217,7 @@
       if(!cloudReady()) return null;
       const c=getCloudConfig();
       if(!travelSbClient||travelSbClient.__url!==c.url||travelSbClient.__key!==c.key){
-        travelSbClient=window.supabase.createClient(c.url,c.key);
+        travelSbClient=window.supabase.createClient(c.url,c.key,{global:{fetch:(...args)=>(window.LW5UI?.fetch || window.fetch)(...args)}});
         travelSbClient.__url=c.url;travelSbClient.__key=c.key;
       }
       return travelSbClient;
@@ -228,7 +232,7 @@
       const base=normalizeCloudUrl(c.url);
       if(!base) throw new Error('云配置里的 URL 为空');
       try{
-        const res=await fetch(base+'/rest/v1/', { method:'GET', mode:'cors' });
+        const res=await (window.LW5UI?.fetch || window.fetch)(base+'/rest/v1/', { method:'GET', mode:'cors', timeoutMs:5000 });
         if(!res.ok && res.status!==401) throw new Error('Supabase 连通性检查失败（HTTP '+res.status+'）');
         return true;
       }catch(_){
@@ -256,7 +260,7 @@
 
     function describeTravelUploadError(e){
       const msg=String(e?.message||e?.error_description||e?.details||e||'未知错误');
-      if(/Failed to fetch|Load failed|NetworkError|fetch/i.test(msg)) return '浏览器到云端直连校验失败，请继续看后续真实上传结果';
+      if(/Failed to fetch|Load failed|NetworkError|fetch/i.test(msg)) return '网络连接失败，上传结果未确认；本地清单已保留，请稍后核对云端';
       if(/row-level security|permission denied|not allowed|42501/i.test(msg)) return '云表权限没放开（RLS/Policy）';
       if(/travel_items/i.test(msg) && /does not exist|not found|42P01/i.test(msg)) return '云端缺少 travel_items 表';
       if(/updated_at|item_name|category|household_id|checked/i.test(msg) && /column|schema|42703/i.test(msg)) return 'travel_items 表字段和页面代码不一致';
@@ -307,6 +311,8 @@
     }
 
     async function cloudUploadTravel(){
+      if (document.getElementById('cloudUploadBtn').disabled) return;
+      if (!window.supabase) { window.LW5UI?.notify('云服务组件未加载，请联网后重试'); return; }
       if(!cloudReady()){
         alert('请先在仓储页完成云配置（URL/Key/householdId）');
         return;
@@ -328,6 +334,8 @@
           const {error}=await sb.from('travel_items').upsert(rows,{onConflict:'household_id,category,item_name'});
           if(error) throw error;
         }catch(primaryErr){
+          // A transport failure has an unknown outcome; never follow it with a delete.
+          if (primaryErr.code !== '42P10') throw primaryErr;
           console.warn('travel upsert failed, fallback to replace mode', primaryErr);
           await replaceTravelRows(sb, rows, c.householdId);
         }
@@ -352,6 +360,8 @@
     }
 
     async function cloudDownloadTravel(){
+      if (document.getElementById('cloudDownloadBtn').disabled) return;
+      if (!window.supabase) { window.LW5UI?.notify('云服务组件未加载，请联网后重试'); return; }
       if(!cloudReady()){
         alert('请先在仓储页完成云配置（URL/Key/householdId）');
         return;

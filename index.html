@@ -93,6 +93,9 @@
       color:#5b4438;
     }
     .tool-btn span:first-child{min-width:0;overflow-wrap:anywhere}
+    .tool-btn:not(.wide){font-size:14px;gap:6px}
+    .tool-btn:not(.wide) span:first-child{white-space:nowrap}
+    .tool-btn:not(.wide) .emoji{font-size:20px}
     .tool-btn.wide{
       grid-column:1/-1;
       min-height:50px;
@@ -145,6 +148,13 @@
     }
     .full .tool-topbar{flex:none;padding:calc(8px + env(safe-area-inset-top,0px)) max(12px,env(safe-area-inset-right,0px)) 8px max(12px,env(safe-area-inset-left,0px));}
     .full .tool-iframe{display:block;flex:1;min-height:0;height:auto;padding-bottom:env(safe-area-inset-bottom,0px);}
+    .tool-panel.loading .tool-iframe{visibility:hidden}
+    .tool-loading{position:absolute;inset:65px 0 0;display:grid;align-content:center;justify-items:center;gap:16px;background:#fff;color:#374151;font-size:15px}
+    .tool-loading[hidden]{display:none}
+    .tool-loading::before{content:"";width:26px;height:26px;border:3px solid #dce7ec;border-top-color:#147aa0;border-radius:50%;animation:tool-spin .8s linear infinite}
+    .tool-loading.failed::before{display:none}
+    .tool-loading button{padding:10px 22px;border:1px solid #c6d7df;border-radius:8px;background:#f4f9fb;color:#17526a;font:inherit}
+    @keyframes tool-spin{to{transform:rotate(360deg)}}
     body.tool-active .sun-press,body.tool-active .nebula-overlay{visibility:hidden;pointer-events:none;}
     .tool-panel.sheet{
       bottom: 10px;
@@ -850,6 +860,11 @@
       .tool-btn{font-size:14.5px;padding:10px}
       .tool-btn.wide{font-size:15px;padding:10px 12px}
     }
+    @media(max-height:680px){
+      body.home-page{overflow-y:auto;align-items:flex-start;padding:112px 16px max(24px,env(safe-area-inset-bottom));}
+      body.home-page .card{transform:none;width:min(430px,100%);margin:0 auto}
+      body.home-page.nebula-active{overflow:hidden}
+    }
 
     /* The 3D wheel gets the entire app viewport, including on installed PWAs. */
     .tool-panel.wheel-fullscreen{inset:0;width:100%;height:100%;transform:none;border:0;border-radius:0;background:#070e24;display:flex;flex-direction:column;}
@@ -858,8 +873,10 @@
     .wheel-fullscreen .cute-close{padding:6px 12px;background:#142339;color:#d4eaf0;border-color:#739ca433;box-shadow:none;}
     .wheel-fullscreen .tool-iframe{display:block;flex:1;min-height:0;height:auto;background:#070e24;padding-bottom:env(safe-area-inset-bottom,0px);}
   </style>
+  <link rel="stylesheet" href="./shared/app-ui-v1.css" />
+  <script defer src="./shared/app-ui-v1.js"></script>
 </head>
-<body>
+<body class="home-page">
   <button class="sun-press" id="sunPress" type="button" aria-label="按下太阳，旋转星云控制灯光"></button>
   <button class="music-btn" id="musicBtn" aria-label="背景音乐">🎵 音乐：开</button>
   <button class="music-btn" id="updateBtn" aria-label="一键更新" style="right: max(12px, env(safe-area-inset-right)); top: calc(max(12px, env(safe-area-inset-top)) + 52px);">🧁 一键更新</button>
@@ -884,7 +901,7 @@
       <a class="nebula-hint retry" id="nebulaHint" href="http://192.168.1.105:8788/sun-mode?from=home" target="_top" role="button" aria-live="polite">未连接，点击重试</a>
     </div>
   </div>
-  <audio id="homeBgm" preload="auto" loop playsinline webkit-playsinline>
+  <audio id="homeBgm" preload="metadata" loop playsinline webkit-playsinline>
     <source src="./bgm.m4a" type="audio/mp4">
     <source src="./bgm.mp3" type="audio/mpeg">
   </audio>
@@ -895,16 +912,16 @@
 
     <section class="grid">
       <button class="tool-btn wheel" type="button" data-tool="wheel" aria-label="打开美食转盘">
-        <span>美食转盘</span><span class="emoji">🍜🎡</span>
+        <span>美食转盘</span><span class="emoji" aria-hidden="true">🍜</span>
       </button>
       <button class="tool-btn stock" type="button" data-tool="stock" aria-label="打开仓储管理">
-        <span>仓储管理</span><span class="emoji">📦🏠</span>
+        <span>仓储管理</span><span class="emoji" aria-hidden="true">📦</span>
       </button>
       <button class="tool-btn" type="button" data-tool="travel" aria-label="打开旅行备忘录" style="background:linear-gradient(135deg,rgba(253,242,255,.66),rgba(224,242,254,.58))">
-        <span>去玩咯</span><span class="emoji">🏝️🧳</span>
+        <span>去玩咯</span><span class="emoji" aria-hidden="true">🏝️</span>
       </button>
       <button class="tool-btn" type="button" data-tool="conflict" aria-label="打开分歧终端机" style="background:linear-gradient(135deg,rgba(255,228,232,.66),rgba(255,240,228,.58))">
-        <span>分歧终端机</span><span class="emoji">💕🗣️</span>
+        <span>分歧终端机</span><span class="emoji" aria-hidden="true">💕</span>
       </button>
       <a class="tool-btn wide" href="./smart-home/hyperion.html" aria-label="打开高天之光 许珀里翁" style="background:linear-gradient(135deg,rgba(255,247,204,.62),rgba(220,252,231,.52))">
         <span>高天之光 许珀里翁</span><span class="emoji">💡✨</span>
@@ -928,6 +945,7 @@
         <button class="cute-close" id="toolClose" type="button">🐾 返回主页</button>
       </div>
       <iframe class="tool-iframe" id="toolFrame" title="Lw&5 小工具" loading="eager"></iframe>
+      <div class="tool-loading" id="toolLoading" role="status" hidden><span id="toolLoadingText">正在打开…</span><button type="button" id="toolRetry" hidden>重新加载</button></div>
     </div>
   </div>
 
@@ -946,17 +964,28 @@
       const btn = document.getElementById('updateBtn');
       if (!btn) return;
       btn.addEventListener('click', async () => {
+        if (btn.disabled) return;
+        if (!navigator.onLine) { window.LW5UI?.notify('当前离线，联网后再更新；已保存的数据不会改变'); return; }
+        btn.disabled = true;
         btn.textContent = '🍬 更新中...';
         try{
+          const check = await window.LW5UI.fetch('./sw.js?check=' + Date.now(), {cache:'no-store',timeoutMs:10000});
+          if (!check.ok) throw new Error('更新服务暂不可用');
+          const scope = new URL('./', location.href).href;
           if ('serviceWorker' in navigator) {
             const regs = await navigator.serviceWorker.getRegistrations();
-            await Promise.all(regs.map(r => r.unregister()));
+            await Promise.all(regs.filter(r => r.scope === scope).map(r => r.unregister()));
           }
           if (window.caches) {
             const keys = await caches.keys();
-            await Promise.all(keys.map(k => caches.delete(k)));
+            await Promise.all(keys.filter(k => k.startsWith('lw5-home-')).map(k => caches.delete(k)));
           }
-        }catch(_){ }
+        }catch(_){
+          btn.disabled = false;
+          btn.textContent = '🧁 一键更新';
+          window.LW5UI?.notify('更新失败，请检查网络后重试；本地数据已保留');
+          return;
+        }
         // cache-busting reload
         const url = new URL(location.href);
         url.searchParams.set('v', String(Date.now()));
@@ -1464,10 +1493,55 @@
       const frame = document.getElementById('toolFrame');
       const closeBtn = document.getElementById('toolClose');
       const titleEl = document.getElementById('toolTitle');
+      const loadingEl = document.getElementById('toolLoading');
+      const loadingText = document.getElementById('toolLoadingText');
+      const retryBtn = document.getElementById('toolRetry');
+      const toolPages = {stock:'仓储管理',travel:'去玩咯',conflict:'分歧终端机'};
+      const scrollPositions = new Map();
+      let loadingTimer, currentTool = '', opener = null;
+
+      function loadTool(retry = false) {
+        clearTimeout(loadingTimer);
+        panel.classList.add('loading');
+        panel.setAttribute('aria-busy', 'true');
+        loadingEl.hidden = false;
+        loadingEl.classList.remove('failed');
+        loadingText.textContent = '正在打开' + toolPages[currentTool] + '…';
+        retryBtn.hidden = true;
+        frame.src = './' + currentTool + '/' + (retry ? '?v=' + Date.now() : '');
+        loadingTimer = setTimeout(() => {
+          loadingEl.classList.add('failed');
+          loadingText.textContent = '加载较慢或网络不可用';
+          retryBtn.hidden = false;
+        }, 12000);
+      }
+
+      function finishToolLoad() {
+        if (!currentTool || !panel.classList.contains('loading')) return;
+        try {
+          if (!frame.contentWindow.location.pathname.endsWith('/' + currentTool + '/')) return;
+          if (!frame.contentDocument.querySelector('body script')) throw new Error('Incomplete page');
+          frame.contentWindow.scrollTo(0, scrollPositions.get(currentTool) || 0);
+          clearTimeout(loadingTimer);
+          panel.classList.remove('loading');
+          panel.setAttribute('aria-busy', 'false');
+          loadingEl.hidden = true;
+        } catch (_) {
+          clearTimeout(loadingTimer);
+          loadingEl.classList.add('failed');
+          loadingText.textContent = '页面未能加载，请重试';
+          retryBtn.hidden = false;
+        }
+      }
+      frame.addEventListener('load', finishToolLoad);
+      retryBtn.addEventListener('click', () => loadTool(true));
 
       function openTool(tool){
         if (tool === 'wheel') { location.href = './wheel/'; return; }
         if (!overlay || !panel || !frame) return;
+        if (!toolPages[tool] || currentTool === tool) return;
+        currentTool = tool;
+        opener = document.querySelector('[data-tool="' + tool + '"]');
         panel.classList.toggle('wheel-fullscreen', tool === 'wheel');
 
         if (tool === 'wheel'){
@@ -1480,35 +1554,44 @@
           panel.classList.remove('sheet');
           panel.classList.add('full');
           titleEl.textContent = '📦🏠 仓储管理';
-          frame.src = './stock/?v=' + Date.now();
           location.hash = '#stock';
         } else if (tool === 'travel'){
           panel.classList.remove('sheet');
           panel.classList.add('full');
           titleEl.textContent = '🏝️🧳 去玩咯';
-          frame.src = './travel/?v=' + Date.now();
           location.hash = '#travel';
         } else if (tool === 'conflict'){
           panel.classList.remove('sheet');
           panel.classList.add('full');
           titleEl.textContent = '💕🗣️ 分歧终端机';
-          frame.src = './conflict/?v=' + Date.now();
           location.hash = '#conflict';
         }
 
         overlay.classList.add('show');
         overlay.setAttribute('aria-hidden','false');
         document.body.classList.add('tool-active');
+        document.querySelector('main.card').inert = true;
+        document.querySelectorAll('.music-btn').forEach(el => { el.inert = true; });
+        frame.title = toolPages[tool];
+        loadTool();
+        closeBtn.focus({preventScroll:true});
       }
 
       function closeTool(){
         if (!overlay) return;
+        if (!currentTool) return;
+        try { scrollPositions.set(currentTool, frame.contentWindow.scrollY); } catch (_) {}
+        currentTool = '';
+        clearTimeout(loadingTimer);
         overlay.classList.remove('show');
         overlay.setAttribute('aria-hidden','true');
         document.body.classList.remove('tool-active');
+        document.querySelector('main.card').inert = false;
+        document.querySelectorAll('.music-btn').forEach(el => { el.inert = false; });
         // 停留在主页；保留BGM
         frame.src = 'about:blank';
-        location.hash = '';
+        history.replaceState(null, '', location.pathname + location.search);
+        opener?.focus({preventScroll:true});
       }
 
       document.querySelectorAll('[data-tool]').forEach(btnEl => {
@@ -1523,7 +1606,13 @@
 
       // 子页面（iframe内）发消息回主页关闭
       window.addEventListener('message', (ev) => {
-        if (ev?.data?.type === 'lw5-close-tool') closeTool();
+        if (ev.source === frame.contentWindow && ev.origin === location.origin && ev?.data?.type === 'lw5-tool-ready') finishToolLoad();
+        if (ev.source === frame.contentWindow && ev.origin === location.origin && ev?.data?.type === 'lw5-close-tool') closeTool();
+      });
+      window.addEventListener('hashchange', () => {
+        const tool = location.hash.slice(1);
+        if (toolPages[tool]) openTool(tool);
+        else if (currentTool) closeTool();
       });
 
       // 支持直接打开 hash
@@ -1955,7 +2044,10 @@
         }
       }, 360);
     });
-    if (overlay) startNebula();
+    if (overlay) {
+      if ('requestIdleCallback' in window) requestIdleCallback(startNebula, {timeout:700});
+      else setTimeout(startNebula, 160);
+    }
   </script>
 </body>
 </html>

@@ -305,7 +305,9 @@
             padding: 8px 10px;
         }
     </style>
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script async src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <link rel="stylesheet" href="../shared/app-ui-v1.css" />
+  <script defer src="../shared/app-ui-v1.js"></script>
 </head>
 <body>
     <h1>🏠 家庭囤货管理</h1>
@@ -405,7 +407,7 @@
 
         // ===== UX helpers (tap feedback) =====
         function haptic(ms=18){
-            try{ if(navigator.vibrate) navigator.vibrate(ms); }catch(_){ }
+            window.LW5UI?.haptic(ms);
         }
         function flashTap(el){
             if(!el) return;
@@ -474,7 +476,10 @@
         function getSupabaseClient() {
             if (!isCloudEnabled()) return null;
             if (!supabaseClient) {
-                const raw = window.supabase.createClient(cloudConfig.url, cloudConfig.key);
+                if (!window.supabase) throw new Error('云服务组件未加载，请联网后重试');
+                const raw = window.supabase.createClient(cloudConfig.url, cloudConfig.key, {
+                    global:{fetch:(...args)=>(window.LW5UI?.fetch || window.fetch)(...args)}
+                });
                 supabaseClient = {
                     from(table) {
                         const q = raw.from(table);
@@ -675,10 +680,11 @@
 
         async function cloudUploadStock() {
             const btn = (typeof event !== 'undefined' && event && event.currentTarget) ? event.currentTarget : null;
+            if (btn?.disabled) return;
+            if (!confirm('确认要把“库存列表”当前数据上传并覆盖云端吗？')) return false;
             haptic(20);
             flashTap(btn);
             const done = setBtnLoading(btn, '☁️ 上传中…');
-            if (!confirm('确认要把“库存列表”当前数据上传并覆盖云端吗？')) return false;
             ensureCloudConfig();
             const ok = await uploadInventoryToCloud(true);
             if (ok) { haptic(25); done('is-ok','✅ 已上传',900); }
@@ -811,8 +817,8 @@
             const daysPerUnit = parseFloat(document.getElementById('new-item-days').value);
             const qty = parseInt(document.getElementById('new-item-qty').value) || 0;
 
-            if (!name || !unit || isNaN(daysPerUnit)) {
-                alert('请填写完整信息');
+            if (!name || !unit || !Number.isFinite(daysPerUnit) || daysPerUnit <= 0 || qty < 0) {
+                alert('请填写名称、单位、正数消耗天数和非负数量');
                 return;
             }
 
@@ -867,7 +873,14 @@
             if (settingsDirty) {
                 const ok = confirm('检测到未本地保存改动，是否先本地保存再云上传？');
                 if (!ok) return;
+                const draft = inventory.map((item,index) => ({...item,daysPerUnit:Number(document.getElementById('days-' + index)?.value)}));
+                if (draft.some(item => !Number.isFinite(item.daysPerUnit) || item.daysPerUnit <= 0)) {
+                    alert('请先填写有效的消耗天数');
+                    return;
+                }
+                inventory = draft;
                 saveLocalOnly();
+                markSettingsDirty(false);
             }
             if (!confirm('确认要把“消耗设置”当前数据上传并覆盖云端吗？')) return;
             const ok = await uploadSettingsToCloud(true);

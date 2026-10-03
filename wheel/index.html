@@ -8,6 +8,8 @@
   <title>LW&5 · 美食命运轮</title>
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 80 80'%3E%3Crect width='80' height='80' rx='24' fill='%23071320'/%3E%3Ctext x='40' y='56' text-anchor='middle' font-size='56' fill='%237fffe0'%3E✦%3C/text%3E%3C/svg%3E" />
   <link rel="stylesheet" href="./style.css" />
+  <link rel="stylesheet" href="../shared/app-ui-v1.css" />
+  <script defer src="../shared/app-ui-v1.js"></script>
 </head>
 <body class="room-view">
   <main class="casino-page">
@@ -16,7 +18,13 @@
       <div class="fallback-wheel" id="fallbackWheel" hidden><canvas id="fallbackCanvas" width="900" height="900"></canvas></div>
       <button class="center-start" id="centerStart" tabindex="-1" aria-label="两只小狗 START，投球"><img src="./assets/start.png" alt="两只小狗，开始 START" draggable="false" /></button>
     </section>
-    <div class="loading-mark" id="loadingMark"><span>正在点亮房间</span></div>
+    <div class="loading-mark" id="loadingMark">
+      <span role="status">正在点亮房间</span>
+      <div class="loading-actions">
+        <a class="quiet-button" href="../">返回主页</a>
+        <button class="quiet-button" id="loadingRetry" hidden>重新加载</button>
+      </div>
+    </div>
     <nav class="casino-nav" aria-label="页面操作">
       <a id="homeBtn" class="quiet-button" href="../">← 返回主页</a>
       <button class="quiet-button" id="muteBtn" aria-pressed="false"><span aria-hidden="true">♪</span><span id="soundText">音效开启</span></button>
