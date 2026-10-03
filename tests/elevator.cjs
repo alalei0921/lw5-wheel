@@ -250,10 +250,10 @@ test('shipping preview is local, pausable and never invents a receipt or arrival
   assert.match(await s.page.locator('#elevatorSimulation').innerText(),/动画预览.*不会呼叫真实/);
   assert.doesNotMatch(await s.page.locator('#elevatorDialog').innerText(),/已受理|已到达|呼叫成功/);
   await s.page.locator('#elevatorPreviewToggle').click(); await state(s.page,'preview_paused');
-  assert.equal(await s.page.locator('.elevator-doors>div').first().evaluate(el=>getComputedStyle(el).animationPlayState),'paused');
+  assert.equal(await s.page.locator('#elevatorAscent').getAttribute('data-render-mode'),'paused');
   await s.page.locator('#elevatorPreviewToggle').click(); await state(s.page,'preview');
   await s.page.locator('#elevatorReduceMotion').check();
-  assert.equal(await s.page.locator('.elevator-doors>div').first().evaluate(el=>getComputedStyle(el).animationName),'none');
+  assert.equal(await s.page.locator('#elevatorAscent').getAttribute('data-render-mode'),'reduced');
   assert.equal(s.requests.length,0);
   await s.page.reload();await open(s.page);await state(s.page,'preview');
   assert(await s.page.locator('#elevatorReduceMotion').isChecked());
@@ -333,4 +333,35 @@ test('disconnecting during preflight cancels the original call intent even after
   await pending.fulfill({json:ready});
   await s.page.waitForFunction(()=>!document.querySelector('#elevatorAction').disabled);
   await state(s.page,'preview');assert.equal(posts(s).length,0);await finish(s);
+});
+
+
+test('ascent visibly animates, freezes when paused/reduced/closed and stays decorative',async()=>{
+  const s=await setup({disabled:true,reducedMotion:'no-preference'});
+  await open(s.page);await state(s.page,'preview');
+  const pixels=()=>s.page.locator('#elevatorAscent').evaluate(c=>c.toDataURL());
+  await s.page.waitForFunction(()=>document.querySelector('#elevatorAscent').dataset.renderMode==='running');
+  const first=await pixels();await s.page.waitForTimeout(450);assert.notEqual(await pixels(),first);
+  await s.page.locator('#elevatorPreviewToggle').click();
+  await s.page.waitForFunction(()=>document.querySelector('#elevatorAscent').dataset.renderMode==='paused');
+  const paused=await pixels();await s.page.waitForTimeout(300);assert.equal(await pixels(),paused);
+  await s.page.locator('#elevatorPreviewToggle').click();
+  await s.page.locator('#elevatorReduceMotion').check();
+  await s.page.waitForFunction(()=>document.querySelector('#elevatorAscent').dataset.renderMode==='reduced');
+  const reduced=await pixels();await s.page.waitForTimeout(300);assert.equal(await pixels(),reduced);
+  await s.page.locator('#elevatorReduceMotion').uncheck();
+  await s.page.locator('#elevatorClose').click();
+  await s.page.waitForFunction(()=>document.querySelector('#elevatorAscent').dataset.renderMode==='hidden');
+  const closed=await pixels();await s.page.waitForTimeout(300);assert.equal(await pixels(),closed);
+  assert.equal(s.requests.length,0);await finish(s);
+});
+
+test('ascent honors OS reduced motion and caps the drawing resolution on dense screens',async()=>{
+  const s=await setup({disabled:true,reducedMotion:'reduce'});
+  await open(s.page);await state(s.page,'preview');
+  await s.page.waitForFunction(()=>document.querySelector('#elevatorAscent').dataset.renderMode==='reduced');
+  const size=await s.page.locator('#elevatorAscent').evaluate(c=>({width:c.width,height:c.height,cssWidth:c.clientWidth,cssHeight:c.clientHeight}));
+  assert(size.width<=Math.ceil(size.cssWidth*1.5));assert(size.height<=Math.ceil(size.cssHeight*1.5));
+  assert.match(await s.page.locator('#elevatorPhase').innerText(),/静谧/);
+  assert.equal(s.requests.length,0);await finish(s);
 });

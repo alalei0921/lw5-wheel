@@ -26,7 +26,7 @@ test('installed PWA opens cached modules offline and preserves local data',async
     await page.goto(base+'?visual-test=1');
     await page.evaluate(async()=>{await navigator.serviceWorker.ready;localStorage.setItem('ux-offline-check','preserved');});
     await page.waitForFunction(()=>navigator.serviceWorker.controller!==null);
-    const cachesBefore=await page.evaluate(()=>caches.keys());assert(cachesBefore.includes('lw5-home-v49-elevator-preview'));
+    const cachesBefore=await page.evaluate(()=>caches.keys());assert(cachesBefore.includes('lw5-home-v50-elevator-ascent'));
     await context.setOffline(true);
     for(const route of ['stock/','travel/','conflict/']){
       await page.goto(base+route,{waitUntil:'domcontentloaded'});

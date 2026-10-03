@@ -878,6 +878,7 @@
   <link rel="stylesheet" href="./shared/elevator-v1.css" />
   <script defer src="./shared/elevator-config-v1.js"></script>
   <script defer src="./shared/elevator-v1.js"></script>
+  <script defer src="./shared/elevator-ascent-v1.js"></script>
 </head>
 <body class="home-page">
   <button class="elevator-launch" id="elevatorLaunch" type="button" aria-label="口袋里的电梯机关，叫电梯" aria-haspopup="dialog" aria-controls="elevatorDialog" title="口袋里的小机关 · 叫电梯">
@@ -890,10 +891,9 @@
       <div class="elevator-top"><span class="elevator-eyebrow">LW&amp;5 · 回家的节奏</span><button class="elevator-close" id="elevatorClose" type="button" aria-label="关闭电梯窗口">×</button></div>
       <div class="elevator-simulation" id="elevatorSimulation" hidden>模拟演示 · 不会呼叫真实电梯</div>
       <div class="elevator-art" aria-hidden="true">
-        <div class="elevator-shaft"><i></i><i></i><i></i><i></i></div>
-        <div class="elevator-floor"></div>
-        <div class="elevator-cabin"><div class="elevator-indicator"><i></i><i></i><i></i></div><div class="elevator-doors"><div></div><div></div></div><div class="elevator-threshold"></div></div>
-        <div class="elevator-light-label">L W &amp; 5 <span>↑</span></div>
+        <div class="elevator-ascent-fallback"><span>↑</span></div>
+        <canvas class="elevator-ascent" id="elevatorAscent"></canvas>
+        <div class="elevator-art-caption"><span>ASCEND / LW&amp;5</span><span id="elevatorPhase">蓄光</span></div>
         <div class="elevator-result-mark" id="elevatorMark"></div>
       </div>
       <div class="elevator-copy" role="status" aria-live="polite" aria-atomic="true"><h2 id="elevatorTitle">准备呼叫</h2><p id="elevatorDetail">正在确认呼梯服务。</p></div>
@@ -1987,7 +1987,7 @@
     function animateNebula(time = 0) {
       frame = requestAnimationFrame(animateNebula);
       const expansion = getExpansion();
-      if (document.hidden || document.body.classList.contains('tool-active')) return;
+      if (document.hidden || document.body.classList.contains('tool-active') || document.getElementById('elevatorDialog')?.open) return;
       const miniIdle = expansion < .01 && !overlay?.classList.contains('expanding') && !overlay?.classList.contains('collapsing');
       if (miniIdle && time - lastRenderTime < 45) return;
       lastRenderTime = time;

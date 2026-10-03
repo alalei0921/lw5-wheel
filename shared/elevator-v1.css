@@ -17,25 +17,16 @@ body.tool-active .elevator-launch,body.nebula-active .elevator-launch{visibility
 .elevator-close{display:grid;place-items:center;flex-shrink:0;width:44px;height:44px;border:0;border-radius:50%;background:transparent;color:#696579;font-size:28px;line-height:1;cursor:pointer}
 .elevator-close:hover{background:#77739b12}
 .elevator-simulation{margin:4px 0 10px;padding:7px 8px;border:1px solid #d9a95760;border-radius:9px;background:#fff3d5;color:#815817;font-size:11px;font-weight:650}
-/* A miniature architectural light installation, separate from the nebula visual. */
-.elevator-art{height:230px;position:relative;display:grid;place-items:center;margin:12px -4px 19px;border-radius:24px;overflow:hidden;isolation:isolate;background:radial-gradient(ellipse at 50% 68%,#8b653d38,transparent 60%),linear-gradient(155deg,#232b3a,#0d1422 65%,#202737);box-shadow:inset 0 0 0 1px #fff1d528,inset 0 -22px 34px #03071155}
-.elevator-art::before{content:"";position:absolute;inset:15px 20px 33px;border:1px solid #f4dfb517;border-bottom:0;border-radius:48% 48% 0 0}
-.elevator-shaft{position:absolute;inset:0 13%;display:flex;justify-content:space-between;overflow:hidden;mask-image:linear-gradient(transparent,#000 25%,#000 78%,transparent)}
-.elevator-shaft i{height:100%;width:1px;background:#c6bdad16;position:relative}
-.elevator-shaft i::after{content:"";position:absolute;top:100%;width:2px;left:-.5px;height:60px;background:linear-gradient(transparent,#f5dab0,transparent);box-shadow:0 0 10px #ecca9244;opacity:0}
-.elevator-floor{position:absolute;bottom:-56px;left:-20%;width:140%;height:144px;transform:perspective(190px) rotateX(64deg);background:repeating-linear-gradient(90deg,transparent 0 49px,#e4c89613 50px),repeating-linear-gradient(0deg,transparent 0 29px,#e4c8961a 30px);border-top:1px solid #ffde9a44;mask-image:radial-gradient(ellipse,#000 10%,transparent 70%)}
-.elevator-cabin{position:relative;width:124px;height:166px;margin-top:-6px;padding:26px 9px 10px;border:1px solid #e5d5b9ab;border-radius:11px 11px 3px 3px;background:linear-gradient(105deg,#4f5360,#b9b4aa 5%,#777b85 11%,#343c4c 50%,#a39d93 95%,#555b64);box-shadow:0 15px 25px #030814aa,0 0 30px #e4c69410,inset 0 0 0 3px #ffe6b91c;transform:perspective(600px) rotateY(-8deg)}
-.elevator-cabin::before{content:"";position:absolute;inset:22px 5px 6px;border:1px solid #ffe4ad6e;box-shadow:0 0 10px #f4ce7e25;pointer-events:none}
-.elevator-indicator{position:absolute;left:43px;right:43px;top:9px;display:flex;justify-content:space-between;padding:0 2px}
-.elevator-indicator i{width:5px;height:5px;border-top:1.5px solid #ffdda2;border-left:1.5px solid #ffdda2;transform:rotate(45deg);opacity:.4}
-.elevator-doors{display:flex;height:100%;gap:1px;overflow:hidden;position:relative;background:linear-gradient(90deg,#b58945,#fff1c9 50%,#b58945);box-shadow:inset 0 0 20px #f5e8c4}
-.elevator-doors>div{flex:none;width:50%;position:relative;background:linear-gradient(105deg,#344555,#89929a 48%,#4c5c6c 65%,#263747);border:1px solid #e9e0c64d;box-sizing:border-box;will-change:transform}
-.elevator-doors>div+div{background:linear-gradient(105deg,#627080,#b7b6b0 55%,#536475)}
-.elevator-doors>div::after{content:"";position:absolute;inset:0;background:linear-gradient(110deg,transparent 35%,#fff7dc5e 49%,transparent 63%);transform:translateX(-150%)}
-.elevator-threshold{position:absolute;bottom:2px;left:5px;right:5px;height:2px;background:#ffe1a4;box-shadow:0 0 10px #ffd486,0 4px 18px 3px #ebc18555}
-.elevator-light-label{position:absolute;bottom:11px;color:#e8d8bb80;font:8px/1.5 ui-monospace,monospace;letter-spacing:3px}
-.elevator-light-label span{margin-left:8px;color:#ffe1a4}
-.elevator-result-mark{position:absolute;bottom:44px;right:calc(50% - 83px);width:32px;height:32px;display:grid;place-items:center;border-radius:50%;border:3px solid #202838;background:#d4dfed;color:#424e61;font-size:17px;font-weight:600;box-shadow:0 4px 12px #0003}
+/* Light ascent: bounded canvas, no realistic cabin or doors. */
+.elevator-art{height:292px;position:relative;margin:12px -8px 19px;border-radius:24px;overflow:hidden;isolation:isolate;background:radial-gradient(ellipse at 50% 10%,#213653,transparent 55%),linear-gradient(165deg,#101326,#070c1c 65%,#1d1735);box-shadow:inset 0 0 0 1px #c9d9ff26,0 12px 26px #22234612;contain:layout paint}
+.elevator-ascent{position:absolute;inset:0;width:100%;height:100%;display:block}
+.elevator-art::after{content:"";position:absolute;inset:0;pointer-events:none;border-radius:inherit;box-shadow:inset 0 0 22px #01041055}
+.elevator-art-caption{position:absolute;left:18px;right:18px;bottom:12px;display:flex;justify-content:space-between;align-items:center;color:#b8d4ec9e;font:8px/1.5 ui-monospace,monospace;letter-spacing:1.8px}
+.elevator-art-caption span+span{font-family:inherit;font-size:10px;letter-spacing:2px;color:#d1e6f9bb}
+.elevator-ascent-fallback{position:absolute;inset:0;display:grid;place-items:center;background:repeating-radial-gradient(ellipse at 50% 20%,transparent 0 27px,#93d8ff19 28px 29px,transparent 30px 49px)}
+.elevator-ascent-fallback span{font-size:74px;color:#d4efff;text-shadow:0 0 22px #8ad5ff,0 38px 35px #a482f1}
+.ascent-rendered .elevator-ascent-fallback{visibility:hidden}
+.elevator-result-mark{position:absolute;bottom:44px;right:28px;width:32px;height:32px;display:grid;place-items:center;border-radius:50%;border:3px solid #202838;background:#d4dfed;color:#424e61;font-size:17px;font-weight:600;box-shadow:0 4px 12px #0003}
 .elevator-result-mark:empty{visibility:hidden}
 .elevator-copy h2{margin:0 0 10px;font-size:23px;line-height:1.35;font-weight:650;letter-spacing:.4px;color:#42405d}
 .elevator-copy p{margin:0;min-height:48px;font-size:13px;line-height:1.85;color:#737085;text-wrap:pretty}
@@ -52,31 +43,15 @@ body.tool-active .elevator-launch,body.nebula-active .elevator-launch{visibility
 .elevator-preview-control{background:linear-gradient(115deg,#293447,#465265);border-color:#394557;color:#f6e7c9;box-shadow:0 4px 12px #23304a16}
 .elevator-motion{display:flex;align-items:center;justify-content:center;gap:7px;min-height:44px;font-size:11px;color:#817b86;cursor:pointer}
 .elevator-motion input{accent-color:#7a6d5a;width:14px;height:14px;margin:0}
-.elevator-sheet[data-state="preview_paused"] .elevator-art *,.elevator-sheet[data-state="preview_paused"] .elevator-art *::after{animation-play-state:paused!important}
-.elevator-sheet:is([data-state="preview"],[data-state="preview_paused"],[data-state="calling"]) .elevator-shaft i::after{animation:elevator-rise 2.8s linear infinite}
-.elevator-sheet:is([data-state="preview"],[data-state="preview_paused"],[data-state="calling"]) .elevator-shaft i:nth-child(2)::after{animation-delay:-1.2s}
-.elevator-sheet:is([data-state="preview"],[data-state="preview_paused"],[data-state="calling"]) .elevator-shaft i:nth-child(3)::after{animation-delay:-.4s}
-.elevator-sheet:is([data-state="preview"],[data-state="preview_paused"],[data-state="calling"]) .elevator-shaft i:nth-child(4)::after{animation-delay:-1.9s}
-.elevator-sheet:is([data-state="preview"],[data-state="preview_paused"],[data-state="calling"]) .elevator-indicator i{animation:elevator-glow 1.8s ease-in-out infinite}
-.elevator-sheet:is([data-state="preview"],[data-state="preview_paused"],[data-state="calling"]) .elevator-indicator i:nth-child(2){animation-delay:.2s}
-.elevator-sheet:is([data-state="preview"],[data-state="preview_paused"],[data-state="calling"]) .elevator-indicator i:nth-child(3){animation-delay:.4s}
-.elevator-sheet:is([data-state="preview"],[data-state="preview_paused"],[data-state="calling"]) .elevator-doors>div::after{animation:elevator-sheen 4.8s ease-in-out infinite}
-/* Door choreography is decorative and exclusive to clearly labelled preview. */
-.elevator-sheet:is([data-state="preview"],[data-state="preview_paused"]) .elevator-doors>div{animation:elevator-door-left 7.2s cubic-bezier(.4,0,.2,1) infinite}
-.elevator-sheet:is([data-state="preview"],[data-state="preview_paused"]) .elevator-doors>div+div{animation-name:elevator-door-right}
 .elevator-sheet:is([data-state="checking"],[data-state="calling"],[data-state="querying"]) .elevator-track{visibility:visible}
 .elevator-sheet:is([data-state="checking"],[data-state="calling"],[data-state="querying"]) .elevator-track span{animation:elevator-flow 1.7s ease-in-out infinite}
 .elevator-sheet:is([data-state="preview"],[data-state="preview_paused"]) .elevator-track{display:none}
 .elevator-sheet[data-state="accepted"] .elevator-result-mark{background:#dcefe8;color:#3d7e69}
 .elevator-sheet[data-state="rejected"] .elevator-result-mark{background:#f6e3e5;color:#aa6672}
 .elevator-sheet[data-state="unknown"] .elevator-result-mark{background:#fbebce;color:#a48042}
-@keyframes elevator-rise{0%{transform:translateY(0);opacity:0}15%,80%{opacity:.8}100%{transform:translateY(-310px);opacity:0}}
-@keyframes elevator-sheen{0%,12%{transform:translateX(-150%)}48%,100%{transform:translateX(150%)}}
-@keyframes elevator-door-left{0%,28%,88%,100%{transform:translateX(0)}48%,69%{transform:translateX(-36%)}}
-@keyframes elevator-door-right{0%,28%,88%,100%{transform:translateX(0)}48%,69%{transform:translateX(36%)}}
 @keyframes elevator-flow{0%{transform:translateX(-110%)}100%{transform:translateX(360%)}}
-@keyframes elevator-glow{50%{opacity:1;filter:drop-shadow(0 0 4px #ffe8ad)}}
+
 @keyframes elevator-enter{from{opacity:0;transform:translateY(12px) scale(.98)}to{opacity:1;transform:none}}
-@media(max-height:700px){.elevator-art{height:178px;margin:6px 0 12px}.elevator-cabin{transform:scale(.83)}.elevator-sheet{padding:10px 20px 13px}.elevator-track{margin-top:12px}.elevator-copy h2{font-size:21px}.elevator-light-label{bottom:5px}}
+@media(max-height:700px){.elevator-art{height:215px;margin:6px 0 12px}.elevator-sheet{padding:10px 20px 13px}.elevator-track{margin-top:12px}.elevator-copy h2{font-size:21px}}
 .elevator-sheet[data-reduced-motion="true"] *,.elevator-sheet[data-reduced-motion="true"] *::before,.elevator-sheet[data-reduced-motion="true"] *::after{animation:none!important;transition:none!important}
 @media(prefers-reduced-motion:reduce){.elevator-dialog,.elevator-dialog *,.elevator-dialog *::before,.elevator-dialog *::after{animation:none!important;transition:none!important}.elevator-track span{width:100%;background:#969ec960}}
