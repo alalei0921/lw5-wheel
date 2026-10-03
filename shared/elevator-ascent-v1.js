@@ -19,7 +19,7 @@
   const seed = n => fract(Math.sin(n * 127.1 + 31.7) * 43758.5453);
   // Three light layers: distant grains, defocused foreground dust, and wing filaments.
   const grains = Array.from({length:480},(_,i)=>({a:seed(i+1)*Math.PI*2,u:seed(i+71),z:seed(i+143),s:seed(i+911),tint:i%9===0?'gold':i%5===0?'violet':'ice'}));
-  const wings = Array.from({length:420},(_,i)=>({side:i%2?-1:1,f:Math.floor(seed(i+301)*15),u:seed(i+719),n:seed(i+823)-.5,size:seed(i+1311),tint:i%11===0?'gold':i%7===0?'violet':'ice'}));
+  const wings = Array.from({length:420},(_,i)=>({side:i%2?-1:1,f:Math.floor(seed(i+301)*16),u:seed(i+719),n:seed(i+823)-.5,size:seed(i+1311),tint:i%11===0?'gold':i%7===0?'violet':'ice'}));
   // Fixed pools: these are the same grains before and after each impact.
   // The hit time is the inverse of the cultivator's ascent curve, not a timer
   // unrelated to the crossing. No particles are spawned, retained or sent anywhere.
@@ -41,10 +41,92 @@
     // If the optional light atlas fails to load, preserve a readable low-cost scene.
     ctx.save();ctx.globalAlpha*=Math.max(0,Math.min(1,a));ctx.fillStyle='#b8dbea';ctx.beginPath();ctx.arc(x,y,Math.max(.25,r*.18),0,Math.PI*2);ctx.fill();ctx.restore();
   }
-  function feather(u,f,t,spread){
-    const a=1-u;
-    return {x:(a*a*a*6+3*a*a*u*(21+f*.6)+3*a*u*u*(33+f*2)+u*u*u*(40+f*3.8))*spread,
-      y:a*a*a*-4+3*a*a*u*(-17-f*1.3)+3*a*u*u*(-4-f*.7)+u*u*u*(13-f*4.6)+Math.sin(u*4+t*.9)*u*1.4};
+  const mix=(a,b,u)=>a+(b-a)*u;
+  // Three articulated bones and separately bound feather blades. Fixed typed
+  // buffers are reused every frame; the wing is never scaled as one rigid fan.
+  const wingBones=[new Float32Array(12),new Float32Array(12)];
+  const wingCurves=[new Float32Array(16*8),new Float32Array(16*8)];
+  const delayedBones=new Float32Array(12);
+  const featherDefs=Array.from({length:16},(_,f)=>{
+    const segment=f<4?0:f<10?1:2;
+    const u=segment===0?f/3:segment===1?(f-4)/5:(f-10)/5;
+    return {segment,u:.12+u*.82,length:segment===0?18+u*14:segment===1?39+u*7:[55,61,57,50,40,23][f-10],
+      rake:segment===0?1.35:segment===1?1.48:1.0,width:segment===0?3.4:5.8,
+      lag:.025+f/15*.145};
+  });
+  function wingPose(t,side,out){
+    t-=side*.025;
+    const rootOpen=ease((t-.55)/1.32),middleOpen=ease((t-.85)/1.50),tipOpen=ease((t-1.13)/1.63);
+    const rootSweep=ease((t-3.56)/.70),middleSweep=ease((t-3.69)/.70),tipSweep=ease((t-3.82)/.72);
+    const settle=Math.max(0,t-2.2);
+    const recoil=settle>0?Math.sin(settle*5)*Math.exp(-settle*3)*.045:0;
+    const a0=mix(mix(-1.35,-.33,rootOpen),.98,rootSweep);
+    const a1=mix(mix(1.40,-.82,middleOpen),1.48,middleSweep);
+    const a2=mix(mix(1.68,-.33,tipOpen)+recoil,1.68,tipSweep);
+    out[0]=6;out[1]=-10;
+    out[2]=out[0]+Math.cos(a0)*26;out[3]=out[1]+Math.sin(a0)*26;
+    out[4]=out[2]+Math.cos(a1)*34;out[5]=out[3]+Math.sin(a1)*34;
+    out[6]=out[4]+Math.cos(a2)*43;out[7]=out[5]+Math.sin(a2)*43;
+    out[8]=a0;out[9]=a1;out[10]=a2;out[11]=tipOpen*(1-tipSweep);
+  }
+  function prepareWings(t,quiet){
+    if(quiet)t=3.1;
+    for(let side=0;side<2;side++){
+      wingPose(t,side,wingBones[side]);
+      const curves=wingCurves[side];
+      for(let f=0;f<16;f++){
+        const def=featherDefs[f],p=delayedBones;
+        wingPose(t-(quiet?0:def.lag),side,p);
+        const seg=def.segment*2,k=f*8;
+        const bx=mix(p[seg],p[seg+2],def.u),by=mix(p[seg+1],p[seg+3],def.u);
+        const angle=mix(1.56,p[8+def.segment]+def.rake,p[11]);
+        const len=def.length*(.68+.32*p[11]);
+        const dx=Math.cos(angle)*len,dy=Math.sin(angle)*len;
+        // Small tip deflection follows the blade, never an entire-wing flap.
+        const curl=Math.sin(t*1.7-f*.42)*.7*p[11];
+        curves[k]=bx;curves[k+1]=by;
+        curves[k+2]=bx+dx*.28-dy*.09;curves[k+3]=by+dy*.28+dx*.09;
+        curves[k+4]=bx+dx*.77-dy*.025;curves[k+5]=by+dy*.77+dx*.025+curl;
+        curves[k+6]=bx+dx;curves[k+7]=by+dy+curl;
+      }
+    }
+  }
+  function paintWings(t,charge,quiet,step){
+    prepareWings(t,quiet);
+    for(let side=0;side<2;side++){
+      const p=wingBones[side],curves=wingCurves[side];
+      ctx.save();ctx.scale(side===0?-1:1,1);
+      // Slender separate blades retain air between them; no round membrane.
+      for(let f=0;f<16;f++){
+        const k=f*8,a=curves,dx=a[k+6]-a[k],dy=a[k+7]-a[k+1],len=Math.hypot(dx,dy)||1;
+        const nx=-dy/len*featherDefs[f].width,ny=dx/len*featherDefs[f].width;
+        ctx.fillStyle=`rgba(138,204,224,${.045+charge*.035})`;
+        ctx.beginPath();ctx.moveTo(a[k],a[k+1]);
+        ctx.bezierCurveTo(a[k+2]+nx*.3,a[k+3]+ny*.3,a[k+4]+nx*.32,a[k+5]+ny*.32,a[k+6],a[k+7]);
+        ctx.bezierCurveTo(a[k+4]-nx*.8,a[k+5]-ny*.8,a[k+2]-nx*.45,a[k+3]-ny*.45,a[k],a[k+1]);ctx.fill();
+        ctx.strokeStyle=`rgba(192,230,238,${.14+charge*.10})`;ctx.lineWidth=.55;
+        ctx.beginPath();ctx.moveTo(a[k],a[k+1]);ctx.bezierCurveTo(a[k+2],a[k+3],a[k+4],a[k+5],a[k+6],a[k+7]);ctx.stroke();
+        dot(a[k+6],a[k+7],2.8,.26+charge*.18,f%7?'ice':'gold');
+      }
+      // A flexible leading spar exposes the root/elbow/wrist silhouette without
+      // drawing mechanical joints or a perimeter around a butterfly-shaped fan.
+      for(const pass of [{w:3.2,a:.035},{w:.65,a:.37}]){
+        ctx.lineWidth=pass.w;ctx.strokeStyle=`rgba(190,231,241,${pass.a})`;
+        ctx.beginPath();ctx.moveTo(p[0],p[1]);
+        ctx.quadraticCurveTo(p[2],p[3],(p[2]+p[4])*.5,(p[3]+p[5])*.5);
+        ctx.quadraticCurveTo(p[4],p[5],p[6],p[7]);ctx.stroke();
+      }
+      dot(p[6],p[7],4.5,.3+charge*.17,'pearl');ctx.restore();
+    }
+    // Existing light particles follow each articulated blade's cached curve.
+    for(let i=0;i<wings.length;i+=step){
+      const w=wings[i],a=wingCurves[w.side<0?0:1],k=w.f*8,u=fract(w.u+t*.028),v=1-u;
+      const qx=v*v*v*a[k]+3*v*v*u*a[k+2]+3*v*u*u*a[k+4]+u*u*u*a[k+6];
+      const qy=v*v*v*a[k+1]+3*v*v*u*a[k+3]+3*v*u*u*a[k+5]+u*u*u*a[k+7];
+      const alpha=(.19+charge*.28)*Math.sin(u*Math.PI)*(.55+w.size*.65);
+      const breadth=Math.sin(u*Math.PI)*featherDefs[w.f].width;
+      dot(qx*w.side+w.n*breadth*.65,qy+w.n*breadth,1.05+w.size*1.75,alpha,w.tint);
+    }
   }
   function particleRings(t,x,quiet,front){
     const step=economy?2:1;
@@ -105,7 +187,6 @@
     const x=width*.5+Math.sin(t*.35)*1.4;
     const y=height*(.65-.025*ease(t/2.5)-.51*lift);
     const presence=quiet?1:ease(t/.55)*(1-ease((dash-.1)/.55));
-    const spread=quiet?1:.35+.65*ease((t-.4)/2.1)*(1-ease(dash/.6));
     const step=economy?2:1;
     ctx.clearRect(0,0,width,height);ctx.globalAlpha=1;ctx.globalCompositeOperation='lighter';
     ctx.lineCap='round';ctx.lineJoin='round';
@@ -155,28 +236,7 @@
       ctx.save();ctx.translate(x,y);const scale=Math.min(width/320,1.1)*(1-lift*.75);ctx.scale(scale,scale);ctx.globalAlpha=presence;
       dot(0,-6,137,.58+charge*.23,'ice','core');
       dot(0,-7,58,.45+charge*.25,'gold','core');
-      // Tapered organic feather filaments, with dust concentrated along each spline.
-      for(const side of [-1,1]){
-        ctx.save();ctx.scale(side,1);
-        for(let f=0;f<15;f++){
-          const grad=ctx.createLinearGradient(7,0,93,-36);
-          grad.addColorStop(0,'rgba(219,238,236,.025)');grad.addColorStop(.55,`rgba(142,210,231,${.15+charge*.06})`);grad.addColorStop(1,'rgba(209,230,239,.06)');
-          ctx.strokeStyle=grad;ctx.lineWidth=.5+(f/15)*.15;
-          ctx.beginPath();for(let j=0;j<=24;j++){const q=feather(j/24,f,t,spread);if(j===0)ctx.moveTo(q.x,q.y);else ctx.lineTo(q.x,q.y);}ctx.stroke();
-        }
-        // Subtle multi-pass edge corona; no sawtooth lightning outline.
-        for(const pass of [{w:5,a:.025},{w:1.6,a:.08},{w:.55,a:.45}]){
-          ctx.lineWidth=pass.w;ctx.strokeStyle=`rgba(203,231,239,${pass.a*(.65+charge*.35)})`;
-          ctx.beginPath();for(let j=0;j<=60;j++){const u=j/60,q=feather(u,14,t,spread);const ripple=Math.sin(u*31+t*1.1)*.55+Math.sin(u*11-t*.8)*.35;if(!j)ctx.moveTo(q.x,q.y);else ctx.lineTo(q.x,q.y+ripple);}ctx.stroke();
-        }
-        const tip=feather(1,14,t,spread);dot(tip.x,tip.y,8,.34+charge*.22,'pearl');
-        ctx.restore();
-      }
-      for(let i=0;i<wings.length;i+=step){
-        const w=wings[i],u=fract(w.u+t*.015),q=feather(u,w.f,t,spread);
-        const depth=w.f/14,alpha=(.24+charge*.31)*Math.sin(u*Math.PI)*(.5+w.size*.7);
-        dot(q.x*w.side+w.n*2,q.y+w.n*(2+depth*2),1.2+w.size*2.3,alpha,w.tint);
-      }
+      paintWings(t,charge,quiet,step);
       // The charging ring is dust and a feathered underside glow rather than a rune outline.
       dot(0,31,69,.085+charge*.055,'gold','dust');
       for(let i=0;i<110;i+=step){const a=i/110*Math.PI*2+t*.17,r=35+Math.sin(i*2.3)*2;dot(Math.cos(a)*r,31+Math.sin(a)*r*.26,1+seed(i+901)*2.2,.15+charge*.16,i%3?'gold':'ice');}

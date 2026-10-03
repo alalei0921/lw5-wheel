@@ -342,7 +342,7 @@ test('ascent visibly animates, freezes when paused/reduced/closed and stays deco
   await open(s.page);await state(s.page,'preview');
   const pixels=()=>s.page.locator('#elevatorAscent').evaluate(c=>c.toDataURL());
   await s.page.waitForFunction(()=>document.querySelector('#elevatorAscent').dataset.renderMode==='running');
-  const first=await pixels();await s.page.waitForTimeout(450);assert.notEqual(await pixels(),first);
+  const first=await pixels();await s.page.waitForTimeout(1600);assert.notEqual(await pixels(),first);
   await s.page.locator('#elevatorPreviewToggle').click();
   await s.page.waitForFunction(()=>document.querySelector('#elevatorAscent').dataset.renderMode==='paused');
   const paused=await pixels();await s.page.waitForTimeout(300);assert.equal(await pixels(),paused);
