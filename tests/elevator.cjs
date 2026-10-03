@@ -30,6 +30,7 @@ async function setup(options = {}) {
       return route.fulfill({status:202,json:{protocol:1,mode:'simulation',requestId:input?.requestId || url.pathname.split('/').at(-1),status:'accepted',receipt:{id:'SIM-RECEIPT',acceptedAt:new Date().toISOString()}}});
     }
     if (!options.disabled && url.pathname === '/shared/elevator-config-v1.js') return route.fulfill({ contentType:'text/javascript', body:'window.LW5_ELEVATOR_CONFIG = ' + JSON.stringify({apiBase:options.apiBase || '/api/elevator/', mode: options.mode || 'simulation'}) });
+    if (options.noDepthScene && url.pathname === '/shared/scene-depth-v1.js') return route.fulfill({status:503,body:''});
     if (options.noLightAtlas && url.pathname === '/shared/particle-light-v1.js') return route.fulfill({status:503,body:''});
     const file = path.join(root, url.pathname.endsWith('/') ? url.pathname + 'index.html' : url.pathname);
     assert(file.startsWith(root + path.sep));
@@ -398,6 +399,38 @@ test('a missing light atlas falls back without breaking preview or calling a dev
   const before=await s.page.locator('#elevatorAscent').evaluate(c=>c.toDataURL());
   await s.page.waitForTimeout(200);
   assert.notEqual(await s.page.locator('#elevatorAscent').evaluate(c=>c.toDataURL()),before);
+  await s.page.locator('#elevatorPreviewToggle').click();await state(s.page,'preview_paused');
+  assert.equal(s.requests.length,0);await finish(s);
+});
+
+
+test('scene depth preserves occlusion as a particle crosses behind and in front of a body',async()=>{
+  const s=await setup({disabled:true});
+  const colors=await s.page.evaluate(()=>{
+    const c=document.createElement('canvas');c.width=c.height=8;const ctx=c.getContext('2d');
+    const queue=new window.LW5DepthScene(8),result=[];
+    for(const depth of [-.3,.3,-.1]){
+      ctx.clearRect(0,0,8,8);queue.reset();
+      // Intentionally submit foreground first and leave the context additive.
+      // The compositor must still use current depth and preserve opaque surfaces.
+      const particle=queue.add('particle',depth);particle.color='#00aaff';
+      const body=queue.add('body',0);body.color='#cc3300';
+      const distant=queue.add('remote glow',-.8);distant.color='#ffffff';
+      ctx.globalCompositeOperation='lighter';
+      queue.render(ctx,item=>{ctx.fillStyle=item.color;ctx.fillRect(0,0,8,8);});
+      result.push(Array.from(ctx.getImageData(4,4,1,1).data));
+    }
+    return result;
+  });
+  assert.deepEqual(colors,[[204,51,0,255],[0,170,255,255],[204,51,0,255]]);
+  assert.equal(s.requests.length,0);await finish(s);
+});
+
+test('missing depth compositor keeps the static visual fallback and preview safe',async()=>{
+  const s=await setup({disabled:true,noDepthScene:true,reducedMotion:'no-preference'});
+  await open(s.page);await state(s.page,'preview');
+  assert.equal(await s.page.locator('#elevatorAscent').getAttribute('data-render-mode'),'fallback');
+  assert.equal(await s.page.locator('.ascent-rendered').count(),0);
   await s.page.locator('#elevatorPreviewToggle').click();await state(s.page,'preview_paused');
   assert.equal(s.requests.length,0);await finish(s);
 });
