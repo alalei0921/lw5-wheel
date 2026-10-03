@@ -18,8 +18,22 @@
   const fract = n => n - Math.floor(n);
   const seed = n => fract(Math.sin(n * 127.1 + 31.7) * 43758.5453);
   // Three light layers: distant grains, defocused foreground dust, and wing filaments.
-  const grains = Array.from({length:620},(_,i)=>({a:seed(i+1)*Math.PI*2,u:seed(i+71),z:seed(i+143),s:seed(i+911),tint:i%9===0?'gold':i%5===0?'violet':'ice'}));
+  const grains = Array.from({length:480},(_,i)=>({a:seed(i+1)*Math.PI*2,u:seed(i+71),z:seed(i+143),s:seed(i+911),tint:i%9===0?'gold':i%5===0?'violet':'ice'}));
   const wings = Array.from({length:420},(_,i)=>({side:i%2?-1:1,f:Math.floor(seed(i+301)*15),u:seed(i+719),n:seed(i+823)-.5,size:seed(i+1311),tint:i%11===0?'gold':i%7===0?'violet':'ice'}));
+  // Fixed pools: these are the same grains before and after each impact.
+  // The hit time is the inverse of the cultivator's ascent curve, not a timer
+  // unrelated to the crossing. No particles are spawned, retained or sent anywhere.
+  const rings = [.53,.365,.21].map((level,k)=>({
+    level, radius:.31-k*.062, squash:.24+k*.025,
+    hit:4.1+1.45*Math.pow((.625-level)/.51,1/1.8),
+    particles:Array.from({length:144},(_,i)=>{
+      const a=i/144*Math.PI*2+(seed(i+k*173+4001)-.5)*.024;
+      return {c:Math.cos(a),s:Math.sin(a),j:seed(i+k*181+4301)-.5,
+        speed:.65+seed(i+k*197+4701)*.75,delay:seed(i+k*151+4901)*.09,
+        size:1.3+seed(i+k*163+5101)*2.1,
+        tint:i%8===0?'gold':i%11===0?'pearl':'ice',dust:i%9===0};
+    })
+  }));
   const light = window.LW5ParticleLight;
   let economy=false, slowFrames=0;
   function dot(x,y,r,a,tint='ice',kind='point'){
@@ -31,6 +45,57 @@
     const a=1-u;
     return {x:(a*a*a*6+3*a*a*u*(21+f*.6)+3*a*u*u*(33+f*2)+u*u*u*(40+f*3.8))*spread,
       y:a*a*a*-4+3*a*a*u*(-17-f*1.3)+3*a*u*u*(-4-f*.7)+u*u*u*(13-f*4.6)+Math.sin(u*4+t*.9)*u*1.4};
+  }
+  function particleRings(t,x,quiet,front){
+    const step=economy?2:1;
+    for(let k=0;k<rings.length;k++){
+      const ring=rings[k],age=quiet?-1:t-ring.hit;
+      if(age>2.45)continue;
+      const radius=width*ring.radius,cy=height*ring.level;
+      const reveal=quiet?1:ease((t-.1-k*.13)/1.0);
+      // A small center pulse leads a radial pressure front out to the ring.
+      // Its short travel makes the subsequent ring breakup visibly causal.
+      if(!front&&age>0&&age<.32){
+        const pulse=Math.sin(clamp(age/.32)*Math.PI);
+        dot(x,cy,65,pulse*.44,'pearl','core');
+        const wave=clamp(age/.15),wr=radius*wave;
+        for(let i=0;i<ring.particles.length;i+=6*step){
+          const p=ring.particles[i];
+          dot(x+p.c*wr,cy+p.s*wr*ring.squash,2.4,pulse*(1-wave*.4)*.43,'ice');
+        }
+      }
+      for(let i=0;i<ring.particles.length;i+=step){
+        const p=ring.particles[i];if((p.s>=0)!==front)continue;
+        const local=age-.115-p.delay-(p.s+1)*.018;
+        const a=Math.max(0,local),drag=(1-Math.exp(-a*1.65))/1.65;
+        const speed=width*(.68+k*.075)*p.speed;
+        const flight=drag*speed;
+        const compression=age>0&&local<0?1-.035*Math.sin(clamp(age/.22)*Math.PI):1;
+        const r=(radius+p.j*4+Math.sin(t*.8+i*.7)*.5)*compression;
+        const swirl=p.j*flight*.18;
+        const px=x+p.c*(r+flight)-p.s*swirl;
+        const py=cy+p.s*(r*ring.squash+flight*(ring.squash+.3))+p.c*swirl*.45
+          +a*a*height*.058+p.j*flight*.18;
+        const fade=a>0?Math.pow(Math.max(0,1-a/1.85),1.45):1;
+        const surge=a>0?.52+Math.exp(-a*5)*.48:.36+(p.s+1)*.06;
+        const alpha=reveal*fade*surge*(p.dust?.35:1);
+        if(alpha<.004)continue;
+        // Short ballistic streaks follow each grain's own velocity and drag.
+        // They brighten at impact and shorten as the same grains slow down.
+        if(a>0&&!p.dust){
+          const back=Math.max(0,a-.075),prior=(1-Math.exp(-back*1.65))/1.65*speed;
+          const priorSwirl=p.j*prior*.18;
+          const tx=x+p.c*(r+prior)-p.s*priorSwirl;
+          const ty=cy+p.s*(r*ring.squash+prior*(ring.squash+.3))+p.c*priorSwirl*.45
+            +back*back*height*.058+p.j*prior*.18;
+          ctx.strokeStyle=p.tint==='gold'?`rgba(238,213,164,${alpha*.45})`:`rgba(177,226,240,${alpha*.42})`;
+          ctx.lineWidth=.55;ctx.beginPath();ctx.moveTo(tx,ty);ctx.lineTo(px,py);ctx.stroke();
+          dot((tx+px)*.5,(ty+py)*.5,p.size*1.4,alpha*.24,p.tint);
+        }
+        dot(px,py,p.dust?p.size*3:p.size,alpha,p.tint,p.dust?'dust':'point');
+        if(a<.32&&!p.dust&&i%4===0)dot(px,py,p.size*3,alpha*.17,p.tint,'dust');
+      }
+    }
   }
   function draw(t, quiet=false){
     const charge=ease(t/2.6)*(1-ease((t-4)/.7));
@@ -70,15 +135,7 @@
         ctx.strokeStyle=grad;ctx.lineWidth=.55;ctx.beginPath();ctx.moveTo(gx,gy-length);ctx.lineTo(gx,gy);ctx.stroke();
       }
     }
-    // Broken, grainy circulation bands suggest depth without hard perfect circles.
-    for(let band=0;band<3;band++){
-      const radius=width*(.22+band*.16),cy=height*(.43+band*.18);
-      for(let i=0;i<96;i+=step){
-        const a=i/96*Math.PI*2+t*(.045+band*.015),r=radius+Math.sin(i*2.7)*1.8;
-        const alpha=(.06+charge*.065)*(1+Math.sin(i*1.7)*.5);
-        dot(x+Math.cos(a)*r,cy+Math.sin(a)*r*.27,1.8,alpha,band===1?'gold':'ice');
-      }
-    }
+    particleRings(t,x,quiet,false);
 
     // A luminous dust wake fades continuously from the spear into the lower scene.
     const streak=quiet?0:ease((t-4.05)/.4)*(1-ease((t-6.3)/1.5));
@@ -139,15 +196,8 @@
       ctx.restore();ctx.globalCompositeOperation='lighter';
     }
 
-    // Pressure fronts carry a soft edge, internal fine grains and decaying haze.
-    if(!quiet)for(let ring=0;ring<3;ring++){
-      const age=(t-4.35-ring*.4)/2.05;if(age<=0||age>=1)continue;
-      const r=12+ease(age)*width*(.78+ring*.1),cy=height*(.28+age**1.2*.76),a=Math.sin(age*Math.PI);
-      ctx.save();ctx.translate(x,cy);ctx.scale(1,.32);
-      for(const pass of [{w:9,a:.018},{w:3,a:.035},{w:.65,a:.23}]){ctx.lineWidth=pass.w;ctx.strokeStyle=`rgba(174,221,235,${a*pass.a})`;ctx.beginPath();ctx.arc(0,0,r,0,Math.PI*2);ctx.stroke();}
-      ctx.restore();
-      for(let i=0;i<100;i+=step){const angle=i/100*Math.PI*2,rr=r+(seed(i+ring*111)-.5)*3;dot(x+Math.cos(angle)*rr,cy+Math.sin(angle)*rr*.32,1.6,a*.3,i%7?'ice':'gold');}
-    }
+    // Front halves cross over the wake, preserving the depth of the struck rings.
+    particleRings(t,x,quiet,true);
     const distant=quiet?0:ease((t-5.25)/.5)*(1-ease((t-8.6)/.8));
     if(distant>0){dot(x,height*.105,105,distant*.7,'ice','core');dot(x,height*.105,12,distant,'gold');ctx.lineWidth=.5;ctx.strokeStyle=`rgba(223,235,231,${distant*.4})`;ctx.beginPath();ctx.moveTo(x-7,height*.105);ctx.lineTo(x+7,height*.105);ctx.moveTo(x,height*.105-14);ctx.lineTo(x,height*.105+14);ctx.stroke();}
     ctx.globalCompositeOperation='source-over';

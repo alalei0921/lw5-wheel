@@ -374,7 +374,14 @@ test('cultivator preview unfolds wings, dashes and fades without becoming a call
   const wings=await s.page.locator('#elevatorAscent').evaluate(c=>c.toDataURL());
   await s.page.clock.runFor(2400);assert.match(await s.page.locator('#elevatorPhase').innerText(),/一线凌空/);
   const dash=await s.page.locator('#elevatorAscent').evaluate(c=>c.toDataURL());assert.notEqual(wings,dash);
-  await s.page.clock.runFor(1300);assert.match(await s.page.locator('#elevatorPhase').innerText(),/气浪回响/);
+  // Pause while the rings are breaking apart: particles must freeze exactly and
+  // resume the same flight without creating any device state or extra timer.
+  await s.page.clock.runFor(500);
+  await s.page.locator('#elevatorPreviewToggle').click();await state(s.page,'preview_paused');
+  const impact=await s.page.locator('#elevatorAscent').evaluate(c=>c.toDataURL());
+  await s.page.clock.runFor(400);assert.equal(await s.page.locator('#elevatorAscent').evaluate(c=>c.toDataURL()),impact);
+  await s.page.locator('#elevatorPreviewToggle').click();await state(s.page,'preview');
+  await s.page.clock.runFor(800);assert.match(await s.page.locator('#elevatorPhase').innerText(),/气浪回响/);
   await s.page.clock.runFor(2000);assert.match(await s.page.locator('#elevatorPhase').innerText(),/天际余辉/);
   await state(s.page,'preview');assert.equal(s.requests.length,0);
   assert(await s.page.locator('#elevatorReceipt').isHidden());
