@@ -30,6 +30,7 @@ async function setup(options = {}) {
       return route.fulfill({status:202,json:{protocol:1,mode:'simulation',requestId:input?.requestId || url.pathname.split('/').at(-1),status:'accepted',receipt:{id:'SIM-RECEIPT',acceptedAt:new Date().toISOString()}}});
     }
     if (!options.disabled && url.pathname === '/shared/elevator-config-v1.js') return route.fulfill({ contentType:'text/javascript', body:'window.LW5_ELEVATOR_CONFIG = ' + JSON.stringify({apiBase:options.apiBase || '/api/elevator/', mode: options.mode || 'simulation'}) });
+    if (options.noLightAtlas && url.pathname === '/shared/particle-light-v1.js') return route.fulfill({status:503,body:''});
     const file = path.join(root, url.pathname.endsWith('/') ? url.pathname + 'index.html' : url.pathname);
     assert(file.startsWith(root + path.sep));
     try { return await route.fulfill({contentType:types[path.extname(file)] || 'application/octet-stream',body:await fs.readFile(file)}); }
@@ -379,4 +380,17 @@ test('cultivator preview unfolds wings, dashes and fades without becoming a call
   assert(await s.page.locator('#elevatorReceipt').isHidden());
   assert.doesNotMatch(await s.page.locator('#elevatorTitle').innerText(),/成功|受理|到达/);
   await finish(s);
+});
+
+
+test('a missing light atlas falls back without breaking preview or calling a device',async()=>{
+  const s=await setup({disabled:true,noLightAtlas:true,reducedMotion:'no-preference'});
+  await open(s.page);await state(s.page,'preview');
+  await s.page.waitForFunction(()=>document.querySelector('#elevatorAscent').dataset.renderMode==='running');
+  assert.equal(await s.page.evaluate(()=>typeof window.LW5ParticleLight),'undefined');
+  const before=await s.page.locator('#elevatorAscent').evaluate(c=>c.toDataURL());
+  await s.page.waitForTimeout(200);
+  assert.notEqual(await s.page.locator('#elevatorAscent').evaluate(c=>c.toDataURL()),before);
+  await s.page.locator('#elevatorPreviewToggle').click();await state(s.page,'preview_paused');
+  assert.equal(s.requests.length,0);await finish(s);
 });

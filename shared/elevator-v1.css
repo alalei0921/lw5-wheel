@@ -18,7 +18,7 @@ body.tool-active .elevator-launch,body.nebula-active .elevator-launch{visibility
 .elevator-close:hover{background:#77739b12}
 .elevator-simulation{margin:4px 0 10px;padding:7px 8px;border:1px solid #d9a95760;border-radius:9px;background:#fff3d5;color:#815817;font-size:11px;font-weight:650}
 /* Light ascent: bounded canvas, no realistic cabin or doors. */
-.elevator-art{height:292px;position:relative;margin:12px -8px 19px;border-radius:24px;overflow:hidden;isolation:isolate;background:radial-gradient(ellipse at 50% 10%,#213653,transparent 55%),linear-gradient(165deg,#101326,#070c1c 65%,#1d1735);box-shadow:inset 0 0 0 1px #c9d9ff26,0 12px 26px #22234612;contain:layout paint}
+.elevator-art{height:292px;position:relative;margin:12px -8px 19px;border-radius:24px;overflow:hidden;isolation:isolate;background:radial-gradient(ellipse at 50% 20%,#182c39,transparent 70%),linear-gradient(165deg,#09151e,#06111c 65%,#101a2b);box-shadow:inset 0 0 0 1px #c9d9ff26,0 12px 26px #22234612;contain:layout paint}
 .elevator-ascent{position:absolute;inset:0;width:100%;height:100%;display:block}
 .elevator-art::after{content:"";position:absolute;inset:0;pointer-events:none;border-radius:inherit;box-shadow:inset 0 0 22px #01041055}
 .elevator-art-caption{position:absolute;left:18px;right:18px;bottom:12px;display:flex;justify-content:space-between;align-items:center;color:#b8d4ec9e;font:8px/1.5 ui-monospace,monospace;letter-spacing:1.8px}

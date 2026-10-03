@@ -17,201 +17,153 @@
   const ease = n => { n = clamp(n); return n * n * (3 - 2 * n); };
   const fract = n => n - Math.floor(n);
   const seed = n => fract(Math.sin(n * 127.1 + 31.7) * 43758.5453);
-  const particles = Array.from({ length: 56 }, (_, i) => ({
-    angle: seed(i + 1) * Math.PI * 2,
-    offset: seed(i + 71), rate: .65 + seed(i + 143) * .55,
-    tint: i % 5 === 0 ? '255,221,169' : i % 3 === 0 ? '169,148,255' : '124,225,255',
-  }));
+  // Three light layers: distant grains, defocused foreground dust, and wing filaments.
+  const grains = Array.from({length:620},(_,i)=>({a:seed(i+1)*Math.PI*2,u:seed(i+71),z:seed(i+143),s:seed(i+911),tint:i%9===0?'gold':i%5===0?'violet':'ice'}));
+  const wings = Array.from({length:420},(_,i)=>({side:i%2?-1:1,f:Math.floor(seed(i+301)*15),u:seed(i+719),n:seed(i+823)-.5,size:seed(i+1311),tint:i%11===0?'gold':i%7===0?'violet':'ice'}));
+  const light = window.LW5ParticleLight;
+  let economy=false, slowFrames=0;
+  function dot(x,y,r,a,tint='ice',kind='point'){
+    if(light){light.paint(ctx,x,y,r,a,tint,kind);return;}
+    // If the optional light atlas fails to load, preserve a readable low-cost scene.
+    ctx.save();ctx.globalAlpha*=Math.max(0,Math.min(1,a));ctx.fillStyle='#b8dbea';ctx.beginPath();ctx.arc(x,y,Math.max(.25,r*.18),0,Math.PI*2);ctx.fill();ctx.restore();
+  }
+  function feather(u,f,t,spread){
+    const a=1-u;
+    return {x:(a*a*a*6+3*a*a*u*(21+f*.6)+3*a*u*u*(33+f*2)+u*u*u*(40+f*3.8))*spread,
+      y:a*a*a*-4+3*a*a*u*(-17-f*1.3)+3*a*u*u*(-4-f*.7)+u*u*u*(13-f*4.6)+Math.sin(u*4+t*.9)*u*1.4};
+  }
+  function draw(t, quiet=false){
+    const charge=ease(t/2.6)*(1-ease((t-4)/.7));
+    const rush=ease((t-3.7)/.9)*(1-ease((t-6.2)/1.7));
+    const travel=t*.016+Math.max(0,t-3.9)**1.3*.19;
+    const dash=quiet?0:clamp((t-4.1)/1.45),lift=dash**1.8;
+    const x=width*.5+Math.sin(t*.35)*1.4;
+    const y=height*(.65-.025*ease(t/2.5)-.51*lift);
+    const presence=quiet?1:ease(t/.55)*(1-ease((dash-.1)/.55));
+    const spread=quiet?1:.35+.65*ease((t-.4)/2.1)*(1-ease(dash/.6));
+    const step=economy?2:1;
+    ctx.clearRect(0,0,width,height);ctx.globalAlpha=1;ctx.globalCompositeOperation='lighter';
+    ctx.lineCap='round';ctx.lineJoin='round';
+    // The nebula's clear nucleus + diffuse corona, with controlled exposure.
+    dot(width*.5,height*.47,width*.73,.16,'ice','dust');
+    dot(width*.72,height*.63,width*.6,.095,'violet','dust');
+    dot(width*.35,height*.25,width*.56,.05,'gold','dust');
+    dot(x,height*.16,140,.33+rush*.2,'ice','core');
 
-  function draw(t, quiet = false) {
-    const p = t / cycle;
-    const charge = ease(t / 2.6) * (1 - ease((t - 4) / .7));
-    const rush = ease((t - 3.6) / 1.1) * (1 - ease((t - 6.3) / 1.8));
-    const travel = .025 * t + .22 * Math.max(0, t - 3.9) ** 1.45;
-    const veil = Math.sin(clamp((t - 5.2) / 1.9) * Math.PI);
-    const vanishX = width * .5 + Math.sin(t * .35) * width * .014;
-    const vanishY = height * (.18 - .045 * rush);
-    ctx.clearRect(0, 0, width, height);
-    ctx.globalCompositeOperation = 'source-over';
-    const aura = ctx.createRadialGradient(vanishX, vanishY, 0, vanishX, vanishY, height * .83);
-    aura.addColorStop(0, `rgba(147,216,255,${.2 + rush * .14})`);
-    aura.addColorStop(.23, 'rgba(57,82,139,.21)');
-    aura.addColorStop(.6, 'rgba(85,42,130,.12)');
-    aura.addColorStop(1, 'rgba(15,20,40,0)');
-    ctx.fillStyle = aura; ctx.fillRect(0, 0, width, height);
-    ctx.globalCompositeOperation = 'lighter';
-    // Broad spectral ribbons establish the shaft without filling it with noise.
-    const shaftGlow = ctx.createLinearGradient(0, vanishY, 0, height);
-    shaftGlow.addColorStop(0, 'rgba(183,235,255,.26)');
-    shaftGlow.addColorStop(.4, 'rgba(120,155,255,.065)');
-    shaftGlow.addColorStop(1, 'rgba(117,82,200,0)');
-    ctx.fillStyle = shaftGlow;
-    ctx.beginPath();ctx.moveTo(vanishX - 4, vanishY);ctx.lineTo(width * .84, height);ctx.lineTo(width * .16, height);ctx.lineTo(vanishX + 4, vanishY);ctx.closePath();ctx.fill();
-    for (const side of [-1, 1]) {
-      const wing = ctx.createLinearGradient(0, vanishY, 0, height);
-      wing.addColorStop(0, 'rgba(205,239,255,.04)');
-      wing.addColorStop(.45, side < 0 ? 'rgba(97,214,255,.23)' : 'rgba(187,131,255,.23)');
-      wing.addColorStop(1, 'rgba(113,112,241,0)');
-      ctx.strokeStyle = wing;
-      for (const thickness of [15, 5, 1.2]) {
-        ctx.lineWidth = thickness;
-        ctx.beginPath();ctx.moveTo(vanishX + side * 8, vanishY);
-        ctx.bezierCurveTo(vanishX + side * width * .06, height * .42, vanishX + side * width * (.42 + Math.sin(t * .5) * .02), height * .56, vanishX + side * width * .56, height * 1.1);ctx.stroke();
+    // Projected depth changes point size, opacity and speed rather than using a wire grid.
+    for(let i=0;i<grains.length;i+=step){
+      const g=grains[i], depth=.2+g.z*.8;
+      const u=fract(g.u+travel*(.35+depth*.7));
+      const radius=(.12+depth*.5)*width;
+      const angle=g.a+Math.sin(t*.16+g.z*6)*.06;
+      const gx=x+Math.cos(angle)*radius*(.5+u*.55);
+      const gy=-height*.1+u*height*1.2+Math.sin(angle)*radius*.18;
+      const edge=Math.sin(u*Math.PI);
+      const defocus=i%17===0;
+      const size=defocus?5+depth*10:1.05+g.s**3*3.7;
+      const alpha=edge*(defocus?.075:.14+g.s*.36)*(quiet?.7:1);
+      dot(gx,gy,size,alpha,g.tint,defocus?'dust':'point');
+      if(rush>.1&&depth>.6&&!defocus){
+        const length=3+rush*depth*19;
+        const grad=ctx.createLinearGradient(gx,gy-length,gx,gy);
+        grad.addColorStop(0,'rgba(160,216,237,0)');grad.addColorStop(1,`rgba(176,220,235,${edge*rush*.16})`);
+        ctx.strokeStyle=grad;ctx.lineWidth=.55;ctx.beginPath();ctx.moveTo(gx,gy-length);ctx.lineTo(gx,gy);ctx.stroke();
+      }
+    }
+    // Broken, grainy circulation bands suggest depth without hard perfect circles.
+    for(let band=0;band<3;band++){
+      const radius=width*(.22+band*.16),cy=height*(.43+band*.18);
+      for(let i=0;i<96;i+=step){
+        const a=i/96*Math.PI*2+t*(.045+band*.015),r=radius+Math.sin(i*2.7)*1.8;
+        const alpha=(.06+charge*.065)*(1+Math.sin(i*1.7)*.5);
+        dot(x+Math.cos(a)*r,cy+Math.sin(a)*r*.27,1.8,alpha,band===1?'gold':'ice');
       }
     }
 
-    // Perspective rings grow and sweep down past the camera: the viewer rises.
-    const project = (u, angle) => {
-      const radius = 7 + u ** 2.1 * width * 1.3;
-      return { x: vanishX + Math.cos(angle) * radius, y: vanishY + u ** 1.6 * height * .66 + Math.sin(angle) * radius * .4, radius };
-    };
-    for (let i = 0; i < 11; i++) {
-      const u = fract(i / 11 + travel * .36);
-      const c = project(u, 0), alpha = Math.sin(u * Math.PI) * (.18 + rush * .42);
-      const cy = vanishY + u ** 1.6 * height * .66;
-      ctx.lineWidth = 6 + u * 4;
-      ctx.strokeStyle = `rgba(111,181,255,${alpha * .12})`;
-      ctx.beginPath(); ctx.ellipse(vanishX, cy, c.radius, c.radius * .4, 0, 0, Math.PI * 2); ctx.stroke();
-      ctx.lineWidth = .9 + u * 1.7;
-      ctx.strokeStyle = `rgba(${i % 3 === 0 ? '216,185,255' : '101,212,255'},${alpha})`;
-      ctx.beginPath(); ctx.ellipse(vanishX, cy, c.radius, c.radius * .4, 0, 0, Math.PI * 2); ctx.stroke();
-      ctx.strokeStyle = `rgba(215,242,255,${alpha * .55})`;
-      ctx.beginPath(); ctx.ellipse(vanishX, cy + 3, c.radius, c.radius * .4, 0, Math.PI * .1, Math.PI * .72); ctx.stroke();
-    }
-    for (let i = 0; i < 10; i++) {
-      const angle = i / 10 * Math.PI * 2;
-      const start = project(.1, angle), end = project(.97, angle);
-      ctx.strokeStyle = `rgba(129,153,244,${.06 + rush * .08})`;ctx.lineWidth = .7;
-      ctx.beginPath(); ctx.moveTo(start.x, start.y); ctx.quadraticCurveTo(vanishX + (end.x - vanishX) * .35, vanishY + height * .32, end.x, end.y);ctx.stroke();
-    }
-
-    // A bounded, deterministic field; no DOM particles and no external textures.
-    if (!quiet) for (const particle of particles) {
-      const u = fract(particle.offset + travel * particle.rate);
-      const end = project(u, particle.angle);
-      const start = project(Math.max(0, u - .006 - rush * .09), particle.angle);
-      const alpha = Math.sin(u * Math.PI) * (.22 + rush * .64);
-      ctx.lineWidth = .5 + u * .9;
-      ctx.strokeStyle = `rgba(${particle.tint},${alpha})`;
-      ctx.beginPath();ctx.moveTo(start.x, start.y);ctx.lineTo(end.x, end.y);ctx.stroke();
-      if (u > .45) { ctx.fillStyle = `rgba(221,243,255,${alpha})`;ctx.fillRect(end.x, end.y, 1.3, 1.3); }
-    }
-
-    // An original robed cultivator. The silhouette stays legible before the dash.
-    const dash = quiet ? 0 : clamp((t - 4.1) / 1.45);
-    const lift = dash ** 1.8;
-    const heroY = height * (.66 - .035 * ease(t / 2.5) - .51 * lift);
-    const heroX = vanishX + Math.sin(t * .7) * 1.8;
-    const presence = quiet ? 1 : ease(t / .55) * (1 - ease((dash - .1) / .55));
-    const unfold = quiet ? 1 : ease((t - .55) / 2.1) * (1 - ease(dash / .6));
-    const power = quiet ? .65 : .3 + charge * .7;
-    const glow = ctx.createRadialGradient(heroX, heroY - 7, 1, heroX, heroY, width * .27);
-    glow.addColorStop(0, `rgba(151,227,255,${.25 + charge * .3})`);
-    glow.addColorStop(.3, 'rgba(116,165,255,.13)');glow.addColorStop(1, 'rgba(115,125,255,0)');
-    ctx.fillStyle = glow;ctx.fillRect(heroX - width * .3, heroY - width * .3, width * .6, width * .6);
-
-    // A single upward line replaces the character during acceleration.
-    const streak = quiet ? 0 : ease((t - 4.05) / .45) * (1 - ease((t - 6.4) / 1.3));
-    if (streak > 0) {
-      const trail = ctx.createLinearGradient(0, heroY, 0, height * .92);
-      trail.addColorStop(0, `rgba(234,249,255,${streak})`);
-      trail.addColorStop(.32, `rgba(141,209,255,${streak * .65})`);
-      trail.addColorStop(1, 'rgba(146,121,248,0)');
-      ctx.strokeStyle = trail;
-      for (const thickness of [14, 5, 1.5]) {
-        ctx.globalAlpha = thickness > 5 ? .16 : thickness > 2 ? .36 : 1;
-        ctx.lineWidth = thickness;ctx.beginPath();ctx.moveTo(heroX, heroY - 14);
-        ctx.bezierCurveTo(heroX + 1, height * .35, heroX - 4, height * .65, heroX - 6, height * .94);ctx.stroke();
+    // A luminous dust wake fades continuously from the spear into the lower scene.
+    const streak=quiet?0:ease((t-4.05)/.4)*(1-ease((t-6.3)/1.5));
+    if(streak>0){
+      for(let lane=-3;lane<=3;lane++){
+        const trail=ctx.createLinearGradient(0,y,0,height);
+        trail.addColorStop(0,`rgba(226,242,242,${streak*(lane===0?.8:.23)})`);
+        trail.addColorStop(.24,`rgba(145,213,231,${streak*.25})`);trail.addColorStop(1,'rgba(134,162,205,0)');
+        ctx.strokeStyle=trail;ctx.lineWidth=lane===0?1.2:2.5;
+        ctx.beginPath();ctx.moveTo(x,y-11);ctx.bezierCurveTo(x+lane*2,height*.35,x+lane*7+Math.sin(t+lane)*3,height*.67,x+lane*14,height);ctx.stroke();
       }
-      ctx.globalAlpha = 1;
+      dot(x,y,120,streak*.65,'pearl','core');
+      for(let i=0;i<110;i+=step){const u=seed(i+3401),gy=y+(height-y)*u;dot(x+(seed(i+3701)-.5)*(4+u*45),gy,1+seed(i+3811)*3,streak*(1-u)*.45,i%4?'ice':'gold');}
     }
 
-    // The reverse-moving pressure rings show the burst without a white flash.
-    if (!quiet) for (let i = 0; i < 3; i++) {
-      const age = (t - 4.35 - i * .4) / 2.05;
-      if (age <= 0 || age >= 1) continue;
-      const radius = 10 + ease(age) * width * (.85 + i * .12);
-      const cy = height * (.28 + age ** 1.2 * .76);
-      const alpha = Math.sin(age * Math.PI) * .75;
-      for (const thickness of [10, 2]) {
-        ctx.lineWidth = thickness;
-        ctx.strokeStyle = `rgba(${i === 1 ? '216,190,255' : '164,233,255'},${alpha * (thickness > 2 ? .12 : 1)})`;
-        ctx.beginPath();ctx.ellipse(heroX, cy, radius, radius * .32, -.045, 0, Math.PI * 2);ctx.stroke();
-      }
-    }
-
-    if (presence > 0) {
-      ctx.save();ctx.translate(heroX, heroY);const scale = Math.min(width / 320, 1.1) * (1 - lift * .75);ctx.scale(scale, scale);
-      ctx.globalAlpha = presence;
-      // Feather-like wind ribbons and slow, continuous lightning filaments.
-      for (const side of [-1, 1]) {
-        ctx.save();ctx.scale(side, 1);
-        const spread = .25 + unfold * .75;
-        ctx.scale(spread, .7 + unfold * .3);
-        const wing = ctx.createLinearGradient(7, 0, 68, -36);
-        wing.addColorStop(0, 'rgba(154,229,255,.29)');wing.addColorStop(.6, side < 0 ? 'rgba(103,217,255,.13)' : 'rgba(177,139,255,.2)');wing.addColorStop(1, 'rgba(235,245,255,.42)');
-        ctx.fillStyle = wing;ctx.strokeStyle = side < 0 ? 'rgba(130,228,255,.88)' : 'rgba(200,176,255,.88)';ctx.lineWidth = 1;
-        ctx.beginPath();ctx.moveTo(5,-5);ctx.bezierCurveTo(21,-30,48,-29,70,-48);ctx.quadraticCurveTo(61,-21,48,-10);ctx.lineTo(52,-24);ctx.quadraticCurveTo(39,-7,30,-2);ctx.lineTo(35,-17);ctx.quadraticCurveTo(18,1,5,-5);ctx.closePath();ctx.fill();ctx.stroke();
-        for (let feather = 0; feather < 4; feather++) {
-          ctx.strokeStyle = `rgba(196,232,255,${.28 + power * .24})`;ctx.lineWidth = .7;
-          ctx.beginPath();ctx.moveTo(8 + feather * 2, -6);ctx.quadraticCurveTo(27 + feather * 7, -20 + feather * 2, 66 - feather * 11, -44 + feather * 10);ctx.stroke();
+    if(presence>0){
+      ctx.save();ctx.translate(x,y);const scale=Math.min(width/320,1.1)*(1-lift*.75);ctx.scale(scale,scale);ctx.globalAlpha=presence;
+      dot(0,-6,137,.58+charge*.23,'ice','core');
+      dot(0,-7,58,.45+charge*.25,'gold','core');
+      // Tapered organic feather filaments, with dust concentrated along each spline.
+      for(const side of [-1,1]){
+        ctx.save();ctx.scale(side,1);
+        for(let f=0;f<15;f++){
+          const grad=ctx.createLinearGradient(7,0,93,-36);
+          grad.addColorStop(0,'rgba(219,238,236,.025)');grad.addColorStop(.55,`rgba(142,210,231,${.15+charge*.06})`);grad.addColorStop(1,'rgba(209,230,239,.06)');
+          ctx.strokeStyle=grad;ctx.lineWidth=.5+(f/15)*.15;
+          ctx.beginPath();for(let j=0;j<=24;j++){const q=feather(j/24,f,t,spread);if(j===0)ctx.moveTo(q.x,q.y);else ctx.lineTo(q.x,q.y);}ctx.stroke();
         }
-        // The arc bends gently; its brightness never flickers on/off.
-        ctx.strokeStyle = `rgba(226,242,255,${power * .8})`;ctx.lineWidth = 1.2;
-        ctx.beginPath();ctx.moveTo(9,-6);
-        for (let j = 1; j <= 7; j++) {
-          const x = 9 + j * 7.7, y = -6 - j * 4.8 + (j % 2 ? 4 : -3) + Math.sin(t * 1.8 + j) * 1.4;
-          ctx.lineTo(x,y);
+        // Subtle multi-pass edge corona; no sawtooth lightning outline.
+        for(const pass of [{w:5,a:.025},{w:1.6,a:.08},{w:.55,a:.45}]){
+          ctx.lineWidth=pass.w;ctx.strokeStyle=`rgba(203,231,239,${pass.a*(.65+charge*.35)})`;
+          ctx.beginPath();for(let j=0;j<=60;j++){const u=j/60,q=feather(u,14,t,spread);const ripple=Math.sin(u*31+t*1.1)*.55+Math.sin(u*11-t*.8)*.35;if(!j)ctx.moveTo(q.x,q.y);else ctx.lineTo(q.x,q.y+ripple);}ctx.stroke();
         }
-        ctx.stroke();ctx.restore();
+        const tip=feather(1,14,t,spread);dot(tip.x,tip.y,8,.34+charge*.22,'pearl');
+        ctx.restore();
       }
-      // Charging seal under the robe, with a few restrained geometric runes.
-      ctx.strokeStyle = `rgba(237,218,172,${.18 + charge * .4})`;ctx.lineWidth = 1;
-      ctx.beginPath();ctx.ellipse(0,32,37+charge*8,10+charge*2,-.1,0,Math.PI*2);ctx.stroke();
-      for (let i=0;i<8;i++) {const a=i*Math.PI/4+t*.18;ctx.fillStyle='rgba(211,229,249,.45)';ctx.fillRect(Math.cos(a)*42-1,32+Math.sin(a)*12-1,2,2);}
-      // Dark ink against the halo gives the tiny person a readable head and robe.
-      ctx.globalCompositeOperation = 'source-over';
-      ctx.fillStyle = '#111b32';ctx.strokeStyle = 'rgba(192,227,250,.95)';ctx.lineWidth = .85;
-      const flutter = Math.sin(t * 2.3) * 2.5;
-      ctx.beginPath();ctx.moveTo(-5,-12);ctx.lineTo(5,-12);ctx.lineTo(10,-7);ctx.lineTo(21,6);ctx.lineTo(15,14);ctx.lineTo(6,6);ctx.lineTo(15+flutter,34);ctx.lineTo(3,27);ctx.lineTo(-4+flutter,39);ctx.lineTo(-13,32);ctx.lineTo(-5,7);ctx.lineTo(-16,15);ctx.lineTo(-22,7);ctx.lineTo(-10,-7);ctx.closePath();ctx.fill();ctx.stroke();
-      ctx.beginPath();ctx.ellipse(0,-19,4.3,5.7,0,0,Math.PI*2);ctx.fill();ctx.stroke();
-      ctx.beginPath();ctx.arc(0,-26,2.3,0,Math.PI*2);ctx.fill();ctx.stroke();
-      ctx.strokeStyle='rgba(255,226,172,.85)';ctx.beginPath();ctx.moveTo(-5,4);ctx.lineTo(6,4);ctx.stroke();
-      ctx.strokeStyle='rgba(176,211,246,.55)';ctx.beginPath();ctx.moveTo(0,-10);ctx.lineTo(-1,24);ctx.lineTo(-5+flutter,34);ctx.moveTo(3,-23);ctx.quadraticCurveTo(15,-18,15+flutter,-5);ctx.stroke();
-      ctx.restore();ctx.globalCompositeOperation = 'lighter';
+      for(let i=0;i<wings.length;i+=step){
+        const w=wings[i],u=fract(w.u+t*.015),q=feather(u,w.f,t,spread);
+        const depth=w.f/14,alpha=(.24+charge*.31)*Math.sin(u*Math.PI)*(.5+w.size*.7);
+        dot(q.x*w.side+w.n*2,q.y+w.n*(2+depth*2),1.2+w.size*2.3,alpha,w.tint);
+      }
+      // The charging ring is dust and a feathered underside glow rather than a rune outline.
+      dot(0,31,69,.085+charge*.055,'gold','dust');
+      for(let i=0;i<110;i+=step){const a=i/110*Math.PI*2+t*.17,r=35+Math.sin(i*2.3)*2;dot(Math.cos(a)*r,31+Math.sin(a)*r*.26,1+seed(i+901)*2.2,.15+charge*.16,i%3?'gold':'ice');}
+      // Curved robe, flowing sleeves and selective rim light keep the figure calm and readable.
+      ctx.globalCompositeOperation='source-over';
+      const cloth=ctx.createLinearGradient(-12,-15,10,35);cloth.addColorStop(0,'#0b1729');cloth.addColorStop(.52,'#243c50');cloth.addColorStop(1,'rgba(71,100,119,.82)');
+      ctx.fillStyle=cloth;
+      const flow=Math.sin(t*1.3)*2.2;
+      ctx.beginPath();ctx.moveTo(-4,-13);ctx.bezierCurveTo(-9,-12,-10,-8,-15,-4);ctx.quadraticCurveTo(-20,1,-22,10);ctx.quadraticCurveTo(-12,10,-5,1);ctx.bezierCurveTo(-5,14,-9,24,-11+flow,35);ctx.quadraticCurveTo(-3,31,0,27);ctx.quadraticCurveTo(5+flow,35,13+flow,31);ctx.bezierCurveTo(7,22,5,11,5,1);ctx.quadraticCurveTo(14,10,21,7);ctx.quadraticCurveTo(18,-3,13,-5);ctx.quadraticCurveTo(8,-12,4,-13);ctx.closePath();ctx.fill();
+      ctx.fillStyle='#152337';ctx.beginPath();ctx.ellipse(.3,-19,3.7,5.5,-.1,0,Math.PI*2);ctx.fill();ctx.beginPath();ctx.arc(-.2,-25,1.7,0,Math.PI*2);ctx.fill();
+      ctx.strokeStyle='rgba(205,226,230,.5)';ctx.lineWidth=.65;ctx.beginPath();ctx.moveTo(2,-23);ctx.quadraticCurveTo(4.5,-19,3,-15);ctx.moveTo(4,-12);ctx.quadraticCurveTo(10,-9,13,-5);ctx.quadraticCurveTo(18,-2,20,6);ctx.stroke();
+      ctx.strokeStyle='rgba(179,209,222,.28)';ctx.lineWidth=.55;ctx.beginPath();ctx.moveTo(-2,-10);ctx.quadraticCurveTo(1,6,-5,27);ctx.moveTo(3,3);ctx.quadraticCurveTo(5,18,10+flow,30);ctx.stroke();
+      ctx.strokeStyle='rgba(229,213,165,.5)';ctx.lineWidth=.7;ctx.beginPath();ctx.moveTo(-4,3);ctx.quadraticCurveTo(0,5,5,3);ctx.stroke();
+      // Two tapered silk ribbons, filled and softly fading rather than outlined polygons.
+      const silk=ctx.createLinearGradient(0,0,0,52);silk.addColorStop(0,'rgba(130,171,190,.45)');silk.addColorStop(1,'rgba(114,151,176,0)');ctx.fillStyle=silk;
+      for(const side of [-1,1]){ctx.beginPath();ctx.moveTo(side*4,4);ctx.bezierCurveTo(side*15,23,side*(17+flow),38,side*9,51);ctx.bezierCurveTo(side*(12+flow),33,side*8,19,side*2,5);ctx.fill();}
+      ctx.restore();ctx.globalCompositeOperation='lighter';
     }
 
-    // After the dash the person is only a distant point and fading wake.
-    const distant = quiet ? 0 : ease((t - 5.25) / .5) * (1 - ease((t - 8.6) / .8));
-    if (distant > 0) {
-      const starY = height * .105;
-      const star = ctx.createRadialGradient(vanishX, starY, 0, vanishX, starY, 22);
-      star.addColorStop(0, `rgba(255,246,215,${distant})`);star.addColorStop(.12, `rgba(198,237,255,${distant * .7})`);star.addColorStop(1,'rgba(149,167,255,0)');
-      ctx.fillStyle=star;ctx.fillRect(vanishX-22,starY-22,44,44);
-      ctx.strokeStyle=`rgba(226,245,255,${distant*.8})`;ctx.lineWidth=.8;ctx.beginPath();ctx.moveTo(vanishX,starY-11);ctx.lineTo(vanishX,starY+11);ctx.moveTo(vanishX-5,starY);ctx.lineTo(vanishX+5,starY);ctx.stroke();
+    // Pressure fronts carry a soft edge, internal fine grains and decaying haze.
+    if(!quiet)for(let ring=0;ring<3;ring++){
+      const age=(t-4.35-ring*.4)/2.05;if(age<=0||age>=1)continue;
+      const r=12+ease(age)*width*(.78+ring*.1),cy=height*(.28+age**1.2*.76),a=Math.sin(age*Math.PI);
+      ctx.save();ctx.translate(x,cy);ctx.scale(1,.32);
+      for(const pass of [{w:9,a:.018},{w:3,a:.035},{w:.65,a:.23}]){ctx.lineWidth=pass.w;ctx.strokeStyle=`rgba(174,221,235,${a*pass.a})`;ctx.beginPath();ctx.arc(0,0,r,0,Math.PI*2);ctx.stroke();}
+      ctx.restore();
+      for(let i=0;i<100;i+=step){const angle=i/100*Math.PI*2,rr=r+(seed(i+ring*111)-.5)*3;dot(x+Math.cos(angle)*rr,cy+Math.sin(angle)*rr*.32,1.6,a*.3,i%7?'ice':'gold');}
     }
-
-    // One soft passage per 9.6 s. No strobe or full-screen white flash.
-    if (veil > 0 && !quiet) {
-      const r = 15 + ease((t - 5.2) / 1.9) * width * 1.3;
-      ctx.strokeStyle = `rgba(210,239,255,${veil * .55})`;ctx.lineWidth = 2 + veil * 3;
-      ctx.beginPath();ctx.ellipse(vanishX, vanishY + r * .43, r, r * .43, 0, 0, Math.PI * 2);ctx.stroke();
-      const wash = ctx.createRadialGradient(vanishX, vanishY, 0, vanishX, vanishY, height);
-      wash.addColorStop(0, `rgba(213,236,255,${veil * .2})`);wash.addColorStop(1, 'rgba(125,134,242,0)');ctx.fillStyle = wash;ctx.fillRect(0, 0, width, height);
-    }
-    ctx.globalCompositeOperation = 'source-over';
-    // A quiet dissolve hides the cycle reset; it cannot change the call status.
-    const fade = ease((p - .91) / .09) * .65;
-    if (fade) { ctx.fillStyle = `rgba(8,12,29,${fade})`;ctx.fillRect(0,0,width,height); }
-    const phase = quiet ? '静谧光场' : t < 1.5 ? '凝神' : t < 4.1 ? '风雷展翼' : t < 5.7 ? '一线凌空' : t < 7.5 ? '气浪回响' : '天际余辉';
-    if (label.textContent !== phase) label.textContent = phase;
+    const distant=quiet?0:ease((t-5.25)/.5)*(1-ease((t-8.6)/.8));
+    if(distant>0){dot(x,height*.105,105,distant*.7,'ice','core');dot(x,height*.105,12,distant,'gold');ctx.lineWidth=.5;ctx.strokeStyle=`rgba(223,235,231,${distant*.4})`;ctx.beginPath();ctx.moveTo(x-7,height*.105);ctx.lineTo(x+7,height*.105);ctx.moveTo(x,height*.105-14);ctx.lineTo(x,height*.105+14);ctx.stroke();}
+    ctx.globalCompositeOperation='source-over';
+    const fade=ease((t/cycle-.91)/.09)*.65;if(fade){ctx.fillStyle=`rgba(7,15,26,${fade})`;ctx.fillRect(0,0,width,height);}
+    const phase=quiet?'静谧光场':t<1.5?'凝神':t<4.1?'风雷展翼':t<5.7?'一线凌空':t<7.5?'气浪回响':'天际余辉';if(label.textContent!==phase)label.textContent=phase;
   }
 
   function tick(now) {
     frame = 0;
     if (mode !== 'running') return;
     if (previous) time = (time + Math.min(100, now - previous) / 1000) % cycle;
-    previous = now;draw(time);frame = requestAnimationFrame(tick);
+    previous = now;
+    const started=performance.now();draw(time);
+    slowFrames=performance.now()-started>11?slowFrames+1:Math.max(0,slowFrames-1);
+    if(slowFrames>10&&!economy){economy=true;canvas.dataset.quality='economy';}
+    frame = requestAnimationFrame(tick);
   }
   function sync() {
     const open = dialog.open;
@@ -228,7 +180,7 @@
     else if (mode === 'paused') label.textContent = '已暂停';
   }
   function resize() {
-    const rect = canvas.getBoundingClientRect();
+    const rect = {width:canvas.clientWidth,height:canvas.clientHeight};
     if (!rect.width || !rect.height) return;
     width = rect.width;height = rect.height;
     const ratio = Math.min(window.devicePixelRatio || 1, 1.5);

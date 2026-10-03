@@ -1,5 +1,5 @@
 // Keep app code consistent per release; cache large media only when it is used.
-const CACHE = 'lw5-home-v51-elevator-wings';
+const CACHE = 'lw5-home-v52-elevator-light';
 const ASSETS = [
   './',
   './index.html',
@@ -10,6 +10,7 @@ const ASSETS = [
   './shared/elevator-v1.css',
   './shared/elevator-v1.js',
   './shared/elevator-ascent-v1.js',
+  './shared/particle-light-v1.js',
   './shared/elevator-config-v1.js',
   './vendor/three.module.min.js',
   './vendor/three.core.min.js',
