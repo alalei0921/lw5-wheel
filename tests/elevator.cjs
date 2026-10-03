@@ -365,3 +365,18 @@ test('ascent honors OS reduced motion and caps the drawing resolution on dense s
   assert.match(await s.page.locator('#elevatorPhase').innerText(),/静谧/);
   assert.equal(s.requests.length,0);await finish(s);
 });
+
+test('cultivator preview unfolds wings, dashes and fades without becoming a call result',async()=>{
+  const s=await setup({disabled:true,reducedMotion:'no-preference'});
+  await s.page.clock.install();await open(s.page);await state(s.page,'preview');
+  await s.page.clock.runFor(2200);assert.match(await s.page.locator('#elevatorPhase').innerText(),/风雷展翼/);
+  const wings=await s.page.locator('#elevatorAscent').evaluate(c=>c.toDataURL());
+  await s.page.clock.runFor(2400);assert.match(await s.page.locator('#elevatorPhase').innerText(),/一线凌空/);
+  const dash=await s.page.locator('#elevatorAscent').evaluate(c=>c.toDataURL());assert.notEqual(wings,dash);
+  await s.page.clock.runFor(1300);assert.match(await s.page.locator('#elevatorPhase').innerText(),/气浪回响/);
+  await s.page.clock.runFor(2000);assert.match(await s.page.locator('#elevatorPhase').innerText(),/天际余辉/);
+  await state(s.page,'preview');assert.equal(s.requests.length,0);
+  assert(await s.page.locator('#elevatorReceipt').isHidden());
+  assert.doesNotMatch(await s.page.locator('#elevatorTitle').innerText(),/成功|受理|到达/);
+  await finish(s);
+});

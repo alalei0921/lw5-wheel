@@ -25,12 +25,12 @@
 
   function draw(t, quiet = false) {
     const p = t / cycle;
-    const charge = 1 - ease((t - .8) / 1.5);
-    const rush = ease((t - 1.3) / 2) * (1 - ease((t - 7.1) / 1.9));
-    const travel = .05 * t + .05 * Math.max(0, t - 1.5) ** 2;
-    const veil = Math.sin(clamp((t - 6.1) / 1.6) * Math.PI);
+    const charge = ease(t / 2.6) * (1 - ease((t - 4) / .7));
+    const rush = ease((t - 3.6) / 1.1) * (1 - ease((t - 6.3) / 1.8));
+    const travel = .025 * t + .22 * Math.max(0, t - 3.9) ** 1.45;
+    const veil = Math.sin(clamp((t - 5.2) / 1.9) * Math.PI);
     const vanishX = width * .5 + Math.sin(t * .35) * width * .014;
-    const vanishY = height * (.2 - .045 * rush);
+    const vanishY = height * (.18 - .045 * rush);
     ctx.clearRect(0, 0, width, height);
     ctx.globalCompositeOperation = 'source-over';
     const aura = ctx.createRadialGradient(vanishX, vanishY, 0, vanishX, vanishY, height * .83);
@@ -97,34 +97,103 @@
       if (u > .45) { ctx.fillStyle = `rgba(221,243,255,${alpha})`;ctx.fillRect(end.x, end.y, 1.3, 1.3); }
     }
 
-    // The ascent is a prism of light, with a trailing ribbon below it.
-    const heroY = height * (.65 - .31 * ease((t - .7) / 4.8));
-    const heroX = vanishX + Math.sin(t * .55) * 2;
-    const glow = ctx.createRadialGradient(heroX, heroY, 1, heroX, heroY, width * .25);
-    glow.addColorStop(0, `rgba(207,239,255,${.45 + rush * .15})`);
-    glow.addColorStop(.16, 'rgba(127,198,255,.2)');glow.addColorStop(1, 'rgba(115,125,255,0)');
+    // An original robed cultivator. The silhouette stays legible before the dash.
+    const dash = quiet ? 0 : clamp((t - 4.1) / 1.45);
+    const lift = dash ** 1.8;
+    const heroY = height * (.66 - .035 * ease(t / 2.5) - .51 * lift);
+    const heroX = vanishX + Math.sin(t * .7) * 1.8;
+    const presence = quiet ? 1 : ease(t / .55) * (1 - ease((dash - .1) / .55));
+    const unfold = quiet ? 1 : ease((t - .55) / 2.1) * (1 - ease(dash / .6));
+    const power = quiet ? .65 : .3 + charge * .7;
+    const glow = ctx.createRadialGradient(heroX, heroY - 7, 1, heroX, heroY, width * .27);
+    glow.addColorStop(0, `rgba(151,227,255,${.25 + charge * .3})`);
+    glow.addColorStop(.3, 'rgba(116,165,255,.13)');glow.addColorStop(1, 'rgba(115,125,255,0)');
     ctx.fillStyle = glow;ctx.fillRect(heroX - width * .3, heroY - width * .3, width * .6, width * .6);
-    const ribbon = ctx.createLinearGradient(0, heroY, 0, height);
-    ribbon.addColorStop(0, `rgba(209,241,255,${.6 + rush * .3})`);
-    ribbon.addColorStop(.35, 'rgba(126,183,255,.32)');ribbon.addColorStop(1, 'rgba(111,93,220,0)');
-    ctx.fillStyle = ribbon;
-    ctx.beginPath();ctx.moveTo(heroX - 5, heroY + 5);ctx.bezierCurveTo(heroX - 8, heroY + 75, heroX - 48, height * .8, heroX - 45, height);ctx.lineTo(heroX + 38, height);ctx.bezierCurveTo(heroX + 42, height * .8, heroX + 8, heroY + 75, heroX + 5, heroY + 5);ctx.closePath();ctx.fill();
-    for (let i = -1; i <= 1; i++) {
-      ctx.strokeStyle = i ? 'rgba(155,163,255,.35)' : 'rgba(229,241,255,.55)';ctx.lineWidth = i ? 1 : 1.5;
-      ctx.beginPath();ctx.moveTo(heroX + i * 4, heroY + 5);ctx.bezierCurveTo(heroX + i * 13, heroY + 70, heroX + i * 35 + Math.sin(t + i) * 10, height * .8, heroX + i * 52, height);ctx.stroke();
+
+    // A single upward line replaces the character during acceleration.
+    const streak = quiet ? 0 : ease((t - 4.05) / .45) * (1 - ease((t - 6.4) / 1.3));
+    if (streak > 0) {
+      const trail = ctx.createLinearGradient(0, heroY, 0, height * .92);
+      trail.addColorStop(0, `rgba(234,249,255,${streak})`);
+      trail.addColorStop(.32, `rgba(141,209,255,${streak * .65})`);
+      trail.addColorStop(1, 'rgba(146,121,248,0)');
+      ctx.strokeStyle = trail;
+      for (const thickness of [14, 5, 1.5]) {
+        ctx.globalAlpha = thickness > 5 ? .16 : thickness > 2 ? .36 : 1;
+        ctx.lineWidth = thickness;ctx.beginPath();ctx.moveTo(heroX, heroY - 14);
+        ctx.bezierCurveTo(heroX + 1, height * .35, heroX - 4, height * .65, heroX - 6, height * .94);ctx.stroke();
+      }
+      ctx.globalAlpha = 1;
     }
-    // Warm charging ring and clean arrowhead retain the upward elevator cue.
-    if (charge > 0 && !quiet) {
-      ctx.strokeStyle = `rgba(255,212,155,${charge * .65})`;ctx.lineWidth = 1.2;
-      ctx.beginPath();ctx.ellipse(heroX, heroY + 9, 20 + charge * 26, 7 + charge * 8, -.13, 0, Math.PI * 2);ctx.stroke();
+
+    // The reverse-moving pressure rings show the burst without a white flash.
+    if (!quiet) for (let i = 0; i < 3; i++) {
+      const age = (t - 4.35 - i * .4) / 2.05;
+      if (age <= 0 || age >= 1) continue;
+      const radius = 10 + ease(age) * width * (.85 + i * .12);
+      const cy = height * (.28 + age ** 1.2 * .76);
+      const alpha = Math.sin(age * Math.PI) * .75;
+      for (const thickness of [10, 2]) {
+        ctx.lineWidth = thickness;
+        ctx.strokeStyle = `rgba(${i === 1 ? '216,190,255' : '164,233,255'},${alpha * (thickness > 2 ? .12 : 1)})`;
+        ctx.beginPath();ctx.ellipse(heroX, cy, radius, radius * .32, -.045, 0, Math.PI * 2);ctx.stroke();
+      }
     }
-    ctx.fillStyle = '#dff6ff';ctx.beginPath();ctx.moveTo(heroX, heroY - 23);ctx.lineTo(heroX + 12, heroY + 10);ctx.lineTo(heroX, heroY + 4);ctx.lineTo(heroX - 12, heroY + 10);ctx.closePath();ctx.fill();
-    ctx.fillStyle = '#918fea';ctx.beginPath();ctx.moveTo(heroX, heroY - 23);ctx.lineTo(heroX, heroY + 4);ctx.lineTo(heroX - 12, heroY + 10);ctx.closePath();ctx.fill();
-    ctx.fillStyle = '#fff0ca';ctx.fillRect(heroX - .65, heroY - 18, 1.3, 30);
+
+    if (presence > 0) {
+      ctx.save();ctx.translate(heroX, heroY);const scale = Math.min(width / 320, 1.1) * (1 - lift * .75);ctx.scale(scale, scale);
+      ctx.globalAlpha = presence;
+      // Feather-like wind ribbons and slow, continuous lightning filaments.
+      for (const side of [-1, 1]) {
+        ctx.save();ctx.scale(side, 1);
+        const spread = .25 + unfold * .75;
+        ctx.scale(spread, .7 + unfold * .3);
+        const wing = ctx.createLinearGradient(7, 0, 68, -36);
+        wing.addColorStop(0, 'rgba(154,229,255,.29)');wing.addColorStop(.6, side < 0 ? 'rgba(103,217,255,.13)' : 'rgba(177,139,255,.2)');wing.addColorStop(1, 'rgba(235,245,255,.42)');
+        ctx.fillStyle = wing;ctx.strokeStyle = side < 0 ? 'rgba(130,228,255,.88)' : 'rgba(200,176,255,.88)';ctx.lineWidth = 1;
+        ctx.beginPath();ctx.moveTo(5,-5);ctx.bezierCurveTo(21,-30,48,-29,70,-48);ctx.quadraticCurveTo(61,-21,48,-10);ctx.lineTo(52,-24);ctx.quadraticCurveTo(39,-7,30,-2);ctx.lineTo(35,-17);ctx.quadraticCurveTo(18,1,5,-5);ctx.closePath();ctx.fill();ctx.stroke();
+        for (let feather = 0; feather < 4; feather++) {
+          ctx.strokeStyle = `rgba(196,232,255,${.28 + power * .24})`;ctx.lineWidth = .7;
+          ctx.beginPath();ctx.moveTo(8 + feather * 2, -6);ctx.quadraticCurveTo(27 + feather * 7, -20 + feather * 2, 66 - feather * 11, -44 + feather * 10);ctx.stroke();
+        }
+        // The arc bends gently; its brightness never flickers on/off.
+        ctx.strokeStyle = `rgba(226,242,255,${power * .8})`;ctx.lineWidth = 1.2;
+        ctx.beginPath();ctx.moveTo(9,-6);
+        for (let j = 1; j <= 7; j++) {
+          const x = 9 + j * 7.7, y = -6 - j * 4.8 + (j % 2 ? 4 : -3) + Math.sin(t * 1.8 + j) * 1.4;
+          ctx.lineTo(x,y);
+        }
+        ctx.stroke();ctx.restore();
+      }
+      // Charging seal under the robe, with a few restrained geometric runes.
+      ctx.strokeStyle = `rgba(237,218,172,${.18 + charge * .4})`;ctx.lineWidth = 1;
+      ctx.beginPath();ctx.ellipse(0,32,37+charge*8,10+charge*2,-.1,0,Math.PI*2);ctx.stroke();
+      for (let i=0;i<8;i++) {const a=i*Math.PI/4+t*.18;ctx.fillStyle='rgba(211,229,249,.45)';ctx.fillRect(Math.cos(a)*42-1,32+Math.sin(a)*12-1,2,2);}
+      // Dark ink against the halo gives the tiny person a readable head and robe.
+      ctx.globalCompositeOperation = 'source-over';
+      ctx.fillStyle = '#111b32';ctx.strokeStyle = 'rgba(192,227,250,.95)';ctx.lineWidth = .85;
+      const flutter = Math.sin(t * 2.3) * 2.5;
+      ctx.beginPath();ctx.moveTo(-5,-12);ctx.lineTo(5,-12);ctx.lineTo(10,-7);ctx.lineTo(21,6);ctx.lineTo(15,14);ctx.lineTo(6,6);ctx.lineTo(15+flutter,34);ctx.lineTo(3,27);ctx.lineTo(-4+flutter,39);ctx.lineTo(-13,32);ctx.lineTo(-5,7);ctx.lineTo(-16,15);ctx.lineTo(-22,7);ctx.lineTo(-10,-7);ctx.closePath();ctx.fill();ctx.stroke();
+      ctx.beginPath();ctx.ellipse(0,-19,4.3,5.7,0,0,Math.PI*2);ctx.fill();ctx.stroke();
+      ctx.beginPath();ctx.arc(0,-26,2.3,0,Math.PI*2);ctx.fill();ctx.stroke();
+      ctx.strokeStyle='rgba(255,226,172,.85)';ctx.beginPath();ctx.moveTo(-5,4);ctx.lineTo(6,4);ctx.stroke();
+      ctx.strokeStyle='rgba(176,211,246,.55)';ctx.beginPath();ctx.moveTo(0,-10);ctx.lineTo(-1,24);ctx.lineTo(-5+flutter,34);ctx.moveTo(3,-23);ctx.quadraticCurveTo(15,-18,15+flutter,-5);ctx.stroke();
+      ctx.restore();ctx.globalCompositeOperation = 'lighter';
+    }
+
+    // After the dash the person is only a distant point and fading wake.
+    const distant = quiet ? 0 : ease((t - 5.25) / .5) * (1 - ease((t - 8.6) / .8));
+    if (distant > 0) {
+      const starY = height * .105;
+      const star = ctx.createRadialGradient(vanishX, starY, 0, vanishX, starY, 22);
+      star.addColorStop(0, `rgba(255,246,215,${distant})`);star.addColorStop(.12, `rgba(198,237,255,${distant * .7})`);star.addColorStop(1,'rgba(149,167,255,0)');
+      ctx.fillStyle=star;ctx.fillRect(vanishX-22,starY-22,44,44);
+      ctx.strokeStyle=`rgba(226,245,255,${distant*.8})`;ctx.lineWidth=.8;ctx.beginPath();ctx.moveTo(vanishX,starY-11);ctx.lineTo(vanishX,starY+11);ctx.moveTo(vanishX-5,starY);ctx.lineTo(vanishX+5,starY);ctx.stroke();
+    }
 
     // One soft passage per 9.6 s. No strobe or full-screen white flash.
     if (veil > 0 && !quiet) {
-      const r = 15 + ease((t - 6.1) / 1.6) * width * 1.3;
+      const r = 15 + ease((t - 5.2) / 1.9) * width * 1.3;
       ctx.strokeStyle = `rgba(210,239,255,${veil * .55})`;ctx.lineWidth = 2 + veil * 3;
       ctx.beginPath();ctx.ellipse(vanishX, vanishY + r * .43, r, r * .43, 0, 0, Math.PI * 2);ctx.stroke();
       const wash = ctx.createRadialGradient(vanishX, vanishY, 0, vanishX, vanishY, height);
@@ -134,7 +203,7 @@
     // A quiet dissolve hides the cycle reset; it cannot change the call status.
     const fade = ease((p - .91) / .09) * .65;
     if (fade) { ctx.fillStyle = `rgba(8,12,29,${fade})`;ctx.fillRect(0,0,width,height); }
-    const phase = quiet ? '静谧光场' : t < 1.5 ? '蓄光' : t < 6.1 ? '向上穿越' : t < 7.7 ? '穿过光幕' : '光流回响';
+    const phase = quiet ? '静谧光场' : t < 1.5 ? '凝神' : t < 4.1 ? '风雷展翼' : t < 5.7 ? '一线凌空' : t < 7.5 ? '气浪回响' : '天际余辉';
     if (label.textContent !== phase) label.textContent = phase;
   }
 
@@ -155,7 +224,7 @@
     mode = next;canvas.dataset.renderMode = mode;
     if (frame) cancelAnimationFrame(frame);frame = 0;previous = 0;
     if (mode === 'running') frame = requestAnimationFrame(tick);
-    else if (mode === 'reduced' || mode === 'still') draw(3.8, true);
+    else if (mode === 'reduced' || mode === 'still') draw(3.1, true);
     else if (mode === 'paused') label.textContent = '已暂停';
   }
   function resize() {
@@ -164,7 +233,7 @@
     width = rect.width;height = rect.height;
     const ratio = Math.min(window.devicePixelRatio || 1, 1.5);
     canvas.width = Math.round(width * ratio);canvas.height = Math.round(height * ratio);
-    ctx.setTransform(ratio,0,0,ratio,0,0);draw(mode === 'reduced' || mode === 'still' ? 3.8 : time, mode === 'reduced' || mode === 'still');
+    ctx.setTransform(ratio,0,0,ratio,0,0);draw(mode === 'reduced' || mode === 'still' ? 3.1 : time, mode === 'reduced' || mode === 'still');
   }
   new ResizeObserver(resize).observe(canvas);
   new MutationObserver(sync).observe(sheet,{attributes:true,attributeFilter:['data-state','data-reduced-motion']});
