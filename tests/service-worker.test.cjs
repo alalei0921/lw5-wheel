@@ -47,7 +47,7 @@ test('offline manifest covers every module and shared asset without eager heavy 
     let rel=new URL(url).pathname.replace('/lw5-wheel/','');if(!rel||rel.endsWith('/'))rel+='index.html';
     assert(fs.existsSync(path.join(root,rel)),`Missing offline asset: ${rel}`);
   }
-  for(const file of ['conflict/index.html','stock/bg.jpg','shared/app-ui-v1.js'])assert(s.installed.includes(scope+file));
+  for(const file of ['conflict/index.html','stock/bg.jpg','shared/app-ui-v1.js','shared/elevator-v1.js','shared/elevator-v1.css','shared/elevator-config-v1.js'])assert(s.installed.includes(scope+file));
   assert(!s.installed.some(url=>url.includes('.m4a')||url.includes('room-data')));
 });
 

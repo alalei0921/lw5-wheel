@@ -875,8 +875,32 @@
   </style>
   <link rel="stylesheet" href="./shared/app-ui-v1.css" />
   <script defer src="./shared/app-ui-v1.js"></script>
+  <link rel="stylesheet" href="./shared/elevator-v1.css" />
+  <script defer src="./shared/elevator-config-v1.js"></script>
+  <script defer src="./shared/elevator-v1.js"></script>
 </head>
 <body class="home-page">
+  <button class="elevator-launch" id="elevatorLaunch" type="button" aria-label="口袋里的电梯机关，叫电梯" aria-haspopup="dialog" aria-controls="elevatorDialog" title="口袋里的小机关 · 叫电梯">
+    <span class="elevator-pocket-badge" aria-hidden="true">
+      <svg viewBox="0 0 96 64" focusable="false"><path d="M40 22C28 8 12 7 10 18L9 44C12 56 30 51 41 38M56 22C68 8 84 7 86 18L87 44C84 56 66 51 55 38" fill="#ffd69b" stroke="#b76643" stroke-width="4" stroke-linejoin="round"/><path d="M35 24L18 18M35 38L18 44M61 24L78 18M61 38L78 44" fill="none" stroke="#edac72" stroke-width="3" stroke-linecap="round"/><rect x="35" y="14" width="26" height="35" rx="9" fill="#fff0cc" stroke="#ad6447" stroke-width="3"/><path d="M41 38V27H55V38M48 27V39M41 22l3-3 3 3M50 19l3 3 3-3" fill="none" stroke="#b37450" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </span>
+  </button>
+  <dialog class="elevator-dialog" id="elevatorDialog" aria-labelledby="elevatorTitle" aria-describedby="elevatorDetail">
+    <div class="elevator-sheet" data-state="idle">
+      <div class="elevator-top"><span class="elevator-eyebrow">LW&amp;5 · 回家的节奏</span><button class="elevator-close" id="elevatorClose" type="button" aria-label="关闭电梯窗口">×</button></div>
+      <div class="elevator-simulation" id="elevatorSimulation" hidden>模拟演示 · 不会呼叫真实电梯</div>
+      <div class="elevator-art" aria-hidden="true">
+        <div class="elevator-orbit"></div><div class="elevator-orbit two"></div>
+        <div class="elevator-cabin"><div class="elevator-indicator"><i></i><i></i><i></i></div><div class="elevator-doors"><div></div><div></div></div></div>
+        <div class="elevator-result-mark" id="elevatorMark"></div>
+      </div>
+      <div class="elevator-copy" role="status" aria-live="polite" aria-atomic="true"><h2 id="elevatorTitle">准备呼叫</h2><p id="elevatorDetail">正在确认呼梯服务。</p></div>
+      <div class="elevator-track" aria-hidden="true"><span></span></div>
+      <p class="elevator-receipt" id="elevatorReceipt" hidden></p>
+      <button class="elevator-action" id="elevatorAction" type="button" hidden>查询结果</button>
+      <p class="elevator-footnote" id="elevatorFootnote">收到真实回执后才会确认受理</p>
+    </div>
+  </dialog>
   <button class="sun-press" id="sunPress" type="button" aria-label="按下太阳，旋转星云控制灯光"></button>
   <button class="music-btn" id="musicBtn" aria-label="背景音乐">🎵 音乐：开</button>
   <button class="music-btn" id="updateBtn" aria-label="一键更新" style="right: max(12px, env(safe-area-inset-right)); top: calc(max(12px, env(safe-area-inset-top)) + 52px);">🧁 一键更新</button>
