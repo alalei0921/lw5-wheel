@@ -26,7 +26,7 @@ test('installed PWA opens cached modules offline and preserves local data',async
     await page.goto(base+'?visual-test=1');
     await page.evaluate(async()=>{await navigator.serviceWorker.ready;localStorage.setItem('ux-offline-check','preserved');});
     await page.waitForFunction(()=>navigator.serviceWorker.controller!==null);
-    const cachesBefore=await page.evaluate(()=>caches.keys());assert(cachesBefore.includes('lw5-home-v48-elevator'));
+    const cachesBefore=await page.evaluate(()=>caches.keys());assert(cachesBefore.includes('lw5-home-v49-elevator-preview'));
     await context.setOffline(true);
     for(const route of ['stock/','travel/','conflict/']){
       await page.goto(base+route,{waitUntil:'domcontentloaded'});
@@ -38,8 +38,8 @@ test('installed PWA opens cached modules offline and preserves local data',async
     await page.waitForFunction(()=>Boolean(window.LW5UI));
     assert.match(await page.locator('h1').innerText(),/Lw&5之家/);
     await page.locator('#elevatorLaunch').click();
-    await page.locator('.elevator-sheet[data-state="not_configured"]').waitFor();
-    assert.match(await page.locator('#elevatorDetail').innerText(),/没有发送/);
+    await page.locator('.elevator-sheet[data-state="preview"]').waitFor();
+    assert.match(await page.locator('#elevatorDetail').innerText(),/不会呼叫/);
     assert.equal(await page.evaluate(()=>localStorage.getItem('ux-offline-check')),'preserved');
     await context.close();
   }finally{await browser.close();await new Promise(resolve=>server.close(resolve));}

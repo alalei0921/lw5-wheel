@@ -17,17 +17,25 @@ body.tool-active .elevator-launch,body.nebula-active .elevator-launch{visibility
 .elevator-close{display:grid;place-items:center;flex-shrink:0;width:44px;height:44px;border:0;border-radius:50%;background:transparent;color:#696579;font-size:28px;line-height:1;cursor:pointer}
 .elevator-close:hover{background:#77739b12}
 .elevator-simulation{margin:4px 0 10px;padding:7px 8px;border:1px solid #d9a95760;border-radius:9px;background:#fff3d5;color:#815817;font-size:11px;font-weight:650}
-.elevator-art{height:192px;position:relative;display:grid;place-items:center;margin:4px 0 13px;isolation:isolate}
-.elevator-orbit{position:absolute;width:181px;height:181px;border:1px solid #989bd03d;border-radius:50%;transform:rotateX(52deg) rotate(-22deg);box-shadow:0 0 24px #9caffe22}
-.elevator-orbit.two{width:228px;height:228px;transform:rotateX(57deg) rotate(24deg);border-color:#b5a0dc2b}
-.elevator-orbit::after{content:"";position:absolute;left:22px;top:26px;width:5px;height:5px;border-radius:50%;background:#9597d1;box-shadow:0 0 13px #9e91de}
-.elevator-cabin{position:relative;width:104px;height:137px;padding:22px 7px 7px;border:1px solid #fffffff0;border-radius:19px 19px 9px 9px;background:linear-gradient(145deg,#fffcff,#bbc7e7);box-shadow:10px 14px 29px #6977a930,inset 0 0 0 3px #d6deef66;transform:perspective(600px) rotateY(-10deg);overflow:hidden}
-.elevator-indicator{position:absolute;left:40px;right:40px;top:10px;display:flex;justify-content:space-between}
-.elevator-indicator i{width:4px;height:4px;border-radius:50%;background:#8994bd}
-.elevator-doors{display:flex;height:100%;gap:2px;overflow:hidden;border-radius:9px 9px 3px 3px;background:linear-gradient(#879cca,#d4dcfa);box-shadow:inset 0 0 8px #495a8340}
-.elevator-doors>div{width:50%;background:linear-gradient(100deg,#e9f0ff,#c6d2ec 70%,#b8c9e4);border:1px solid #ffffffa8;transition:filter .3s}
-.elevator-doors>div+div{background:linear-gradient(100deg,#d1dff2,#f2f6ff);border-color:#ffffffa8}
-.elevator-result-mark{position:absolute;bottom:11px;right:calc(50% - 73px);width:33px;height:33px;display:grid;place-items:center;border-radius:50%;border:3px solid #f5f6ff;background:#e7eafa;color:#686a92;font-size:17px;font-weight:600;box-shadow:0 4px 12px #536a7a20}
+/* A miniature architectural light installation, separate from the nebula visual. */
+.elevator-art{height:230px;position:relative;display:grid;place-items:center;margin:12px -4px 19px;border-radius:24px;overflow:hidden;isolation:isolate;background:radial-gradient(ellipse at 50% 68%,#8b653d38,transparent 60%),linear-gradient(155deg,#232b3a,#0d1422 65%,#202737);box-shadow:inset 0 0 0 1px #fff1d528,inset 0 -22px 34px #03071155}
+.elevator-art::before{content:"";position:absolute;inset:15px 20px 33px;border:1px solid #f4dfb517;border-bottom:0;border-radius:48% 48% 0 0}
+.elevator-shaft{position:absolute;inset:0 13%;display:flex;justify-content:space-between;overflow:hidden;mask-image:linear-gradient(transparent,#000 25%,#000 78%,transparent)}
+.elevator-shaft i{height:100%;width:1px;background:#c6bdad16;position:relative}
+.elevator-shaft i::after{content:"";position:absolute;top:100%;width:2px;left:-.5px;height:60px;background:linear-gradient(transparent,#f5dab0,transparent);box-shadow:0 0 10px #ecca9244;opacity:0}
+.elevator-floor{position:absolute;bottom:-56px;left:-20%;width:140%;height:144px;transform:perspective(190px) rotateX(64deg);background:repeating-linear-gradient(90deg,transparent 0 49px,#e4c89613 50px),repeating-linear-gradient(0deg,transparent 0 29px,#e4c8961a 30px);border-top:1px solid #ffde9a44;mask-image:radial-gradient(ellipse,#000 10%,transparent 70%)}
+.elevator-cabin{position:relative;width:124px;height:166px;margin-top:-6px;padding:26px 9px 10px;border:1px solid #e5d5b9ab;border-radius:11px 11px 3px 3px;background:linear-gradient(105deg,#4f5360,#b9b4aa 5%,#777b85 11%,#343c4c 50%,#a39d93 95%,#555b64);box-shadow:0 15px 25px #030814aa,0 0 30px #e4c69410,inset 0 0 0 3px #ffe6b91c;transform:perspective(600px) rotateY(-8deg)}
+.elevator-cabin::before{content:"";position:absolute;inset:22px 5px 6px;border:1px solid #ffe4ad6e;box-shadow:0 0 10px #f4ce7e25;pointer-events:none}
+.elevator-indicator{position:absolute;left:43px;right:43px;top:9px;display:flex;justify-content:space-between;padding:0 2px}
+.elevator-indicator i{width:5px;height:5px;border-top:1.5px solid #ffdda2;border-left:1.5px solid #ffdda2;transform:rotate(45deg);opacity:.4}
+.elevator-doors{display:flex;height:100%;gap:1px;overflow:hidden;position:relative;background:linear-gradient(90deg,#b58945,#fff1c9 50%,#b58945);box-shadow:inset 0 0 20px #f5e8c4}
+.elevator-doors>div{flex:none;width:50%;position:relative;background:linear-gradient(105deg,#344555,#89929a 48%,#4c5c6c 65%,#263747);border:1px solid #e9e0c64d;box-sizing:border-box;will-change:transform}
+.elevator-doors>div+div{background:linear-gradient(105deg,#627080,#b7b6b0 55%,#536475)}
+.elevator-doors>div::after{content:"";position:absolute;inset:0;background:linear-gradient(110deg,transparent 35%,#fff7dc5e 49%,transparent 63%);transform:translateX(-150%)}
+.elevator-threshold{position:absolute;bottom:2px;left:5px;right:5px;height:2px;background:#ffe1a4;box-shadow:0 0 10px #ffd486,0 4px 18px 3px #ebc18555}
+.elevator-light-label{position:absolute;bottom:11px;color:#e8d8bb80;font:8px/1.5 ui-monospace,monospace;letter-spacing:3px}
+.elevator-light-label span{margin-left:8px;color:#ffe1a4}
+.elevator-result-mark{position:absolute;bottom:44px;right:calc(50% - 83px);width:32px;height:32px;display:grid;place-items:center;border-radius:50%;border:3px solid #202838;background:#d4dfed;color:#424e61;font-size:17px;font-weight:600;box-shadow:0 4px 12px #0003}
 .elevator-result-mark:empty{visibility:hidden}
 .elevator-copy h2{margin:0 0 10px;font-size:23px;line-height:1.35;font-weight:650;letter-spacing:.4px;color:#42405d}
 .elevator-copy p{margin:0;min-height:48px;font-size:13px;line-height:1.85;color:#737085;text-wrap:pretty}
@@ -39,18 +47,36 @@ body.tool-active .elevator-launch,body.nebula-active .elevator-launch{visibility
 .elevator-action:disabled{opacity:.55;cursor:default}
 .elevator-dialog [hidden]{display:none!important}
 .elevator-dialog button:focus-visible,.elevator-launch:focus-visible{outline:3px solid #8381b9;outline-offset:3px}
-.elevator-sheet[data-state="checking"] .elevator-track,.elevator-sheet[data-state="calling"] .elevator-track,.elevator-sheet[data-state="querying"] .elevator-track{visibility:visible}
-.elevator-sheet[data-state="checking"] .elevator-track span,.elevator-sheet[data-state="calling"] .elevator-track span,.elevator-sheet[data-state="querying"] .elevator-track span{animation:elevator-flow 1.7s ease-in-out infinite}
-.elevator-sheet[data-state="calling"] .elevator-cabin{animation:elevator-breathe 2.4s ease-in-out infinite}
-.elevator-sheet[data-state="calling"] .elevator-indicator i{animation:elevator-glow 1.5s ease-in-out infinite}
-.elevator-sheet[data-state="calling"] .elevator-indicator i:nth-child(2){animation-delay:.2s}
-.elevator-sheet[data-state="calling"] .elevator-indicator i:nth-child(3){animation-delay:.4s}
+
+.elevator-connection{font-size:11px;line-height:1.8;color:#817666;margin:4px 0 0;padding:9px 12px;border:1px solid #dbcdbb55;border-radius:12px;background:#f4ece249;text-wrap:pretty}
+.elevator-preview-control{background:linear-gradient(115deg,#293447,#465265);border-color:#394557;color:#f6e7c9;box-shadow:0 4px 12px #23304a16}
+.elevator-motion{display:flex;align-items:center;justify-content:center;gap:7px;min-height:44px;font-size:11px;color:#817b86;cursor:pointer}
+.elevator-motion input{accent-color:#7a6d5a;width:14px;height:14px;margin:0}
+.elevator-sheet[data-state="preview_paused"] .elevator-art *,.elevator-sheet[data-state="preview_paused"] .elevator-art *::after{animation-play-state:paused!important}
+.elevator-sheet:is([data-state="preview"],[data-state="preview_paused"],[data-state="calling"]) .elevator-shaft i::after{animation:elevator-rise 2.8s linear infinite}
+.elevator-sheet:is([data-state="preview"],[data-state="preview_paused"],[data-state="calling"]) .elevator-shaft i:nth-child(2)::after{animation-delay:-1.2s}
+.elevator-sheet:is([data-state="preview"],[data-state="preview_paused"],[data-state="calling"]) .elevator-shaft i:nth-child(3)::after{animation-delay:-.4s}
+.elevator-sheet:is([data-state="preview"],[data-state="preview_paused"],[data-state="calling"]) .elevator-shaft i:nth-child(4)::after{animation-delay:-1.9s}
+.elevator-sheet:is([data-state="preview"],[data-state="preview_paused"],[data-state="calling"]) .elevator-indicator i{animation:elevator-glow 1.8s ease-in-out infinite}
+.elevator-sheet:is([data-state="preview"],[data-state="preview_paused"],[data-state="calling"]) .elevator-indicator i:nth-child(2){animation-delay:.2s}
+.elevator-sheet:is([data-state="preview"],[data-state="preview_paused"],[data-state="calling"]) .elevator-indicator i:nth-child(3){animation-delay:.4s}
+.elevator-sheet:is([data-state="preview"],[data-state="preview_paused"],[data-state="calling"]) .elevator-doors>div::after{animation:elevator-sheen 4.8s ease-in-out infinite}
+/* Door choreography is decorative and exclusive to clearly labelled preview. */
+.elevator-sheet:is([data-state="preview"],[data-state="preview_paused"]) .elevator-doors>div{animation:elevator-door-left 7.2s cubic-bezier(.4,0,.2,1) infinite}
+.elevator-sheet:is([data-state="preview"],[data-state="preview_paused"]) .elevator-doors>div+div{animation-name:elevator-door-right}
+.elevator-sheet:is([data-state="checking"],[data-state="calling"],[data-state="querying"]) .elevator-track{visibility:visible}
+.elevator-sheet:is([data-state="checking"],[data-state="calling"],[data-state="querying"]) .elevator-track span{animation:elevator-flow 1.7s ease-in-out infinite}
+.elevator-sheet:is([data-state="preview"],[data-state="preview_paused"]) .elevator-track{display:none}
 .elevator-sheet[data-state="accepted"] .elevator-result-mark{background:#dcefe8;color:#3d7e69}
 .elevator-sheet[data-state="rejected"] .elevator-result-mark{background:#f6e3e5;color:#aa6672}
 .elevator-sheet[data-state="unknown"] .elevator-result-mark{background:#fbebce;color:#a48042}
+@keyframes elevator-rise{0%{transform:translateY(0);opacity:0}15%,80%{opacity:.8}100%{transform:translateY(-310px);opacity:0}}
+@keyframes elevator-sheen{0%,12%{transform:translateX(-150%)}48%,100%{transform:translateX(150%)}}
+@keyframes elevator-door-left{0%,28%,88%,100%{transform:translateX(0)}48%,69%{transform:translateX(-36%)}}
+@keyframes elevator-door-right{0%,28%,88%,100%{transform:translateX(0)}48%,69%{transform:translateX(36%)}}
 @keyframes elevator-flow{0%{transform:translateX(-110%)}100%{transform:translateX(360%)}}
-@keyframes elevator-breathe{50%{box-shadow:10px 14px 32px #6977a950,inset 0 0 0 3px #d6deef66;filter:brightness(1.06)}}
-@keyframes elevator-glow{50%{background:#e6faff;box-shadow:0 0 7px #729beb}}
+@keyframes elevator-glow{50%{opacity:1;filter:drop-shadow(0 0 4px #ffe8ad)}}
 @keyframes elevator-enter{from{opacity:0;transform:translateY(12px) scale(.98)}to{opacity:1;transform:none}}
-@media(max-height:620px){.elevator-art{height:140px;margin:0 0 9px}.elevator-cabin{width:86px;height:115px}.elevator-orbit{width:145px;height:145px}.elevator-orbit.two{width:185px;height:185px}.elevator-sheet{padding:10px 20px 16px}.elevator-track{margin-top:13px}.elevator-copy h2{font-size:21px}}
-@media(prefers-reduced-motion:reduce){.elevator-dialog,.elevator-dialog *{animation:none!important;transition:none!important}.elevator-track span{width:100%;background:#969ec960}}
+@media(max-height:700px){.elevator-art{height:178px;margin:6px 0 12px}.elevator-cabin{transform:scale(.83)}.elevator-sheet{padding:10px 20px 13px}.elevator-track{margin-top:12px}.elevator-copy h2{font-size:21px}.elevator-light-label{bottom:5px}}
+.elevator-sheet[data-reduced-motion="true"] *,.elevator-sheet[data-reduced-motion="true"] *::before,.elevator-sheet[data-reduced-motion="true"] *::after{animation:none!important;transition:none!important}
+@media(prefers-reduced-motion:reduce){.elevator-dialog,.elevator-dialog *,.elevator-dialog *::before,.elevator-dialog *::after{animation:none!important;transition:none!important}.elevator-track span{width:100%;background:#969ec960}}

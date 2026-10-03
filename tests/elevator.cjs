@@ -43,7 +43,15 @@ async function setup(options = {}) {
   return {context,page,requests,errors};
 }
 async function open(page) { await page.locator('#elevatorLaunch').click(); }
-async function state(page, value) { await page.locator('.elevator-sheet[data-state="' + value + '"]').waitFor(); }
+async function state(page, value) {
+  const reasons = {not_configured:'呼梯通道尚未连接', unavailable:'暂时无法连接', panel_disconnected:'中控暂未连接', panel_unverified:'已连上家里的中控', unsupported:'暂时无法呼叫'};
+  if (reasons[value]) {
+    await page.locator('.elevator-sheet[data-state="preview"]').waitFor();
+    assert.match(await page.locator('#elevatorConnection').innerText(), new RegExp(reasons[value]));
+    return;
+  }
+  await page.locator('.elevator-sheet[data-state="' + value + '"]').waitFor();
+}
 async function finish(s) { assert.deepEqual(s.errors, []); await s.context.close(); }
 const posts = s => s.requests.filter(r => r.method === 'POST');
 const reply = (status, extra = {}) => async (route, url, input) => {
@@ -55,8 +63,8 @@ test('default shipping config is unconfigured and makes zero API requests', asyn
   const s = await setup({disabled:true});
   await open(s.page); await state(s.page, 'not_configured');
   assert.equal(s.requests.length, 0);
-  assert.match(await s.page.locator('#elevatorDetail').innerText(), /没有发送/);
-  assert(await s.page.locator('#elevatorSimulation').isHidden());
+  assert.match(await s.page.locator('#elevatorDetail').innerText(), /不会呼叫/);
+  assert.match(await s.page.locator('#elevatorSimulation').innerText(), /动画预览/);
   await s.page.locator('#elevatorClose').click();
   assert.equal(await s.page.evaluate(() => document.activeElement.id), 'elevatorLaunch');
   await finish(s);
@@ -73,7 +81,7 @@ test('unconfigured capability and unavailable/malformed preflight never POST', a
 test('known disconnected panel is distinct from an unverified call and never POSTs', async () => {
   const s=await setup({api:route=>route.fulfill({json:{protocol:1,mode:'unconfigured',canCall:false,code:'PANEL_NOT_CONNECTED'}})});
   await open(s.page);await state(s.page,'panel_disconnected');
-  assert.match(await s.page.locator('#elevatorTitle').innerText(),/中控暂未连接/);
+  assert.match(await s.page.locator('#elevatorConnection').innerText(),/中控暂未连接/);
   await s.page.locator('#elevatorAction').click();
   await s.page.waitForFunction(()=>!document.querySelector('#elevatorAction').disabled);
   assert.equal(posts(s).length,0);await finish(s);
@@ -230,4 +238,99 @@ test('dialog fits phone, landscape and desktop, traps focus and respects reduced
     await s.page.keyboard.press('Escape'); assert(await s.page.locator('#elevatorDialog').isHidden());
     await finish(s);
   }
+});
+
+test('shipping preview is local, pausable and never invents a receipt or arrival', async () => {
+  const s = await setup({disabled:true,reducedMotion:'no-preference'});
+  await s.page.clock.install();
+  await open(s.page); await state(s.page,'preview');
+  await s.page.clock.fastForward(90000);
+  assert.equal(s.requests.length,0);
+  assert(await s.page.locator('#elevatorReceipt').isHidden());
+  assert.match(await s.page.locator('#elevatorSimulation').innerText(),/动画预览.*不会呼叫真实/);
+  assert.doesNotMatch(await s.page.locator('#elevatorDialog').innerText(),/已受理|已到达|呼叫成功/);
+  await s.page.locator('#elevatorPreviewToggle').click(); await state(s.page,'preview_paused');
+  assert.equal(await s.page.locator('.elevator-doors>div').first().evaluate(el=>getComputedStyle(el).animationPlayState),'paused');
+  await s.page.locator('#elevatorPreviewToggle').click(); await state(s.page,'preview');
+  await s.page.locator('#elevatorReduceMotion').check();
+  assert.equal(await s.page.locator('.elevator-doors>div').first().evaluate(el=>getComputedStyle(el).animationName),'none');
+  assert.equal(s.requests.length,0);
+  await s.page.reload();await open(s.page);await state(s.page,'preview');
+  assert(await s.page.locator('#elevatorReduceMotion').isChecked());
+  assert.equal(s.requests.length,0);await finish(s);
+});
+
+test('network recovery cannot convert a preview into a call; verified capability still requires a new click', async () => {
+  let connected=false;
+  const s=await setup({mode:'real',api:(route,url,input)=>route.fulfill({json:url.pathname.endsWith('/capabilities') ? (connected?{...ready,mode:'real'}:{protocol:1,mode:'unconfigured',canCall:false}) : {protocol:1,mode:'real',requestId:input.requestId,status:'accepted',receipt:{id:'TEST-ONLY',acceptedAt:new Date().toISOString()}}})});
+  await open(s.page);await state(s.page,'preview');
+  const reads=s.requests.length;connected=true;
+  await s.page.evaluate(()=>{window.dispatchEvent(new Event('online'));document.querySelector('#elevatorLaunch').click();document.querySelector('#elevatorLaunch').click();});
+  assert.equal(s.requests.length,reads);assert.equal(posts(s).length,0);
+  assert.match(await s.page.locator('#elevatorConnection').innerText(),/仍为预览/);
+  await s.page.locator('#elevatorAction').click();await state(s.page,'ready');
+  assert.equal(posts(s).length,0);
+  assert.equal(await s.page.locator('#elevatorAction').innerText(),'真实呼叫电梯');
+  await s.page.locator('#elevatorAction').click();await state(s.page,'accepted');
+  assert.equal(posts(s).length,1);await finish(s);
+});
+
+test('a connected but unverified panel stays in preview after an explicit connection check',async()=>{
+  const s=await setup({api:(route,url)=>route.fulfill({json:url.pathname.endsWith('/capabilities')?{protocol:1,mode:'unconfigured',canCall:false,candidateChannel:'resident_panel_ui'}:{protocol:1,mode:'unconfigured',canCall:false,code:'PANEL_ENTRY_VISIBLE_UNVERIFIED',panel:{connection:'device'}}})});
+  await open(s.page);await state(s.page,'panel_unverified');
+  await s.page.locator('#elevatorAction').click();await state(s.page,'panel_unverified');
+  assert.equal(posts(s).length,0);await finish(s);
+});
+
+test('closing during preflight invalidates its call intent even if the service later becomes ready',async()=>{
+  let pending;
+  const s=await setup({api:route=>{pending=route;}});
+  await open(s.page);await state(s.page,'checking');
+  await s.page.locator('#elevatorClose').click();
+  await pending.fulfill({json:ready});
+  await s.page.waitForFunction(()=>document.querySelector('.elevator-sheet').dataset.state==='preview');
+  assert.equal(posts(s).length,0);await finish(s);
+});
+
+test('offline preview makes no request; reconnect and storage events remain non-dispatching',async()=>{
+  const s=await setup({init:()=>Object.defineProperty(navigator,'onLine',{get:()=>false,configurable:true})});
+  await open(s.page);await state(s.page,'preview');assert.equal(s.requests.length,0);
+  await s.page.evaluate(()=>{
+    Object.defineProperty(navigator,'onLine',{get:()=>true,configurable:true});
+    window.dispatchEvent(new Event('online'));
+    window.dispatchEvent(new StorageEvent('storage',{key:'lw5-elevator-v1:simulation:/api/elevator/'}));
+  });
+  await s.page.locator('#elevatorPreviewToggle').click();await state(s.page,'preview_paused');
+  assert.equal(s.requests.length,0);await finish(s);
+});
+
+test('a network switch during a sent call preserves unknown and never offers preview instead',async()=>{
+  const s=await setup({api:(route,url)=>{if(url.pathname.endsWith('/capabilities'))return route.fulfill({json:ready});}});
+  await s.page.clock.install();await open(s.page);await state(s.page,'calling');
+  await s.page.evaluate(()=>{window.dispatchEvent(new Event('offline'));window.dispatchEvent(new Event('online'));});
+  await s.page.clock.fastForward(12500);await state(s.page,'unknown');
+  assert(await s.page.locator('#elevatorPreviewToggle').isHidden());
+  assert.equal(posts(s).length,1);await finish(s);
+});
+
+test('capabilities are rechecked after leaving preview and cannot remain armed through offline',async()=>{
+  let connected=false;
+  const s=await setup({api:route=>route.fulfill({json:connected?ready:{protocol:1,mode:'unconfigured',canCall:false}})});
+  await open(s.page);await state(s.page,'preview');connected=true;
+  await s.page.locator('#elevatorAction').click();await state(s.page,'ready');
+  await s.page.evaluate(()=>window.dispatchEvent(new Event('offline')));await state(s.page,'preview');
+  connected=false;
+  await s.page.locator('#elevatorAction').click();await state(s.page,'preview');
+  assert.equal(posts(s).length,0);await finish(s);
+});
+
+test('disconnecting during preflight cancels the original call intent even after reconnect',async()=>{
+  let pending;
+  const s=await setup({api:route=>{pending=route;}});
+  await open(s.page);await state(s.page,'checking');
+  await s.page.evaluate(()=>{window.dispatchEvent(new Event('offline'));window.dispatchEvent(new Event('online'));});
+  await state(s.page,'preview');
+  await pending.fulfill({json:ready});
+  await s.page.waitForFunction(()=>!document.querySelector('#elevatorAction').disabled);
+  await state(s.page,'preview');assert.equal(posts(s).length,0);await finish(s);
 });

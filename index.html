@@ -890,14 +890,19 @@
       <div class="elevator-top"><span class="elevator-eyebrow">LW&amp;5 · 回家的节奏</span><button class="elevator-close" id="elevatorClose" type="button" aria-label="关闭电梯窗口">×</button></div>
       <div class="elevator-simulation" id="elevatorSimulation" hidden>模拟演示 · 不会呼叫真实电梯</div>
       <div class="elevator-art" aria-hidden="true">
-        <div class="elevator-orbit"></div><div class="elevator-orbit two"></div>
-        <div class="elevator-cabin"><div class="elevator-indicator"><i></i><i></i><i></i></div><div class="elevator-doors"><div></div><div></div></div></div>
+        <div class="elevator-shaft"><i></i><i></i><i></i><i></i></div>
+        <div class="elevator-floor"></div>
+        <div class="elevator-cabin"><div class="elevator-indicator"><i></i><i></i><i></i></div><div class="elevator-doors"><div></div><div></div></div><div class="elevator-threshold"></div></div>
+        <div class="elevator-light-label">L W &amp; 5 <span>↑</span></div>
         <div class="elevator-result-mark" id="elevatorMark"></div>
       </div>
       <div class="elevator-copy" role="status" aria-live="polite" aria-atomic="true"><h2 id="elevatorTitle">准备呼叫</h2><p id="elevatorDetail">正在确认呼梯服务。</p></div>
       <div class="elevator-track" aria-hidden="true"><span></span></div>
+      <p class="elevator-connection" id="elevatorConnection" hidden></p>
       <p class="elevator-receipt" id="elevatorReceipt" hidden></p>
+      <button class="elevator-action elevator-preview-control" id="elevatorPreviewToggle" type="button" hidden>暂停预览</button>
       <button class="elevator-action" id="elevatorAction" type="button" hidden>查询结果</button>
+      <label class="elevator-motion"><input id="elevatorReduceMotion" type="checkbox" />减少动态效果</label>
       <p class="elevator-footnote" id="elevatorFootnote">收到真实回执后才会确认受理</p>
     </div>
   </dialog>
