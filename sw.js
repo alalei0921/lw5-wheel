@@ -1,5 +1,5 @@
 // Keep app code consistent per release; cache large media only when it is used.
-const CACHE = 'lw5-home-v55-lightning-depth';
+const CACHE = 'lw5-home-v56-island-preview';
 const ASSETS = [
   './',
   './index.html',
@@ -37,6 +37,12 @@ const ASSETS = [
   './stock/',
   './stock/index.html',
   './stock/bg.jpg',
+  './islands/',
+  './islands/index.html',
+  './islands/app.js',
+  './islands/store.js',
+  './islands/style.css',
+  './islands/vacation-background.png',
   './travel/',
   './travel/index.html',
   './travel/bg.jpg',
