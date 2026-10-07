@@ -148,6 +148,9 @@
     }
     .full .tool-topbar{flex:none;padding:calc(8px + env(safe-area-inset-top,0px)) max(12px,env(safe-area-inset-right,0px)) 8px max(12px,env(safe-area-inset-left,0px));}
     .full .tool-iframe{display:block;flex:1;min-height:0;height:auto;padding-bottom:env(safe-area-inset-bottom,0px);}
+    .tool-panel.islands-fullscreen .tool-topbar{display:none}
+    .tool-panel.islands-fullscreen .tool-iframe{padding:0;background:#f4f0e7}
+    .tool-panel.islands-fullscreen .tool-loading{inset:0;background:#f4f0e7}
     .tool-panel.loading .tool-iframe{visibility:hidden}
     .tool-loading{position:absolute;inset:65px 0 0;display:grid;align-content:center;justify-items:center;gap:16px;background:#fff;color:#374151;font-size:15px}
     .tool-loading[hidden]{display:none}
@@ -908,7 +911,7 @@
       <p class="elevator-footnote" id="elevatorFootnote">收到真实回执后才会确认受理</p>
     </div>
   </dialog>
-  <a href="./islands/" aria-label="打开海岛测评" style="position:fixed;left:max(20px,env(safe-area-inset-left));bottom:max(24px,env(safe-area-inset-bottom));z-index:20;font-size:32px;text-decoration:none;filter:drop-shadow(0 3px 4px #5c533b66)">🐚</a>
+  <a id="islandsOpen" data-tool="islands" href="./islands/" aria-label="打开海岛测评" style="position:fixed;left:max(20px,env(safe-area-inset-left));bottom:max(24px,env(safe-area-inset-bottom));z-index:20;font-size:32px;text-decoration:none;filter:drop-shadow(0 3px 4px #5c533b66)">🐚</a>
   <button class="sun-press" id="sunPress" type="button" aria-label="按下太阳，旋转星云控制灯光"></button>
   <button class="music-btn" id="musicBtn" aria-label="背景音乐">🎵 音乐：开</button>
   <button class="music-btn" id="updateBtn" aria-label="一键更新" style="right: max(12px, env(safe-area-inset-right)); top: calc(max(12px, env(safe-area-inset-top)) + 52px);">🧁 一键更新</button>
@@ -991,7 +994,7 @@
       }
     })();
 
-    // One-click update: unregister SW + clear caches + hard reload
+    // One-click update: replace only this app's worker/cache; journal IDB and localStorage stay intact.
     (function(){
       const btn = document.getElementById('updateBtn');
       if (!btn) return;
@@ -1522,15 +1525,15 @@
       const overlay = document.getElementById('toolOverlay');
       const backdrop = document.getElementById('toolBackdrop');
       const panel = document.getElementById('toolPanel');
-      const frame = document.getElementById('toolFrame');
+      let frame = document.getElementById('toolFrame');
       const closeBtn = document.getElementById('toolClose');
       const titleEl = document.getElementById('toolTitle');
       const loadingEl = document.getElementById('toolLoading');
       const loadingText = document.getElementById('toolLoadingText');
       const retryBtn = document.getElementById('toolRetry');
-      const toolPages = {stock:'仓储管理',travel:'去玩咯',conflict:'分歧终端机'};
+      const toolPages = {stock:'仓储管理',travel:'去玩咯',conflict:'分歧终端机',islands:'海岛手记'};
       const scrollPositions = new Map();
-      let loadingTimer, currentTool = '', opener = null;
+      let loadingTimer, currentTool = '', opener = null, closeRequest = null, islandHistoryPending = false;
 
       function loadTool(retry = false) {
         clearTimeout(loadingTimer);
@@ -1540,7 +1543,11 @@
         loadingEl.classList.remove('failed');
         loadingText.textContent = '正在打开' + toolPages[currentTool] + '…';
         retryBtn.hidden = true;
-        frame.src = './' + currentTool + '/' + (retry ? '?v=' + Date.now() : '');
+        const pageURL = './' + currentTool + '/' + (retry ? '?v=' + Date.now() : '');
+        // Replacing the subframe location keeps browser Back on the shell route,
+        // instead of adding a second joint-history entry for the island page.
+        if (currentTool === 'islands') frame.contentWindow.location.replace(new URL(pageURL, location.href).href);
+        else frame.src = pageURL;
         loadingTimer = setTimeout(() => {
           loadingEl.classList.add('failed');
           loadingText.textContent = '加载较慢或网络不可用';
@@ -1553,6 +1560,13 @@
         try {
           if (!frame.contentWindow.location.pathname.endsWith('/' + currentTool + '/')) return;
           if (!frame.contentDocument.querySelector('body script')) throw new Error('Incomplete page');
+          if (currentTool === 'islands' && islandHistoryPending) {
+            // Both shell entries must reference this already-loaded child.
+            // Pushing before iframe navigation makes Back unload the draft
+            // before the shell has an opportunity to ask requestClose().
+            islandHistoryPending = false;
+            history.pushState({...history.state,lw5IslandOverlay:true}, '', location.pathname + location.search + '#islands');
+          }
           frame.contentWindow.scrollTo(0, scrollPositions.get(currentTool) || 0);
           clearTimeout(loadingTimer);
           panel.classList.remove('loading');
@@ -1575,6 +1589,7 @@
         currentTool = tool;
         opener = document.querySelector('[data-tool="' + tool + '"]');
         panel.classList.toggle('wheel-fullscreen', tool === 'wheel');
+        panel.classList.toggle('islands-fullscreen', tool === 'islands');
 
         if (tool === 'wheel'){
           panel.classList.remove('sheet');
@@ -1597,6 +1612,17 @@
           panel.classList.add('full');
           titleEl.textContent = '💕🗣️ 分歧终端机';
           location.hash = '#conflict';
+        } else if (tool === 'islands'){
+          panel.classList.remove('sheet');
+          panel.classList.add('full');
+          titleEl.textContent = '海岛手记';
+          // First load the child on the home entry, then push the overlay
+          // route in finishToolLoad(). Back will be a parent-only traversal.
+          if (location.hash === '#islands') {
+            const homeState={...history.state};delete homeState.lw5IslandOverlay;
+            history.replaceState(homeState, '', location.pathname + location.search);
+          }
+          islandHistoryPending = true;
         }
 
         overlay.classList.add('show');
@@ -1604,34 +1630,74 @@
         document.body.classList.add('tool-active');
         document.querySelector('main.card').inert = true;
         document.querySelectorAll('.music-btn').forEach(el => { el.inert = true; });
+        document.getElementById('islandsOpen').inert = true;
         frame.title = toolPages[tool];
+        panel.setAttribute('aria-label', toolPages[tool]);
         loadTool();
-        closeBtn.focus({preventScroll:true});
+        (tool === 'islands' ? frame : closeBtn).focus({preventScroll:true});
       }
 
-      function closeTool(){
-        if (!overlay) return;
-        if (!currentTool) return;
-        try { scrollPositions.set(currentTool, frame.contentWindow.scrollY); } catch (_) {}
-        currentTool = '';
-        clearTimeout(loadingTimer);
-        overlay.classList.remove('show');
-        overlay.setAttribute('aria-hidden','true');
-        document.body.classList.remove('tool-active');
-        document.querySelector('main.card').inert = false;
-        document.querySelectorAll('.music-btn').forEach(el => { el.inert = false; });
-        // 停留在主页；保留BGM
-        frame.src = 'about:blank';
-        history.replaceState(null, '', location.pathname + location.search);
-        opener?.focus({preventScroll:true});
+      function closeTool({approved=false,fromHistory=false}={}){
+        if (closeRequest) return closeRequest;
+        if (!overlay || !currentTool) return Promise.resolve(true);
+        const closingTool = currentTool;
+        closeRequest = (async () => {
+          if (closingTool === 'islands' && !approved) {
+            try {
+              const journal = frame.contentWindow.LW5Journal;
+              if (typeof journal?.requestClose === 'function') {
+                if (await journal.requestClose() !== true) return false;
+              } else {
+                // An incomplete/error page has no draft. If a journal did load
+                // but its close API failed, never silently discard its work.
+                const state = journal?.getState?.();
+                if (state?.dirty || state?.busy) return false;
+              }
+            } catch (_) {
+              window.LW5UI?.notify('请先在手记里保存或取消编辑，再返回主页');
+              return false;
+            }
+          }
+          if (currentTool !== closingTool) return false;
+          try { scrollPositions.set(currentTool, frame.contentWindow.scrollY); } catch (_) {}
+          currentTool = '';
+          islandHistoryPending = false;
+          clearTimeout(loadingTimer);
+          overlay.classList.remove('show');
+          overlay.setAttribute('aria-hidden','true');
+          panel.classList.remove('islands-fullscreen');
+          document.body.classList.remove('tool-active');
+          document.querySelector('main.card').inert = false;
+          document.querySelectorAll('.music-btn').forEach(el => { el.inert = false; });
+          document.getElementById('islandsOpen').inert = false;
+          // Unloading releases the island's renderer and listeners, and leaves
+          // the homepage BGM and local journal storage untouched.
+          if (closingTool === 'islands') {
+            // Destroy the child navigable, including its joint-history entries.
+            // Navigating a reused child to about:blank can resurrect its previous
+            // document when the shell goes Back after another open/close cycle.
+            const previousFrame=frame;frame=previousFrame.cloneNode(false);frame.removeAttribute('src');
+            frame.addEventListener('load',finishToolLoad);previousFrame.replaceWith(frame);
+          } else frame.src = 'about:blank';
+          if (!fromHistory) {
+            if (closingTool === 'islands' && location.hash === '#islands' && history.state?.lw5IslandOverlay) history.back();
+            else history.replaceState(null, '', location.pathname + location.search);
+          }
+          opener?.focus({preventScroll:true});
+          return true;
+        })().finally(() => { closeRequest = null; });
+        return closeRequest;
       }
 
       document.querySelectorAll('[data-tool]').forEach(btnEl => {
-        btnEl.addEventListener('click', () => openTool(btnEl.dataset.tool));
+        btnEl.addEventListener('click', event => {
+          if (btnEl.dataset.tool === 'islands') event.preventDefault();
+          openTool(btnEl.dataset.tool);
+        });
       });
 
-      closeBtn?.addEventListener('click', closeTool);
-      backdrop?.addEventListener('click', closeTool);
+      closeBtn?.addEventListener('click', () => { void closeTool(); });
+      backdrop?.addEventListener('click', () => { void closeTool(); });
       window.addEventListener('keydown', (e) => {
         if (e.key === 'Escape') closeTool();
       });
@@ -1639,12 +1705,19 @@
       // 子页面（iframe内）发消息回主页关闭
       window.addEventListener('message', (ev) => {
         if (ev.source === frame.contentWindow && ev.origin === location.origin && ev?.data?.type === 'lw5-tool-ready') finishToolLoad();
-        if (ev.source === frame.contentWindow && ev.origin === location.origin && ev?.data?.type === 'lw5-close-tool') closeTool();
+        if (ev.source === frame.contentWindow && ev.origin === location.origin && ev?.data?.type === 'lw5-close-tool') void closeTool();
+        if (currentTool === 'islands' && ev.source === frame.contentWindow && ev.origin === location.origin && ev?.data?.type === 'lw5:island-close') void closeTool({approved:true});
       });
-      window.addEventListener('hashchange', () => {
+      window.addEventListener('hashchange', async () => {
         const tool = location.hash.slice(1);
-        if (toolPages[tool]) openTool(tool);
-        else if (currentTool) closeTool();
+        if (currentTool === 'islands' && tool !== 'islands') {
+          if (!await closeTool({fromHistory:true})) {
+            if (currentTool === 'islands' && location.hash !== '#islands') history.pushState({...history.state,lw5IslandOverlay:true}, '', location.pathname + location.search + '#islands');
+            return;
+          }
+          if (toolPages[tool]) openTool(tool);
+        } else if (toolPages[tool]) openTool(tool);
+        else if (currentTool) void closeTool();
       });
 
       // 支持直接打开 hash
@@ -1652,6 +1725,7 @@
       if (location.hash === '#stock') openTool('stock');
       if (location.hash === '#travel') openTool('travel');
       if (location.hash === '#conflict') openTool('conflict');
+      if (location.hash === '#islands') openTool('islands');
 
     })();
   </script>

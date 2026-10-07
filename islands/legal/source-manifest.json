@@ -1,0 +1,107 @@
+{
+  "schema_version": 1,
+  "title": "LW5 island journal: model provenance",
+  "model_path_base": "islands/",
+  "attribution": "ATTRIBUTION.md",
+  "models": [
+    {
+      "key": "whaleShark",
+      "file": "assets/whale-shark/whale-shark-alenzo.glb",
+      "bytes": 5164808,
+      "sha256": "e88a5ccecc01582004bc7ed0601c70ee8a6ee63cc568049b12d29fc629b28719",
+      "original_metadata": {
+        "author": "Alenzo (https://sketchfab.com/alextkd2003)",
+        "license": "CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)",
+        "source": "https://sketchfab.com/3d-models/whale-shark-fantasy-451892c9c18c4d74bf893bea8b626b02",
+        "title": "Whale Shark Fantasy"
+      },
+      "source_download_url": "https://github.com/aadriien/whale-shark-site/blob/main/website/public/models/whale_shark_3D_model_fantasy.glb",
+      "license": {
+        "identifier": "CC-BY-4.0",
+        "url": "https://creativecommons.org/licenses/by/4.0/",
+        "full_text": "CC-BY-4.0.txt"
+      },
+      "binary_modified": false,
+      "displayed_animation": "Swimming",
+      "runtime_changes": "GLB binary unchanged; runtime uniform scale, animated-envelope centering, heading adjustment and playback of original skeletal animation. The scene supplies lighting, water, entry transitions and travel paths. The original ocean and three particle environment meshes are omitted from the rendered scene; only Swimming is played, while other original clips remain in the GLB.",
+      "embedded_image_count": 7,
+      "separate_texture_license_notices_found": false
+    },
+    {
+      "key": "manta",
+      "file": "assets/marine-imports/manta.glb",
+      "bytes": 2004784,
+      "sha256": "534561dd996d2e5aaed9cfb3b455b6122c33659d0b4e7bb3227d2eeb54afe4ec",
+      "original_metadata": {
+        "author": "Violaine (https://sketchfab.com/violaine)",
+        "license": "CC-BY-NC-SA-4.0 (http://creativecommons.org/licenses/by-nc-sa/4.0/)",
+        "source": "https://sketchfab.com/3d-models/manta-ray-birostris-animated-c49e5bb3cb32477cbbf96f36a47c9f2b",
+        "title": "Manta Ray Birostris (animated)"
+      },
+      "source_download_url": "https://github.com/bob6664569/open-water/raw/refs/heads/main/site/assets/animals/manta_ray.glb",
+      "license": {
+        "identifier": "CC-BY-NC-SA-4.0",
+        "url": "https://creativecommons.org/licenses/by-nc-sa/4.0/",
+        "full_text": "CC-BY-NC-SA-4.0.txt"
+      },
+      "binary_modified": false,
+      "displayed_animation": "Swimming",
+      "runtime_changes": "GLB binary unchanged; runtime uniform scale, animated-envelope centering, heading adjustment and playback of original skeletal animation. The scene supplies lighting, water, entry transitions and travel paths.",
+      "embedded_image_count": 3,
+      "separate_texture_license_notices_found": false,
+      "adapter_license": {
+        "identifier": "CC-BY-NC-SA-4.0",
+        "url": "https://creativecommons.org/licenses/by-nc-sa/4.0/",
+        "scope": "To the extent model-specific display changes constitute Adapted Material, this project's contributions to that manta adaptation are offered under CC BY-NC-SA 4.0. Independently authored application code and unrelated assets retain their own terms."
+      }
+    },
+    {
+      "key": "turtle",
+      "file": "assets/marine-imports/turtle.glb",
+      "bytes": 3631336,
+      "sha256": "a353b651c46cd66e45dd064925079688d0ed44c8001a25630a39489cf3b252ba",
+      "original_metadata": {
+        "author": "DigitalLife3D (https://sketchfab.com/DigitalLife3D)",
+        "license": "CC-BY-NC-4.0 (http://creativecommons.org/licenses/by-nc/4.0/)",
+        "source": "https://sketchfab.com/3d-models/model-50a-hawksbill-sea-turtle-e69458ef8176402d919df421e444da86",
+        "title": "Model 50A - Hawksbill Sea Turtle"
+      },
+      "source_download_url": "https://github.com/bob6664569/open-water/raw/refs/heads/main/site/assets/animals/turtle.glb",
+      "license": {
+        "identifier": "CC-BY-NC-4.0",
+        "url": "https://creativecommons.org/licenses/by-nc/4.0/",
+        "full_text": "CC-BY-NC-4.0.txt"
+      },
+      "binary_modified": false,
+      "displayed_animation": "Swim Cycle",
+      "runtime_changes": "GLB binary unchanged; runtime uniform scale, animated-envelope centering, heading adjustment and playback of original skeletal animation. The scene supplies lighting, water, entry transitions and travel paths.",
+      "embedded_image_count": 4,
+      "separate_texture_license_notices_found": false,
+      "additional_credit": "Johnson Martin — Reconstruction and animation"
+    },
+    {
+      "key": "shark",
+      "file": "assets/marine-imports/shark.glb",
+      "bytes": 7072212,
+      "sha256": "1056b1bc09f11e259aca73f7d56e7b614ddff64299c2530990e792878a6a6610",
+      "original_metadata": {
+        "author": "Optic_idealist (https://sketchfab.com/nandupofficial)",
+        "license": "CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)",
+        "source": "https://sketchfab.com/3d-models/shark-8bcd4d861bd84e87b2832e83c9cb898b",
+        "title": "Shark"
+      },
+      "source_download_url": "https://github.com/bob6664569/open-water/raw/refs/heads/main/site/assets/animals/fish/shark.glb",
+      "license": {
+        "identifier": "CC-BY-4.0",
+        "url": "https://creativecommons.org/licenses/by/4.0/",
+        "full_text": "CC-BY-4.0.txt"
+      },
+      "binary_modified": false,
+      "displayed_animation": "Action_Shark Armature",
+      "runtime_changes": "GLB binary unchanged; runtime uniform scale, animated-envelope centering, heading adjustment and playback of original skeletal animation. The scene supplies lighting, water, entry transitions and travel paths. An outer display transform compensates original whole-body cycle displacement; source keyframes and clip are unchanged and the original tail endpoint mismatch remains.",
+      "embedded_image_count": 1,
+      "separate_texture_license_notices_found": false
+    }
+  ],
+  "notice": "Model licenses apply to the individual licensed works, including their supplied material, texture and animation data, to the extent licensed by the original rights holders. A mirror repository license is not substituted for the model license. Original metadata is preserved. No separate texture license or creator notice was found in supplied GLB/material/image metadata; this does not warrant undisclosed third-party rights."
+}

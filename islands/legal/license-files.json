@@ -1,0 +1,40 @@
+{
+  "prepared_at_utc": "2026-10-07T14:08:25.343148+00:00",
+  "cc_text_copy_basis": "CC license texts are dedicated to the public domain under CC0, as stated in the licenses.",
+  "files": [
+    {
+      "file": "CC-BY-4.0.txt",
+      "official_source": "https://creativecommons.org/licenses/by/4.0/legalcode.txt",
+      "bytes": 18615,
+      "sha256": "2ade8c89b8bbe0d859b124a9e47032c8494022f43091e8278ae8e2554a292196",
+      "retrieval": "Complete official plain-text content returned by web browsing, with line-number wrappers removed and LF normalization; no legal wording changed. Direct Mac request returned HTTP 403 and was not retried.",
+      "source_line_count_verified": 354,
+      "sections_1_through_8_present": true
+    },
+    {
+      "file": "CC-BY-NC-4.0.txt",
+      "official_source": "https://creativecommons.org/licenses/by-nc/4.0/legalcode.txt",
+      "bytes": 19304,
+      "sha256": "55514f60136b81a3ef64e5a1aaf99a48f35ec949aecacd7193415ec01527ba93",
+      "retrieval": "Complete official plain-text content returned by web browsing, with line-number wrappers removed and LF normalization; no legal wording changed. Direct Mac request returned HTTP 403 and was not retried.",
+      "source_line_count_verified": 365,
+      "sections_1_through_8_present": true
+    },
+    {
+      "file": "CC-BY-NC-SA-4.0.txt",
+      "official_source": "https://creativecommons.org/licenses/by-nc-sa/4.0/legalcode.txt",
+      "bytes": 20803,
+      "sha256": "547bb5c3020780f85f38fb0e058ac77b20c48e859160354f0da863defb22c27a",
+      "retrieval": "Complete official plain-text content returned by web browsing, with line-number wrappers removed and LF normalization; no legal wording changed. Direct Mac request returned HTTP 403 and was not retried.",
+      "source_line_count_verified": 391,
+      "sections_1_through_8_present": true
+    },
+    {
+      "file": "three.LICENSE",
+      "source": "Original bundled Three.js MIT notice",
+      "bytes": 1081,
+      "sha256": "bfe119ea4fd413f5f7ca3fcd63adb0c4a073ed39daa2fe7d3e6b769e21272601",
+      "unchanged": true
+    }
+  ]
+}
