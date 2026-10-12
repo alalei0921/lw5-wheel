@@ -933,7 +933,7 @@
     </div>
     <div class="nebula-status-wrap">
       <div class="nebula-status" id="nebulaStatus">向右旋转点亮灯光</div>
-      <a class="nebula-hint retry" id="nebulaHint" href="http://192.168.1.105:8788/sun-mode?from=home" target="_top" role="button" aria-live="polite">未连接，点击重试</a>
+      <a class="nebula-hint retry" id="nebulaHint" href="http://192.168.1.105:8788/sun-mode?from=home&ui=7of9-v59" target="_top" role="button" aria-live="polite">未连接，点击重试</a>
     </div>
   </div>
   <audio id="homeBgm" preload="metadata" loop playsinline webkit-playsinline>
@@ -1037,7 +1037,7 @@
       const nebulaBack = document.getElementById('nebulaBack');
       const nebulaBurst = nebulaOverlay?.querySelector('.nebula-burst');
       const LOCAL_ORIGIN = 'http://192.168.1.105:8788';
-      const LOCAL_CONTROL_URL = LOCAL_ORIGIN + '/sun-mode?from=home';
+      const LOCAL_CONTROL_URL = LOCAL_ORIGIN + '/sun-mode?from=home&ui=7of9-v59';
       const LOCAL_PROBE_URL = LOCAL_ORIGIN + '/assets/hyperion-bg.jpg';
       const VISUAL_TEST = new URL(location.href).searchParams.get('visual-test') === '1';
       const LIGHT_SEQUENCE = [
