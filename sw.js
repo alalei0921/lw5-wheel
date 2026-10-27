@@ -1,10 +1,14 @@
 // Keep app code consistent per release; cache large media only when it is used.
-const CACHE = 'lw5-home-v59-light-7of9';
+const CACHE = 'lw5-home-v60-supplements';
 const ASSETS = [
   './',
   './index.html',
   './manifest.webmanifest',
+  './supplements/setup.html',
   './home-bg.jpg',
+  './shared/supplements-v1.css',
+  './shared/supplements-store-v1.js',
+  './shared/supplements-v1.js',
   './shared/app-ui-v1.css',
   './shared/app-ui-v1.js',
   './shared/elevator-v1.css',

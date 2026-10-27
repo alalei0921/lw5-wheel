@@ -26,7 +26,10 @@ test('installed PWA opens cached modules offline and preserves local data',async
     await page.goto(base+'?visual-test=1');
     await page.evaluate(async()=>{await navigator.serviceWorker.ready;localStorage.setItem('ux-offline-check','preserved');});
     await page.waitForFunction(()=>navigator.serviceWorker.controller!==null);
-    const cachesBefore=await page.evaluate(()=>caches.keys());assert(cachesBefore.includes('lw5-home-v57-island-rating-columns'));
+    const cachesBefore=await page.evaluate(()=>caches.keys());const currentCache=(await fs.readFile(path.join(root,'sw.js'),'utf8')).match(/const CACHE = '([^']+)'/)[1];assert(cachesBefore.includes(currentCache));
+    await page.locator('#supplementLaunch').click();
+    await page.locator('#supplementRows [role=switch]').first().click();
+    await page.locator('#supplementClose').click();
     await context.setOffline(true);
     for(const route of ['stock/','travel/','conflict/']){
       await page.goto(base+route,{waitUntil:'domcontentloaded'});
@@ -37,6 +40,11 @@ test('installed PWA opens cached modules offline and preserves local data',async
     await page.goto(base+'?v=123',{waitUntil:'domcontentloaded'});
     await page.waitForFunction(()=>Boolean(window.LW5UI));
     assert.match(await page.locator('h1').innerText(),/Lw&5之家/);
+    await page.locator('#supplementLaunch').click();
+    assert.equal(await page.locator('#supplementRows [role=switch]').first().getAttribute('aria-checked'),'true');
+    await page.locator('#supplementRows [role=switch]').first().click();
+    assert.equal(await page.locator('#supplementRows [role=switch]').first().getAttribute('aria-checked'),'false');
+    await page.locator('#supplementClose').click();
     await page.locator('#elevatorLaunch').click();
     await page.locator('.elevator-sheet[data-state="preview"]').waitFor();
     assert.match(await page.locator('#elevatorDetail').innerText(),/不会呼叫/);

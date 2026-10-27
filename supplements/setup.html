@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="referrer" content="no-referrer">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; connect-src 'none'; img-src 'none'; frame-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'">
+<title>打开我的小清单 · LW&amp;5</title>
+<script>
+(() => {
+  'use strict';
+  // Read only this page's fragment. Remove it before any other app script runs.
+  let fragment, scrubbed;
+  function capture() {
+    fragment = location.hash; scrubbed = false;
+    try { history.replaceState(null, '', location.pathname); scrubbed = true; } catch (_) {}
+  }
+  capture();
+  document.addEventListener('DOMContentLoaded', () => {
+    const status = document.getElementById('status');
+    const list = document.getElementById('items');
+    const save = document.getElementById('save');
+    const home = document.getElementById('home');
+    const key = 'lw5.supplements.v1.config';
+    let incoming, expected;
+    function normalize(data) {
+      if (data?.format !== 'lw5-supplements' || data.version !== 1 || !Array.isArray(data.items) || data.items.length !== 4) throw Error('链接中的清单格式不正确。');
+      return { format: 'lw5-supplements', version: 1, items: data.items.map(item => {
+        if (!item || typeof item.name !== 'string' || typeof item.description !== 'string' || !item.name.trim() || item.name.length > 60 || item.description.length > 240) throw Error('链接中的项目名称或说明不正确。');
+        return { name: item.name.trim(), description: item.description.trim() };
+      }) };
+    }
+    function enter() { location.replace('../#supplements'); }
+    function write() {
+      try {
+        if (localStorage.getItem(key) !== expected) {
+          status.textContent = '另一个窗口刚修改过清单，本次未覆盖。请返回查看现有清单。';
+          save.hidden = true;
+          return;
+        }
+        localStorage.setItem(key, incoming);
+        enter();
+      } catch (_) {
+        status.textContent = '浏览器暂时无法保存。请允许此站点使用本地存储，再重试。';
+        save.hidden = false;
+        save.textContent = '重试保存到本机';
+      }
+    }
+    home.addEventListener('click', enter);
+    save.addEventListener('click', write);
+    function process() {
+      incoming = undefined; expected = undefined;
+      save.hidden = true; list.hidden = true; list.replaceChildren();
+    try {
+      if (!scrubbed) throw Error('无法清除地址中的私人清单，本次未保存。请关闭此页，使用本机文件导入。');
+      if (!fragment) throw Error('这里需要你的私人清单链接。已有清单可以直接打开。');
+      if (fragment.length > 24000 || !/^#s=[A-Za-z0-9_-]+$/.test(fragment)) throw Error('这个私人清单链接不完整，请重新打开原链接。');
+      const encoded = fragment.slice(3).replaceAll('-', '+').replaceAll('_', '/');
+      fragment = '';
+      const data = normalize(JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(Uint8Array.from(atob(encoded), c => c.charCodeAt(0)))));
+      incoming = JSON.stringify(data);
+      expected = localStorage.getItem(key);
+      if (expected === null) { write(); return; }
+      let existing;
+      try { existing = JSON.stringify(normalize(JSON.parse(expected))); } catch (_) {}
+      if (existing === incoming) { enter(); return; }
+      status.textContent = '这台设备已有不同清单，已为你保留。下面是链接带来的四项；只在想替换时保存，今天的打卡不会改变。';
+      for (const item of data.items) {
+        const row = document.createElement('li'), name = document.createElement('strong'), description = document.createElement('span');
+        name.textContent = item.name; description.textContent = item.description;
+        row.append(name, description); list.append(row);
+      }
+      list.hidden = false;
+      save.hidden = false;
+    } catch (error) { status.textContent = error.message || '清单暂时无法读取，请使用本机文件导入。'; }
+    finally { fragment = ''; }
+    }
+    // A reused tab can change just its fragment without loading a new document.
+    window.addEventListener('hashchange', () => { capture(); process(); });
+    process();
+  }, { once: true });
+})();
+</script>
+<style>
+*{box-sizing:border-box}body{margin:0;min-height:100svh;display:grid;place-items:center;padding:24px;background:linear-gradient(145deg,#fff1e0,#f7ebeb);color:#755246;font:15px/1.7 -apple-system,BlinkMacSystemFont,'PingFang SC',sans-serif}main{width:min(420px,100%);padding:24px;border:1px solid white;border-radius:28px;background:#fffaf4;box-shadow:0 16px 50px #78563c19}h1{margin:5px 0 12px;font-size:23px}p{font-size:13px;color:#907260}ul{list-style:none;padding:0;margin:16px 0}li{padding:12px;margin:8px 0;border:1px solid #ecded0;border-radius:16px}strong,span{display:block;overflow-wrap:anywhere}li span{font-size:12px;margin-top:4px;white-space:pre-wrap}button{width:100%;min-height:44px;padding:12px;border:1px solid #e4d4c2;border-radius:15px;background:#fff1e0;color:#755246;font:inherit;cursor:pointer;margin-top:10px}#save{background:#e5eedb;border-color:#c6d7b2}button:focus-visible{outline:3px solid #a58c70;outline-offset:3px}[hidden]{display:none!important}.foot{margin:18px 0 0;font-size:11px}
+</style>
+</head>
+<body><main><div aria-hidden="true">💊 ♡</div><h1>打开我的小清单</h1><p id="status" role="status">正在把清单带到这台设备…</p><ul id="items" hidden></ul><button id="save" type="button" hidden>使用这四项，保存到本机</button><button id="home" type="button">打开现有面板</button><p class="foot">清单只存当前浏览器，打卡不会跨设备同步。私人清单链接请只留给自己。</p></main></body>
+</html>

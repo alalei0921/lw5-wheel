@@ -1,0 +1,52 @@
+.supplement-launch{position:fixed;right:max(18px,env(safe-area-inset-right));bottom:max(20px,env(safe-area-inset-bottom));z-index:21;width:56px;height:56px;display:grid;place-items:center;padding:0;border:1px solid #fff8;border-radius:22px;background:linear-gradient(145deg,#fff7e9ed,#ffe2dfed);box-shadow:0 6px 22px #824d3824,inset 0 1px 0 #fff;color:#754d43;cursor:pointer;touch-action:manipulation;-webkit-tap-highlight-color:transparent;transition:transform .18s ease}
+.supplement-launch span{font-size:31px;filter:drop-shadow(0 2px 2px #c48a6240);transform:rotate(-12deg)}
+.supplement-launch:hover{transform:translateY(-2px)}
+.supplement-launch:active{transform:scale(.94)}
+body.tool-active .supplement-launch,body.nebula-active .supplement-launch{visibility:hidden}
+.supplement-dialog{width:min(420px,calc(100vw - 24px));max-width:none;max-height:calc(100vh - 24px);max-height:calc(100dvh - 24px - env(safe-area-inset-top) - env(safe-area-inset-bottom));margin:auto;padding:0;border:1px solid #fff;border-radius:30px;background:#fffaf4;color:#654c46;box-shadow:0 24px 80px #51383444;overflow:hidden;font-family:inherit}
+.supplement-dialog[open]{display:flex;flex-direction:column;animation:supplement-enter .2s ease-out}
+.supplement-dialog::backdrop{background:#473b4859;backdrop-filter:blur(7px);-webkit-backdrop-filter:blur(7px)}
+.supplement-dialog [hidden]{display:none!important}
+.supplement-dialog button,.supplement-dialog input,.supplement-dialog textarea{font:inherit}
+.supplement-dialog button{cursor:pointer;touch-action:manipulation;-webkit-tap-highlight-color:transparent}
+.supplement-top{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:12px 16px 0 22px;flex-shrink:0}
+.supplement-eyebrow{font-size:10px;letter-spacing:2px;color:#987a6b;font-weight:650}
+.supplement-close{border:0;background:#f6ece4;color:#866a5b;border-radius:50%;width:44px;height:44px;font-size:24px!important;line-height:1}
+.supplement-scroll{padding:2px 22px 20px;overflow-y:auto;overscroll-behavior:contain;min-height:0}
+.supplement-heading{display:flex;align-items:center;gap:12px;margin:5px 0 18px}
+.supplement-mascot{display:grid;place-items:center;flex-shrink:0;width:54px;height:54px;background:#ffe7d9;border-radius:19px;font-size:29px;transform:rotate(-7deg)}
+.supplement-heading h2{margin:0 0 5px;font-size:23px;color:#755246;letter-spacing:.5px}
+.supplement-date{font-size:12px;color:#987c6d;margin:0;line-height:1.5}
+.supplement-intro{font-size:12px;color:#987c6d;margin:0 0 14px;line-height:1.7}
+.supplement-row{display:flex;align-items:center;gap:12px;padding:15px 13px;border:1px solid #f0e1d4;border-radius:20px;background:#fffdfa;box-shadow:0 3px 8px #895a362;transition:background .16s ease;margin-bottom:9px}
+.supplement-row[data-checked="true"]{background:#f0f7e9;border-color:#d5e3c9}
+.supplement-copy{flex:1;min-width:0}
+.supplement-name{font-size:15px;font-weight:700;line-height:1.5;overflow-wrap:anywhere}
+.supplement-description{font-size:12px;color:#8c796c;line-height:1.65;margin:4px 0 0;white-space:pre-wrap;overflow-wrap:anywhere}
+.supplement-switch{flex-shrink:0;width:64px;min-height:52px;padding:2px 0;border:0;background:transparent;color:#8d7e74;display:flex;align-items:center;flex-direction:column;justify-content:center;gap:4px}
+.supplement-switch-track{position:relative;display:block;width:54px;height:30px;border:1px solid #d9cabf;background:#e9dfd5;border-radius:99px;transition:background .16s ease}
+.supplement-switch-knob{position:absolute;top:3px;left:3px;display:grid;place-items:center;width:22px;height:22px;border-radius:50%;background:#fffaf4;box-shadow:0 2px 4px #795c302b;color:#77905c;font-size:12px;transition:transform .16s ease}
+.supplement-switch[aria-checked="true"] .supplement-switch-track{background:#a2b98b;border-color:#8da876}
+.supplement-switch[aria-checked="true"] .supplement-switch-knob{transform:translateX(24px)}
+.supplement-switch-label{font-size:10px;line-height:1.3}
+.supplement-actions{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:13px}
+.supplement-progress{font-size:12px;color:#8b7867}
+.supplement-soft-button{border:1px solid #eadacb;border-radius:15px;padding:10px 15px;min-height:44px;background:#fff4e8;color:#866247;font-size:13px!important;font-weight:650!important}
+.supplement-primary{background:#e7eedb;border-color:#cbd8b9;color:#5b7146}
+.supplement-footer{flex-shrink:0;padding:12px 20px calc(14px + env(safe-area-inset-bottom,0px));border-top:1px dashed #e8d9ca;text-align:center;background:#fbf3e9;font-size:11px;line-height:1.7;color:#8b7769}
+.supplement-notice{padding:10px 12px;margin:12px 0 0;border-radius:12px;background:#f9e8d7;color:#87532e;font-size:12px;line-height:1.65}
+.supplement-fieldset{margin:0 0 14px;padding:12px;border:1px solid #ecddd0;border-radius:18px;background:#fffdfa;min-width:0}
+.supplement-fieldset legend{padding:0 5px;color:#a0816c;font-size:11px}
+.supplement-fieldset label{display:block;font-size:12px;color:#8d7260;margin-bottom:9px}
+.supplement-fieldset label:last-child{margin-bottom:0}
+.supplement-fieldset input,.supplement-fieldset textarea{width:100%;max-width:100%;margin-top:6px;padding:10px;border:1px solid #e5d7c9;border-radius:11px;background:#fff;color:#674d3d;font-size:16px;line-height:1.55;resize:vertical}
+.supplement-form-actions{display:flex;gap:10px;position:sticky;bottom:-20px;padding:12px 0 4px;background:#fffaf4}
+.supplement-form-actions button{flex:1}
+.supplement-import{display:block;margin:5px 0 0;border:0;background:transparent;color:#967055;text-decoration:underline;text-underline-offset:3px;min-height:44px;font-size:12px!important}
+.supplement-launch:focus-visible,.supplement-dialog :is(button,input,textarea):focus-visible{outline:3px solid #a58c70;outline-offset:3px}
+.supplement-dialog button:disabled{opacity:.5;cursor:default}
+@keyframes supplement-enter{from{opacity:0;transform:translateY(12px) scale(.98)}to{opacity:1;transform:none}}
+@media(max-width:350px){.supplement-scroll{padding:2px 14px 16px}.supplement-top{padding-left:16px}.supplement-row{padding:12px 10px;gap:6px}.supplement-heading h2{font-size:21px}}
+@media(prefers-reduced-motion:reduce){.supplement-launch,.supplement-dialog,.supplement-dialog *{animation:none!important;transition:none!important}}
+/* On short portrait screens the existing home scene scrolls. Keep its controls clear. */
+@media(max-width:480px) and (max-height:620px){.supplement-launch{position:absolute}}
