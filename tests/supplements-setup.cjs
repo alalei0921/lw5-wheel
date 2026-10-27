@@ -35,3 +35,10 @@ test('quota failure keeps link data only in memory; retry saves without changing
 test('if early fragment removal fails, no storage initialization or external load occurs',async()=>{
  const s=await setup(),p=s.page;await s.context.addInitScript(()=>{history.replaceState=()=>{throw Error('test replace denied')}});await p.goto(base+'/supplements/setup.html#s='+encoded);assert.match(await p.locator('#status').textContent(),/无法清除/);assert.equal(await p.evaluate(k=>localStorage.getItem(k),key),null);await close(s);
 });
+
+
+test('private entry bypasses a legacy cached bare homepage with a generic version query',async()=>{
+ const s=await setup(),p=s.page;
+ await s.context.route(url=>url.origin===base&&url.pathname==='/'&&!url.search,r=>r.fulfill({contentType:'text/html',body:'<!doctype html><title>Old cached home</title><p>Legacy home without supplements</p>'}));
+ await enter(p);assert.equal(new URL(p.url()).searchParams.get('v'),'60-supplements');assert.equal(await p.locator('#supplementName0').textContent(),payload.items[0].name);await close(s);
+});

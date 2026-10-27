@@ -30,7 +30,8 @@
         return { name: item.name.trim(), description: item.description.trim() };
       }) };
     }
-    function enter() { location.replace('../#supplements'); }
+    // A generic version query bypasses older workers that cached the bare homepage.
+    function enter() { location.replace('../?v=60-supplements#supplements'); }
     function write() {
       try {
         if (localStorage.getItem(key) !== expected) {
