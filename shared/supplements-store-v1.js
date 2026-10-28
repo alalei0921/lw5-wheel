@@ -10,7 +10,25 @@
   const formatter = new Intl.DateTimeFormat('en-GB', {
     timeZone: 'Asia/Shanghai', year: 'numeric', month: '2-digit', day: '2-digit'
   });
-  const defaults = () => Array.from({ length: 4 }, (_, i) => ({ name: '补剂 ' + (i + 1), description: '点「编辑」填写名称和用量' }));
+  const LABELS = ['镁片', '鱼油', '蛋白粉', '肌酸'];
+  const defaults = () => LABELS.map(name => ({ name, description: '' }));
+  function displayItems(items, labelsVersion) {
+    if (labelsVersion === 2) return items;
+    // Recognize the complete legacy four-product layout, not arbitrary substrings.
+    // Brand tokens are generic; no personal brand names or dosage are shipped.
+    const legacyForms = [
+      /^[A-Z][A-Z0-9-]{1,19} 甘氨酸镁$/,
+      /^[A-Z][A-Z0-9-]{1,19} 鱼油（可选）$/,
+      /^[A-Z][A-Z0-9-]{1,19} 蛋白粉$/,
+      /^[A-Z][A-Z0-9-]{1,19} 单方肌酸$/
+    ];
+    const legacySet = items.every((item, i) => legacyForms[i].test(item.name));
+    return items.map((item, i) => {
+      const placeholder = new RegExp('^(?:补剂|补给)\\s*(?:' + (i + 1) + '|' + '一二三四'[i] + ')$').test(item.name);
+      if (!placeholder && !legacySet) return item;
+      return { name: LABELS[i], description: placeholder && item.description === '点「编辑」填写名称和用量' ? '' : item.description };
+    });
+  }
   function dayKey(time = Date.now()) {
     const parts = Object.fromEntries(formatter.formatToParts(new Date(time)).map(p => [p.type, p.value]));
     return `${parts.year}-${parts.month}-${parts.day}`;
@@ -37,7 +55,8 @@
   function createStore(storage, now = () => Date.now()) {
     function config() {
       const raw = storage.getItem(CONFIG_KEY);
-      return { raw, items: raw === null ? defaults() : parseSettings(raw) };
+      // Presentation migration never rewrites old storage, notes, or daily marks.
+      return { raw, items: raw === null ? defaults() : displayItems(parseSettings(raw), JSON.parse(raw).labelsVersion) };
     }
     function snapshot() {
       const current = config(), day = dayKey(now());
@@ -51,7 +70,7 @@
     function saveSettings(items, expectedRaw) {
       const normalized = validateItems(items);
       if (storage.getItem(CONFIG_KEY) !== expectedRaw) throw Error('另一个窗口已修改清单。草稿仍保留，请取消后重新编辑。');
-      storage.setItem(CONFIG_KEY, JSON.stringify({ format: 'lw5-supplements', version: 1, items: normalized }));
+      storage.setItem(CONFIG_KEY, JSON.stringify({ format: 'lw5-supplements', version: 1, labelsVersion: 2, items: normalized }));
       return snapshot();
     }
     return { snapshot, setChecked, saveSettings };

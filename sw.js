@@ -1,5 +1,5 @@
 // Keep app code consistent per release; cache large media only when it is used.
-const CACHE = 'lw5-home-v60-supplements';
+const CACHE = 'lw5-home-v61-supplement-labels';
 const ASSETS = [
   './',
   './index.html',
