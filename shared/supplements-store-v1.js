@@ -11,11 +11,17 @@
     timeZone: 'Asia/Shanghai', year: 'numeric', month: '2-digit', day: '2-digit'
   });
   const LABELS = ['镁片', '鱼油', '蛋白粉', '肌酸'];
-  const defaults = () => LABELS.map(name => ({ name, description: '' }));
+  const NOTES = [
+    '每天 1 片，午饭时或饭后用水吞服。',
+    '周一、周四各 1 粒，午饭时或饭后；吃鱼充足可不吃。',
+    '下午约半大勺（15–16 克），用水冲；喝后反复腹泻先停。',
+    '每天 3 克（3 克量勺一平勺），下午冲服，休息日照常。'
+  ];
+  const defaults = () => LABELS.map((name, i) => ({ name, description: NOTES[i] }));
   function displayItems(items, labelsVersion) {
     if (labelsVersion === 2) return items;
     // Recognize the complete legacy four-product layout, not arbitrary substrings.
-    // Brand tokens are generic; no personal brand names or dosage are shipped.
+    // Brand tokens are generic; no personal brand names are shipped.
     const legacyForms = [
       /^[A-Z][A-Z0-9-]{1,19} 甘氨酸镁$/,
       /^[A-Z][A-Z0-9-]{1,19} 鱼油（可选）$/,
@@ -28,6 +34,14 @@
       if (!placeholder && !legacySet) return item;
       return { name: LABELS[i], description: placeholder && item.description === '点「编辑」填写名称和用量' ? '' : item.description };
     });
+  }
+  function displayNotes(items, notesVersion) {
+    if (notesVersion === 1) return items;
+    // Only fill recognized default rows with empty/old placeholder descriptions.
+    // Edited text and custom rows remain unchanged, including stored originals.
+    return items.map((item, i) => item.name === LABELS[i] &&
+      (item.description === '' || item.description === '点「编辑」填写名称和用量')
+      ? { ...item, description: NOTES[i] } : item);
   }
   function dayKey(time = Date.now()) {
     const parts = Object.fromEntries(formatter.formatToParts(new Date(time)).map(p => [p.type, p.value]));
@@ -56,7 +70,9 @@
     function config() {
       const raw = storage.getItem(CONFIG_KEY);
       // Presentation migration never rewrites old storage, notes, or daily marks.
-      return { raw, items: raw === null ? defaults() : displayItems(parseSettings(raw), JSON.parse(raw).labelsVersion) };
+      if (raw === null) return { raw, items: defaults() };
+      const metadata = JSON.parse(raw);
+      return { raw, items: displayNotes(displayItems(parseSettings(raw), metadata.labelsVersion), metadata.notesVersion) };
     }
     function snapshot() {
       const current = config(), day = dayKey(now());
@@ -70,7 +86,7 @@
     function saveSettings(items, expectedRaw) {
       const normalized = validateItems(items);
       if (storage.getItem(CONFIG_KEY) !== expectedRaw) throw Error('另一个窗口已修改清单。草稿仍保留，请取消后重新编辑。');
-      storage.setItem(CONFIG_KEY, JSON.stringify({ format: 'lw5-supplements', version: 1, labelsVersion: 2, items: normalized }));
+      storage.setItem(CONFIG_KEY, JSON.stringify({ format: 'lw5-supplements', version: 1, labelsVersion: 2, notesVersion: 1, items: normalized }));
       return snapshot();
     }
     return { snapshot, setChecked, saveSettings };
