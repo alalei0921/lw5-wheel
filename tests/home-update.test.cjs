@@ -180,5 +180,5 @@ test('the visible fallback link and scripted local handoff target the same 7/9 r
   assert.equal(destination.pathname, '/sun-mode');
   assert.equal(destination.searchParams.get('from'), 'home');
   assert.equal(destination.searchParams.get('ui'), '7of9-v59');
-  assert.match(worker, /const CACHE\s*=\s*['"]lw5-home-v62-supplement-notes['"]/);
+  assert.match(worker, /const CACHE\s*=\s*['"]lw5-home-v63-island-button['"]/);
 });
