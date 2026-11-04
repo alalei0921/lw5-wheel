@@ -15,7 +15,7 @@ async function setup(options={}) {
   await context.route('**/*',async route => {
     const url=new URL(route.request().url());
     if(options.intercept && await options.intercept(route,url)) return;
-    if(url.hostname==='192.168.1.105' && url.pathname.startsWith('/assets/')) return route.fulfill({status:404,body:'Offline test'});
+    if(['192.168.1.105','192.168.1.136','5damidemac-mini.local'].includes(url.hostname) && url.pathname === '/api/ping') return route.fulfill({status:404,body:'Offline test'});
     if(url.origin!==origin){
       assert.equal(url.hostname,'cdn.jsdelivr.net','Unexpected external/device request');
       return route.fulfill({contentType:'text/javascript',body:''});

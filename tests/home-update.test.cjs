@@ -172,13 +172,14 @@ test('the visible fallback link and scripted local handoff target the same 7/9 r
   assert.ok(tag, 'Local fallback link must exist');
   const href = tag.match(/\bhref=["']([^"']+)["']/)?.[1]?.replaceAll('&amp;', '&');
   assert.ok(href, 'Local fallback link must have a destination');
-  const constants = html.match(/const LOCAL_ORIGIN\s*=\s*['"][^'"]+['"];\s*const LOCAL_CONTROL_URL\s*=\s*LOCAL_ORIGIN\s*\+\s*['"][^'"]+['"];/)?.[0];
-  assert.ok(constants, 'The runtime handoff constants must exist');
-  const runtimeUrl = vm.runInNewContext(constants + '\nLOCAL_CONTROL_URL', {}, { timeout: 1000 });
+  const moduleContext = { window: {} };
+  vm.runInNewContext(fs.readFileSync(path.join(root, 'shared/local-control-v1.js'), 'utf8'), moduleContext);
+  const controlPath = html.match(/const LOCAL_CONTROL_PATH = '([^']+)';/)[1];
+  const runtimeUrl = moduleContext.window.LW5LocalControl.fallbackOrigin + controlPath;
   assert.equal(href, runtimeUrl);
   const destination = new URL(runtimeUrl);
   assert.equal(destination.pathname, '/sun-mode');
   assert.equal(destination.searchParams.get('from'), 'home');
   assert.equal(destination.searchParams.get('ui'), '7of9-v59');
-  assert.match(worker, /const CACHE\s*=\s*['"]lw5-home-v63-island-button['"]/);
+  assert.match(worker, /const CACHE\s*=\s*['"]lw5-home-v64-local-discovery['"]/);
 });

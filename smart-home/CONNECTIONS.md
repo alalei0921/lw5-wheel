@@ -1,0 +1,50 @@
+# Local controller connection
+
+The static app reaches an existing Node bridge on port 8788. The bridge already
+listens on all local IPv4 interfaces. Wi-Fi band selection does not require a
+second server or a separate device protocol.
+
+`shared/local-control-v1.js` is shared by the home nebula and three preview pages.
+It checks only these known destinations, concurrently:
+
+- `5damideMac-mini.local:8788` (Mac's configured local hostname)
+- `192.168.1.136:8788` (verified Mac Wi-Fi address on 2026-11-04)
+- `192.168.1.105:8788` (previous address)
+
+Discovery uses only `GET /api/ping`, requires HTTP success and the exact payload
+`ok: true, service: "lw5-local-control"`, and expires after 3.5 seconds, including
+response body parsing. It does not scan the subnet or call device/status APIs.
+Cancellation settles the operation and invalidates late results. A recent
+navigation attempt in localStorage is no longer treated as proof of connectivity.
+The service marker identifies the expected application; it is not authentication.
+
+If browser mixed-content or local-network policy prevents discovery, native
+top-level links remain available. Direct entry defaults to the verified `.136`
+address; connection help also provides the hostname and previous address. A
+6-second handoff timer restores retry feedback while this page remains loaded.
+It cannot override a browser-owned navigation/error screen. Back/foreground and
+network events invalidate old state, and returning home never auto-redirects back.
+Help links cancel pending automatic navigation; hidden pages cannot auto-handoff.
+
+Boundaries: mDNS was not resolvable from the inspected Mac during diagnosis.
+Its availability from the phone is unverified. The two IP fallbacks are known
+addresses, not a guarantee for arbitrary future DHCP addresses. Separate/guest
+networks, AP isolation and unavailable multicast/DNS cannot be repaired by this
+frontend. No router, proxy, firewall, CORS, listening scope or bridge changes are
+part of this patch. No public tunnel is created. Device commands are not replayed.
+
+This release uses cache `lw5-home-v64-local-discovery` and precaches the
+new module. Publish the HTML, module and worker together, then reload/update the
+installed PWA. The existing GitHub Pages site deploys the repository root from `main`.
+
+Hardware-isolated checks (no real LAN or cloud requests):
+
+```sh
+node --test tests/local-control.test.cjs tests/home-update.test.cjs tests/service-worker.test.cjs
+node --test tests/local-control-browser.cjs
+node --test --test-name-pattern='all everyday screens|shared feedback' tests/app-ux.cjs
+```
+
+The browser tests use a temporary headless profile and intercept every request;
+local destination pages are inert mock HTML. No real controller page is loaded.
+Actual iPhone/PWA behavior and 2.4 GHz to 5 GHz connectivity remain unverified.

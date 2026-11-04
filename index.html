@@ -753,6 +753,15 @@
     .nebula-hint[aria-disabled="true"]{
       opacity:1;
     }
+    .nebula-status-wrap .local-connection-help{
+      color:rgba(255,255,255,.88);
+      background:rgba(15,20,30,.9);
+      border:1px solid rgba(255,255,255,.2);
+      border-radius:16px;
+      padding:10px 12px;
+      max-height:34vh;
+      overflow:auto;
+    }
     .nebula-overlay.webgl-ready{background:#030609}
     .nebula-overlay.webgl-ready::before,.nebula-overlay.webgl-ready::after{display:none}
     .webgl-ready .nebula-canvas{filter:none}
@@ -958,7 +967,7 @@
     </div>
     <div class="nebula-status-wrap">
       <div class="nebula-status" id="nebulaStatus">向右旋转点亮灯光</div>
-      <a class="nebula-hint retry" id="nebulaHint" href="http://192.168.1.105:8788/sun-mode?from=home&ui=7of9-v59" target="_top" role="button" aria-live="polite">未连接，点击重试</a>
+      <a class="nebula-hint retry" id="nebulaHint" href="http://192.168.1.136:8788/sun-mode?from=home&ui=7of9-v59" target="_top" role="button" aria-live="polite">未连接，点击重试</a>
     </div>
   </div>
   <audio id="homeBgm" preload="metadata" loop playsinline webkit-playsinline>
@@ -1009,6 +1018,7 @@
     </div>
   </div>
 
+  <script src="./shared/local-control-v1.js"></script>
   <script>
     // Register PWA service worker
     (function(){
@@ -1061,9 +1071,11 @@
       const nebulaHint = document.getElementById('nebulaHint');
       const nebulaBack = document.getElementById('nebulaBack');
       const nebulaBurst = nebulaOverlay?.querySelector('.nebula-burst');
-      const LOCAL_ORIGIN = 'http://192.168.1.105:8788';
-      const LOCAL_CONTROL_URL = LOCAL_ORIGIN + '/sun-mode?from=home&ui=7of9-v59';
-      const LOCAL_PROBE_URL = LOCAL_ORIGIN + '/assets/hyperion-bg.jpg';
+      const localDiscovery = window.LW5LocalControl;
+      const LOCAL_CONTROL_PATH = '/sun-mode?from=home&ui=7of9-v59';
+      let LOCAL_ORIGIN = localDiscovery.fallbackOrigin;
+      let LOCAL_CONTROL_URL = LOCAL_ORIGIN + LOCAL_CONTROL_PATH;
+      localDiscovery.addHelp(nebulaHint, LOCAL_CONTROL_PATH, cancelPendingLocalNavigation);
       const VISUAL_TEST = new URL(location.href).searchParams.get('visual-test') === '1';
       const LIGHT_SEQUENCE = [
         { loop: 9, name: '主卧射灯' },
@@ -1081,9 +1093,8 @@
       const PRIME_DURATION = 120;
       const OPEN_DURATION = 680;
       const CLOSE_DURATION = 560;
-      const LOCAL_CONNECT_TIMEOUT = 1500;
-      const RECENT_LOCAL_KEY = 'lw5_nebula_recent_local_v1';
-      const RECENT_LOCAL_TTL = 5 * 60 * 1000;
+      let handoffTimer = null;
+      let needsLocalProbe = false;
       let toastTimer = null;
       let nebulaStep = 0;
       let nebulaMode = 'mini';
@@ -1129,33 +1140,38 @@
         }
       }
 
-      function rememberRecentLocalHandoff(){
-        try {
-          localStorage.setItem(RECENT_LOCAL_KEY, String(Date.now()));
-        } catch (_) { }
-      }
-
-      function hasRecentLocalHandoff(){
-        try {
-          const lastHandoff = Number(localStorage.getItem(RECENT_LOCAL_KEY));
-          return Number.isFinite(lastHandoff) && Date.now() - lastHandoff < RECENT_LOCAL_TTL;
-        } catch (_) {
-          return false;
-        }
-      }
-
       function enterLocalControl(sequence, message){
-        rememberRecentLocalHandoff();
         setLocalControlState('connecting', message || '已找到本地控制，正在进入…');
-        window.setTimeout(() => {
+        clearTimeout(handoffTimer);
+        handoffTimer = setTimeout(() => {
           if (sequence === localConnectSequence && nebulaMode === 'expanded') {
-            window.location.assign(LOCAL_CONTROL_URL + '&ts=' + Date.now());
+            setLocalControlState('retry', '进入尚未完成，点击重试或展开连接帮助');
+          }
+        }, localDiscovery.navigationTimeoutMs);
+        window.setTimeout(() => {
+          if (document.hidden || sequence !== localConnectSequence || nebulaMode !== 'expanded') return;
+          try { window.location.assign(LOCAL_CONTROL_URL + '&ts=' + Date.now()); }
+          catch (_) {
+            clearTimeout(handoffTimer);
+            setLocalControlState('retry', '无法自动进入，请点击直接打开本地控制');
           }
         }, 80);
       }
 
+      function cancelPendingLocalNavigation(){
+        localConnectSequence += 1;
+        localConnectController?.abort();
+        localConnectController = null;
+        localConnectPromise = null;
+        clearTimeout(handoffTimer);
+        setLocalControlState('retry', '已选择入口；若未打开，可重试或展开连接帮助');
+      }
+
       function resetLocalControlConnection(){
         localConnectSequence += 1;
+        clearTimeout(handoffTimer);
+        LOCAL_ORIGIN = localDiscovery.fallbackOrigin;
+        LOCAL_CONTROL_URL = LOCAL_ORIGIN + LOCAL_CONTROL_PATH;
         localConnectController?.abort();
         localConnectController = null;
         localConnectPromise = null;
@@ -1164,7 +1180,7 @@
       }
 
       function connectLocalControl(){
-        if (nebulaMode !== 'expanded') return Promise.resolve(false);
+        if (document.hidden || nebulaMode !== 'expanded') return Promise.resolve(false);
         if (VISUAL_TEST) {
           localControlConnected = false;
           setLocalControlState('retry', '视觉测试模式：点击可重试本地连接');
@@ -1176,66 +1192,41 @@
         }
         if (localConnectPromise) return localConnectPromise;
 
-        if (hasRecentLocalHandoff()) {
-          const recentSequence = ++localConnectSequence;
-          enterLocalControl(recentSequence, '正在恢复本地控制…');
-          return Promise.resolve(true);
-        }
-
         const sequence = ++localConnectSequence;
         const controller = new AbortController();
-        const image = new Image();
         localConnectController = controller;
+        needsLocalProbe = false;
         setLocalControlState('connecting');
-
-        localConnectPromise = new Promise((resolve) => {
-          let settled = false;
-          let failedProbes = 0;
-          const timeout = window.setTimeout(() => finish(false), LOCAL_CONNECT_TIMEOUT);
-          const probeFailed = () => {
-            failedProbes += 1;
-            if (failedProbes >= 2) finish(false);
-          };
-          const finish = (available) => {
-            if (settled) return;
-            settled = true;
-            window.clearTimeout(timeout);
-            image.onload = null;
-            image.onerror = null;
-            if (sequence !== localConnectSequence || controller.signal.aborted || nebulaMode !== 'expanded') {
-              resolve(false);
-              return;
-            }
-            localConnectController = null;
-            localConnectPromise = null;
-            localControlConnected = false;
-            controller.abort();
-            if (available) {
-              enterLocalControl(sequence);
-              resolve(true);
-              return;
-            }
-            setLocalControlState('retry');
-            resolve(false);
-          };
-          controller.signal.addEventListener('abort', () => finish(false), { once:true });
-          image.onload = () => finish(true);
-          image.onerror = probeFailed;
-          image.src = LOCAL_PROBE_URL + '?probe=' + Date.now();
-          fetch(LOCAL_ORIGIN + '/api/ping?ts=' + Date.now(), {
-            mode:'cors',
-            cache:'no-store',
-            credentials:'omit',
-            targetAddressSpace:'local',
-            signal:controller.signal,
-          }).then(async (response) => {
-            const data = await response.json().catch(() => ({}));
-            if (!response.ok || data.ok !== true) throw new Error('本地服务未响应');
-            finish(true);
-          }).catch(probeFailed);
+        localConnectPromise = localDiscovery.discover({ signal: controller.signal }).then(origin => {
+          if (document.hidden || sequence !== localConnectSequence || controller.signal.aborted || nebulaMode !== 'expanded') return false;
+          localConnectController = null;
+          localConnectPromise = null;
+          localControlConnected = false;
+          if (origin) {
+            LOCAL_ORIGIN = origin;
+            LOCAL_CONTROL_URL = origin + LOCAL_CONTROL_PATH;
+            enterLocalControl(sequence);
+            return true;
+          }
+          setLocalControlState('retry', '自动连接未确认，点击直接进入或展开连接帮助');
+          return false;
         });
         return localConnectPromise;
       }
+
+      function resumeLocalConnection(){
+        resetLocalControlConnection();
+        needsLocalProbe = true;
+        // Returning from the controller must not immediately navigate away again.
+        if (nebulaMode === 'expanded') setLocalControlState('retry', '连接已重置，点击重新查找本地控制');
+      }
+      window.addEventListener('pageshow', resumeLocalConnection);
+      window.addEventListener('online', resumeLocalConnection);
+      window.addEventListener('offline', resumeLocalConnection);
+      document.addEventListener('visibilitychange', () => {
+        if (document.hidden) resetLocalControlConnection();
+        else resumeLocalConnection();
+      });
 
       function setNebulaReveal(expansion, sunRect = window.__nebulaSunRect){
         if (!nebulaOverlay || !sunRect) return;
@@ -1475,10 +1466,19 @@
           event.preventDefault();
           return;
         }
-        nebulaHint.classList.remove('retry');
-        nebulaHint.classList.add('connecting');
+        // A failed HTTPS probe keeps a native direct link available. After a
+        // network/page restore, a click first performs fresh bounded discovery.
+        if (needsLocalProbe) {
+          event.preventDefault();
+          connectLocalControl();
+          return;
+        }
+        const sequence = ++localConnectSequence;
+        clearTimeout(handoffTimer);
         nebulaHint.textContent = '正在进入本地控制…';
-        rememberRecentLocalHandoff();
+        handoffTimer = setTimeout(() => {
+          if (sequence === localConnectSequence && nebulaMode === 'expanded') setLocalControlState('retry', '进入尚未完成，点击重试或展开连接帮助');
+        }, localDiscovery.navigationTimeoutMs);
       });
       sunBtn?.addEventListener('click', pressSun);
       window.addEventListener('resize', syncSunGeometry, { passive:true });
@@ -1840,7 +1840,7 @@
     function bindNebulaInteraction() {
       if (!overlay || overlay.dataset.interactionBound === '1') return;
       overlay.dataset.interactionBound = '1';
-      const isBackControl = (event) => event.target?.closest?.('.nebula-back');
+      const isBackControl = (event) => event.target?.closest?.('.nebula-back, .nebula-hint, .local-connection-help');
       const start = (event) => {
         if (isBackControl(event) || !overlay.classList.contains('control-ready')) return;
         pointerActive = true;

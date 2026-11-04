@@ -1,5 +1,5 @@
 // Keep app code consistent per release; cache large media only when it is used.
-const CACHE = 'lw5-home-v63-island-button';
+const CACHE = 'lw5-home-v64-local-discovery';
 const ASSETS = [
   './',
   './index.html',
@@ -11,6 +11,7 @@ const ASSETS = [
   './shared/supplements-v1.js',
   './shared/app-ui-v1.css',
   './shared/app-ui-v1.js',
+  './shared/local-control-v1.js',
   './shared/elevator-v1.css',
   './shared/elevator-v1.js',
   './shared/elevator-ascent-v1.js',
