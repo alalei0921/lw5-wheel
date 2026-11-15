@@ -24,7 +24,7 @@ async function setup({winner='192.168.1.136',width=390,https=false}={}) {
         if(url.hostname!==winner)return route.abort('failed');
         return route.fulfill({contentType:'application/json',headers:{'access-control-allow-origin':base},body:JSON.stringify({ok:true,service:'lw5-local-control'})});
       }
-      if(request.isNavigationRequest() && request.method()==='GET' && ['/sun-mode','/aurora','/wind','/'].includes(url.pathname) && ['192.168.1.105','192.168.1.136','5damidemac-mini.local'].includes(url.hostname)){
+      if(request.isNavigationRequest() && request.method()==='GET' && ['/sun-mode','/aurora','/wind','/panel-mute','/'].includes(url.pathname) && ['192.168.1.105','192.168.1.136','5damidemac-mini.local'].includes(url.hostname)){
         return route.fulfill({contentType:'text/html',body:'<p>MOCK CONTROLLER — no device code</p>'});
       }
       if(url.hostname==='cdn.jsdelivr.net')return route.fulfill({contentType:'text/javascript',body:''});
@@ -43,7 +43,7 @@ async function setup({winner='192.168.1.136',width=390,https=false}={}) {
 test('all preview pages automatically select the current address and fit a small phone',async()=>{
   const s=await setup({width:320});
   try {
-    for(const [file,destination] of [['hyperion','/'],['aurora','/aurora'],['chione','/wind']]){
+    for(const [file,destination] of [['hyperion','/'],['aurora','/aurora'],['chione','/wind'],['panel-mute','/panel-mute']]){
       await s.page.goto(s.base+'/smart-home/'+file+'.html');
       await s.page.waitForFunction(()=>document.querySelector('#localControl').classList.contains('connected'));
       assert.equal(await s.page.locator('#localControl').getAttribute('href'),'http://192.168.1.136:8788'+destination);
@@ -51,6 +51,39 @@ test('all preview pages automatically select the current address and fit a small
       assert(await s.page.locator('.local-connection-help a').nth(1).isVisible());
       assert(await s.page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1));
     }
+    assert.deepEqual(s.errors,[]);assert.deepEqual(s.forbidden,[]);
+  } finally {await s.context.close();}
+});
+test('mute entry discovers only the bridge and leaves device state unknown until local navigation',async()=>{
+  const s=await setup();
+  try {
+    await s.page.goto(s.base+'/?visual-test=1');
+    await s.page.getByRole('link',{name:'打开中控静音设置'}).click();
+    await s.page.waitForFunction(()=>document.querySelector('#localControl')?.classList.contains('connected'));
+    assert.match(await s.page.locator('#deviceState').innerText(),/尚未读取中控状态/);
+    assert.match(await s.page.locator('#status').innerText(),/中控状态请进入后查看/);
+    assert.equal(await s.page.getByRole('switch').count(),0);
+    assert.equal(new URL(s.page.url()).pathname,'/smart-home/panel-mute.html');
+    await s.page.locator('#localControl').click();
+    await s.page.waitForURL('http://192.168.1.136:8788/panel-mute');
+    assert.match(await s.page.locator('body').innerText(),/MOCK CONTROLLER/);
+    assert.deepEqual(s.errors,[]);assert.deepEqual(s.forbidden,[]);
+  } finally {await s.context.close();}
+});
+test('mute entry keeps a direct local link when HTTPS discovery fails and offline never implies muted',async()=>{
+  const s=await setup({winner:null,https:true,width:320});
+  try {
+    await s.page.goto(s.base+'/smart-home/panel-mute.html');
+    await s.page.waitForFunction(()=>document.querySelector('#status').textContent.includes('暂未确认'),{},{timeout:6000});
+    assert.match(await s.page.locator('#deviceState').innerText(),/尚未读取中控状态/);
+    await s.context.setOffline(true);
+    await s.page.waitForFunction(()=>document.querySelector('#status').textContent.includes('请先连接家庭 Wi-Fi'));
+    assert.equal(await s.page.locator('#localControl').getAttribute('href'),'http://192.168.1.136:8788/panel-mute');
+    assert.match(await s.page.locator('#deviceState').innerText(),/尚未读取中控状态/);
+    assert(await s.page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1));
+    await s.context.setOffline(false);
+    await s.page.locator('#localControl').click();
+    await s.page.waitForURL('http://192.168.1.136:8788/panel-mute');
     assert.deepEqual(s.errors,[]);assert.deepEqual(s.forbidden,[]);
   } finally {await s.context.close();}
 });

@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <meta name="theme-color" content="#eeeafa" />
+  <title>中控静音 · Lw&amp;5之家</title>
+  <style>
+    *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+    html{min-height:100%;background:#eeeafa}
+    body{margin:0;min-height:100vh;color:#302e48;font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","SF Pro Display","Helvetica Neue",Arial,sans-serif;background:radial-gradient(ellipse at 15% 10%,#fff7ee 0,transparent 55%),linear-gradient(150deg,#eeeafa,#e5effa);overflow-x:hidden}
+    .shell{width:min(760px,100%);margin:auto;padding:18px 14px 30px}
+    header,.panel{border:1px solid rgba(255,255,255,.8);background:rgba(255,255,255,.48);box-shadow:0 14px 32px rgba(69,56,102,.09);border-radius:20px;padding:20px}
+    header{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:14px}
+    h1{margin:0;font-size:28px;line-height:1.2}
+    .status{margin-top:8px;font-size:14px;line-height:1.7;color:#615d78}
+    .home-btn,.local-btn{min-height:48px;padding:12px 20px;border:1px solid rgba(255,255,255,.85);border-radius:999px;background:rgba(255,255,255,.72);color:inherit;font-weight:800;text-decoration:none;text-align:center;display:grid;place-items:center}
+    .home-btn{flex-shrink:0}
+    .local-btn{background:#e0d9f3;margin-top:24px;line-height:1.5}
+    .local-btn.connected{background:#625582;color:#fff}
+    .moon{display:grid;place-items:center;width:80px;height:80px;border-radius:28px;background:rgba(255,255,255,.66);font-size:42px;margin-bottom:20px}
+    h2{font-size:22px;line-height:1.4;margin:0 0 10px}
+    p{font-size:15px;line-height:1.8;margin:0;color:#615d78}
+    .device-state{margin-top:22px;padding:15px 17px;border:1px solid #dcd5ed;border-radius:16px;background:rgba(255,255,255,.44)}
+    .device-state strong{display:block;font-size:15px;margin-bottom:5px}
+    .device-state p{font-size:14px}
+    .note{font-size:13px;text-align:center;margin-top:18px}
+    @media(max-width:560px){.shell{padding:14px}header{flex-direction:column}.home-btn{width:100%}h1{font-size:25px}.panel{padding:20px 17px}.local-btn{padding:12px 14px}}
+  </style>
+  <link rel="stylesheet" href="../shared/app-ui-v1.css" />
+  <script defer src="../shared/app-ui-v1.js"></script>
+</head>
+<body>
+  <main class="shell">
+    <header>
+      <div>
+        <h1>中控静音</h1>
+        <div class="status" id="status" role="status" aria-live="polite">正在查找本地控制入口…</div>
+      </div>
+      <a class="home-btn" href="../">返回主页</a>
+    </header>
+    <section class="panel" aria-labelledby="quietTitle">
+      <div class="moon" aria-hidden="true">🌙</div>
+      <h2 id="quietTitle">给家里一段安静时间</h2>
+      <p>门铃静音的控制入口。进入设置后确认中控支持情况，再开启静音或恢复原来的声音。</p>
+      <div class="device-state" id="deviceState">
+        <strong>尚未读取中控状态</strong>
+        <p>打开此页不会改变门铃声音，请进入设置查看实际状态。</p>
+      </div>
+      <a class="local-btn" id="localControl" href="http://192.168.1.136:8788/panel-mute" target="_top">进入中控静音设置</a>
+      <p class="note">手机与 Mac 需连接可互通的家庭 Wi-Fi。</p>
+    </section>
+  </main>
+  <script src="../shared/local-control-v1.js"></script>
+  <script>
+    const link = document.getElementById('localControl');
+    const status = document.getElementById('status');
+    window.LW5LocalControl.bind({
+      link,
+      status,
+      path: '/panel-mute',
+      onChange(available) {
+        link.classList.toggle('connected', available);
+        status.textContent = available
+          ? '已找到本地服务；中控状态请进入后查看。'
+          : '正在查找本地控制入口…';
+      }
+    });
+  </script>
+</body>
+</html>

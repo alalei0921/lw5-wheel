@@ -1,5 +1,5 @@
 // Keep app code consistent per release; cache large media only when it is used.
-const CACHE = 'lw5-home-v64-local-discovery';
+const CACHE = 'lw5-home-v65-panel-mute';
 const ASSETS = [
   './',
   './index.html',
@@ -86,6 +86,7 @@ const ASSETS = [
   './smart-home/hyperion.html',
   './smart-home/aurora.html',
   './smart-home/chione.html',
+  './smart-home/panel-mute.html',
   './smart-home/hyperion-bg.jpg',
   './smart-home/aurora-bg.jpg',
   './smart-home/chione-bg.jpg',

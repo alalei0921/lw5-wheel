@@ -33,7 +33,7 @@ async function setup(options={}) {
 }
 
 test('all everyday screens fit small phones and desktop without script errors',async()=>{
-  const screens=['/','/stock/','/travel/','/conflict/','/smart-home/hyperion.html','/smart-home/aurora.html','/smart-home/chione.html'];
+  const screens=['/','/stock/','/travel/','/conflict/','/smart-home/hyperion.html','/smart-home/aurora.html','/smart-home/chione.html','/smart-home/panel-mute.html'];
   for(const viewport of [{width:320,height:568},{width:390,height:844},{width:1365,height:900}]){
     const {context,page,errors}=await setup({viewport});
     for(const url of screens){
