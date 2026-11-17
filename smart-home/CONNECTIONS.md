@@ -39,8 +39,21 @@ the bridge does not establish the panel's connectivity or mute state. The entry
 page always leaves device state unknown and never sends a mute command; the
 local page must check device support and read actual state before offering control.
 
-This release uses cache `lw5-home-v65-panel-mute` and precaches the
-mute entry page. Publish the HTML, module and worker together, then reload/update the
+The small bulb directly above the supplements button opens a modal and discovers
+the bridge only after a real user click. The home page sends no lighting API
+request. It navigates in the same window to `/lights-on#start=<requestId>` using
+the discovered origin, or the existing direct-navigation fallback when HTTPS
+blocks discovery. The ID is `<13-digit timestamp>-<crypto.randomUUID()>`, is
+created only by that click, and is fresh for 60 seconds. All manual fallback
+links preserve the same ID. Expired links are disabled; starting again requires
+closing the modal and clicking the bulb. Closing, Escape, backgrounding before
+handoff, or going offline cancels pending discovery/navigation. Page load,
+reload, and returning from browser history never create an attempt or navigate.
+The local page continues the real per-light progress, with server-side task
+deduplication; finding the bridge is never presented as successful lighting.
+
+This release uses cache `lw5-home-v66-lights-on` and precaches the
+bulb module and styles. Publish the HTML, module and worker together, then reload/update the
 installed PWA. The existing GitHub Pages site deploys the repository root from `main`.
 
 Hardware-isolated checks (no real LAN or cloud requests):
@@ -48,6 +61,7 @@ Hardware-isolated checks (no real LAN or cloud requests):
 ```sh
 node --test tests/local-control.test.cjs tests/home-update.test.cjs tests/service-worker.test.cjs
 node --test tests/local-control-browser.cjs
+node --test tests/lights-on-browser.cjs
 node --test --test-name-pattern='all everyday screens|shared feedback' tests/app-ux.cjs
 ```
 

@@ -1,5 +1,5 @@
 // Keep app code consistent per release; cache large media only when it is used.
-const CACHE = 'lw5-home-v65-panel-mute';
+const CACHE = 'lw5-home-v66-lights-on';
 const ASSETS = [
   './',
   './index.html',
@@ -12,6 +12,8 @@ const ASSETS = [
   './shared/app-ui-v1.css',
   './shared/app-ui-v1.js',
   './shared/local-control-v1.js',
+  './shared/lights-on-v1.js',
+  './shared/lights-on-v1.css',
   './shared/elevator-v1.css',
   './shared/elevator-v1.js',
   './shared/elevator-ascent-v1.js',
