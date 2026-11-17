@@ -53,16 +53,23 @@ The local page continues the real per-light progress, with server-side task
 deduplication; finding the bridge is never presented as successful lighting.
 
 The connection modal and local progress page share the `lights-on-universe.js`
-Canvas renderer and its CSS. It animates a gold accretion disk, nine confirmed-light
-nodes, localized impact waves and a sun only after the job succeeds. The renderer
-never fetches or sends commands; counts and completion come from job snapshots.
-Reduced-motion mode renders a static scene; hidden or closed scenes stop animation.
-The local bridge embeds copies of these two assets so the LAN page works without
-loading scripts from the public site. Keep those copies identical when deploying.
+renderer and CSS. The normal renderer is a full-viewport WebGL scene with a large
+artistic lens halo, ray-marched foreground dust, slow camera drift, local confirmed
+light beacons and a success wave. The black core stays dark at completion. This
+is an artistic rendering, not a physically accurate black-hole simulation.
 
-This release uses cache `lw5-home-v67-lights-cosmos` and precaches the
-bulb module, universe renderer and styles. Publish the HTML, modules and worker together, then reload/update the
-installed PWA. The existing GitHub Pages site deploys the repository root from `main`.
+Only job snapshots update progress; the renderer never fetches or sends commands.
+Reduced-motion mode is static. Hidden or closed scenes stop scheduling frames.
+The render buffer is capped at 520,000 pixels and scales down after sustained slow
+frames. WebGL failure/context loss falls back to the previous Canvas renderer;
+context restoration preserves the job snapshot. Disposal releases GPU resources.
+The WebGL scaffold/hash attribution and MIT notice are embedded in the engine,
+with an additional copy at `licenses/blackhole-MIT.txt`.
+
+The local bridge embeds byte-identical copies of the shared renderer and CSS;
+keep those copies synchronized when deploying. This release uses cache
+`lw5-home-v68-cinematic-lights`. Publish the HTML, modules and worker together,
+then reload/update the installed PWA. GitHub Pages deploys the root of `main`.
 
 Hardware-isolated checks (no real LAN or cloud requests):
 

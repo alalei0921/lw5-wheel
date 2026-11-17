@@ -12,19 +12,19 @@ test.before(async () => {
     fs.readFile(path.join(root, 'shared/lights-on-universe.js'), 'utf8'),
     fs.readFile(path.join(root, 'shared/lights-on-universe.css'), 'utf8'),
   ]);
-  browser = await chromium.launch({ headless: true });
+  browser = await chromium.launch({ headless: true, args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader'] });
 });
 test.after(async () => browser?.close());
 
-async function scene({ width = 390, height = 844, reducedMotion = 'no-preference', dialog = false } = {}) {
+async function scene({ width = 390, height = 844, reducedMotion = 'no-preference', dialog = false, blockWebGL = false } = {}) {
   const context = await browser.newContext({ viewport: { width, height }, reducedMotion, serviceWorkers: 'block' });
   const requests = [], errors = [];
   await context.route('**/*', route => { requests.push(route.request().url()); return route.abort(); });
   const page = await context.newPage();
   page.on('pageerror', error => errors.push(error.message));
-  await page.setContent('<!doctype html><meta name="viewport" content="width=device-width,initial-scale=1"><style>html,body{margin:0;background:#08090e;color:#ddbb7d}main{min-height:100vh;display:grid;place-content:center}main[hidden]{display:none}#host{width:min(440px,100vw);aspect-ratio:1}dialog{padding:0;border:0;background:#08090e}</style>' + (dialog ? '<dialog id="modal">' : '') + '<main id="wrapper"><div id="host"></div></main>' + (dialog ? '</dialog>' : ''));
+  await page.setContent('<!doctype html><meta name="viewport" content="width=device-width,initial-scale=1"><style>html,body{margin:0;background:#08090e;color:#ddbb7d}main{min-height:100vh}main[hidden]{display:none}#host{width:100vw;height:100vh;aspect-ratio:auto}dialog{position:fixed;inset:0;width:100vw;height:100vh;max-width:none;max-height:none;margin:0;padding:0;border:0;background:#08090e}</style>' + (dialog ? '<dialog id="modal">' : '') + '<main id="wrapper"><div id="host"></div></main>' + (dialog ? '</dialog>' : ''));
   if (dialog) await page.evaluate(() => document.getElementById('modal').showModal());
-  await page.evaluate(() => {
+  await page.evaluate(blockWebGL => {
     const nativeFrame = window.requestAnimationFrame.bind(window);
     const nativeCancel = window.cancelAnimationFrame.bind(window);
     const pending = new Set();
@@ -36,10 +36,22 @@ async function scene({ width = 390, height = 844, reducedMotion = 'no-preference
       return id;
     };
     window.cancelAnimationFrame = id => { pending.delete(id); nativeCancel(id); };
-  });
+    window.__gpuDraws = 0;
+    if (typeof WebGLRenderingContext === 'function') {
+      const nativeDraw = WebGLRenderingContext.prototype.drawArrays;
+      WebGLRenderingContext.prototype.drawArrays = function (...args) { window.__gpuDraws += 1; return nativeDraw.apply(this, args); };
+    }
+    if (blockWebGL) {
+      const nativeContext = HTMLCanvasElement.prototype.getContext;
+      HTMLCanvasElement.prototype.getContext = function (type, ...args) {
+        return /webgl/i.test(type) ? null : nativeContext.call(this, type, ...args);
+      };
+    }
+  }, blockWebGL);
   await page.addStyleTag({ content: style });
   await page.addScriptTag({ content: script });
   await page.evaluate(() => { window.scene = window.LW5LightsUniverse.create(document.getElementById('host')); });
+  assert.equal(await page.locator('#host').getAttribute('data-renderer'), blockWebGL ? 'compatibility' : 'webgl');
   return { page, context, requests, errors };
 }
 async function update(page, value) { await page.evaluate(value => window.scene.update(value), value); }
@@ -137,10 +149,11 @@ test('canvas fits small mobile and desktop layouts at capped resolution', async 
         const geometry = await s.page.evaluate(() => {
           const canvas = document.querySelector('#host canvas'), host = document.getElementById('host');
           const box = canvas.getBoundingClientRect();
-          return { scroll: document.documentElement.scrollWidth, width: innerWidth, left: box.left, right: box.right, backingWidth: canvas.width, hostWidth: host.clientWidth };
+          return { scroll: document.documentElement.scrollWidth, width: innerWidth, left: box.left, right: box.right, top:box.top, bottom:box.bottom, height:innerHeight, backingWidth: canvas.width, hostWidth: host.clientWidth };
         });
         assert(geometry.scroll <= geometry.width);
         assert(geometry.left >= 0 && geometry.right <= width);
+        assert.equal(geometry.top,0); assert.equal(geometry.bottom,geometry.height);
         assert(geometry.backingWidth <= geometry.hostWidth * 2 + 2);
         if (process.env.SCREENSHOT_DIR) {
           await fs.mkdir(process.env.SCREENSHOT_DIR, { recursive: true });
@@ -150,4 +163,61 @@ test('canvas fits small mobile and desktop layouts at capped resolution', async 
       clean(s);
     } finally { await s.context.close(); }
   }
+});
+
+test('WebGL unavailable falls back without advancing or losing actual confirmations', async () => {
+  const s = await scene({ blockWebGL: true, reducedMotion: 'reduce' });
+  try {
+    assert.equal(await s.page.locator('#host').getAttribute('data-renderer-reason'),'unavailable');
+    await update(s.page,{status:'running',completed:4,currentIndex:5});
+    await expectStopped(s.page);
+    assert.equal(await s.page.locator('#host').getAttribute('data-completed'),'4');
+    assert.equal(await s.page.locator('#host').getAttribute('data-phase'),'running');
+    const running=await s.page.locator('#host canvas').evaluate(canvas=>canvas.toDataURL());
+    await update(s.page,{status:'verifying',completed:9});
+    assert.equal(await s.page.locator('#host').getAttribute('data-phase'),'verifying');
+    await update(s.page,{status:'failed',completed:8,currentIndex:5});
+    assert.equal(await s.page.locator('#host').getAttribute('data-completed'),'8');
+    assert.equal(await s.page.locator('#host').getAttribute('data-phase'),'failed');
+    await update(s.page,{status:'succeeded',completed:9});
+    const complete=await s.page.locator('#host canvas').evaluate(canvas=>canvas.toDataURL());
+    assert.notEqual(running,complete);
+    assert.equal(await s.page.evaluate(()=>window.__gpuDraws),0);
+    await s.page.evaluate(()=>window.scene.destroy());
+    await expectStopped(s.page);
+    assert.equal(await s.page.locator('#host canvas').count(),0);
+    clean(s);
+  } finally {await s.context.close();}
+});
+
+test('lost GPU context uses compatibility rendering and recovers the same confirmed state', async () => {
+  const s = await scene({reducedMotion:'reduce'});
+  try {
+    await update(s.page,{status:'running',completed:3,currentIndex:4});
+    const supported=await s.page.evaluate(()=>{
+      const canvas=document.querySelector('#host canvas[data-layer="space"]');
+      window.__loss=canvas.getContext('webgl').getExtension('WEBGL_lose_context');
+      return Boolean(window.__loss);
+    });
+    assert.equal(supported,true,'The SwiftShader test context must support deterministic context loss');
+    await s.page.evaluate(()=>window.__loss.loseContext());
+    await s.page.waitForFunction(()=>document.getElementById('host').dataset.renderer==='compatibility');
+    const before=await s.page.evaluate(()=>window.__gpuDraws);
+    await update(s.page,{status:'verifying',completed:9});
+    await expectStopped(s.page);
+    assert.equal(await s.page.evaluate(()=>window.__gpuDraws),before,'Lost GPU context must stop drawing');
+    assert.equal(await s.page.locator('#host').getAttribute('data-completed'),'9');
+    assert.equal(await s.page.locator('#host').getAttribute('data-phase'),'verifying');
+    await s.page.evaluate(()=>window.__loss.restoreContext());
+    await s.page.waitForFunction(()=>document.getElementById('host').dataset.renderer==='webgl');
+    assert.equal(await s.page.locator('#host canvas').count(),1);
+    assert.equal(await s.page.locator('#host').getAttribute('data-phase'),'verifying');
+    assert.equal(await s.page.locator('#host').getAttribute('data-completed'),'9');
+    assert((await s.page.evaluate(()=>window.__gpuDraws))>before);
+    await expectStopped(s.page);
+    await s.page.evaluate(()=>window.scene.destroy());
+    await expectStopped(s.page);
+    assert.equal(await s.page.locator('#host canvas').count(),0);
+    clean(s);
+  } finally {await s.context.close();}
 });
