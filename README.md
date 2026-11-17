@@ -40,3 +40,19 @@ v61 名称兼容：读取时将对应行的旧数字/中文序号占位名显示
 
 
 v62 说明兼容：仅为对应默认短名称下的空说明或原“点「编辑」填写名称和用量”占位说明补齐默认小字。读取时不重写原始存储，其他自定义名称、说明与当天开关保留。显式保存写入 `notesVersion:1`，之后尊重用户编辑，包括主动清空说明。默认公开说明仅限已获批准的四句，不上传本地配置或打卡。
+
+
+## Black-hole lighting visual (2026-11-18)
+
+The lighting scene fits the full event-horizon arc inside phone viewports.
+Its volumetric foreground advects around the black hole with differential angular
+speed. Nine confirmed circuits illuminate nine distinct procedural stars and
+clusters, including convection cells, coronae, magnetic loops, binary orbits,
+seeded star particles and nebular gas. No generated image/video or external
+visual asset is required. This is an artistic space effect, not a physical simulation.
+
+The existing renderer API, confirmed progress, error semantics and controls are
+unchanged. Both frontend and local bridge use the same renderer bytes; bridge
+HTML embeds the files at startup and requires a restart to refresh. The service
+worker cache is `lw5-home-v69-stellar-blackhole`. The previous black-hole renderer
+remains available in Git at `46e317f` and the independent comparison preview.

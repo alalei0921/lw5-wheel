@@ -1,5 +1,5 @@
 // Keep app code consistent per release; cache large media only when it is used.
-const CACHE = 'lw5-home-v68-cinematic-lights';
+const CACHE = 'lw5-home-v69-stellar-blackhole';
 const ASSETS = [
   './',
   './index.html',

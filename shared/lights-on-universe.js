@@ -41,23 +41,199 @@ uniform float uImpacts[9];
 float hash13(vec3 p){p=fract(p*.1031);p+=dot(p,p.zyx+31.32);return fract((p.x+p.y)*p.z);}
 float noise3(vec3 p){vec3 i=floor(p),f=fract(p);f=f*f*(3.-2.*f);vec2 uv=i.xy+vec2(37.,17.)*i.z+f.xy;vec2 v=texture2D(uNoise,(uv+.5)/128.).rg;return mix(v.x,v.y,f.z);}
 float fbm(vec3 p){float n=.5*noise3(p);p=p*2.02+17.3;n+=.25*noise3(p);p=p*2.04+11.7;n+=.125*noise3(p);p=p*2.01+7.2;n+=.0625*noise3(p);p=p*2.03+11.7;n+=.03125*noise3(p);return n;}
-float dust(vec3 p){p.x+=uTime*.045;p.z+=uTime*.09;float n=fbm(p*vec3(1.7,2.2,1.7));return max(0.,n-.49-p.y*.31);}
+mat2 turn(float a){float c=cos(a),s=sin(a);return mat2(c,-s,s,c);}
+float dust(vec3 p){
+ // Advect a coherent volume around the hole; inner clouds overtake the outer bank.
+ vec2 orbit=p.xz-vec2(0.,10.);
+ float radial=length(orbit);
+ float angle=uTime*(.21+.16*exp(-radial*.13))+.22*radial;
+ vec2 q=turn(angle)*orbit;
+ float n=fbm(vec3(q.x*1.35,p.y*2.2,q.y*1.35));
+ float strand=sin(radial*1.9+atan(orbit.y,orbit.x)*2.-uTime*.32)*.028;
+ return max(0.,n-.47-p.y*.31+strand);
+}
 vec3 aces(vec3 c){return clamp((c*(2.51*c+.03))/(c*(2.43*c+.59)+.14),0.,1.);}
+// Original procedural stellar studies. Linear HDR output; compose before ACES.
+// Requires existing noise3/hash13, uTime/uCompleted/uCurrent/uFailed/uImpacts.
+mat2 stRotate(float a){float c=cos(a),s=sin(a);return mat2(c,-s,s,c);}
+
+vec3 stPhotosphere(vec2 p,vec3 ember,vec3 hot,float seed,float strength,float pixel){
+ float rr=length(p),ang=atan(p.y,p.x),edge=rr-1.;
+ vec3 colour=vec3(0.);
+ // Uneven coronal streamers are rooted to the rotating sphere, not a soft disk.
+ vec2 orbit=stRotate(uTime*.075+seed)*vec2(cos(ang),sin(ang));
+ float stream=noise3(vec3(orbit*7.4,seed+uTime*.11));
+ float fine=noise3(vec3(orbit*19.,seed-uTime*.15));
+ float corona=exp(-max(edge,0.)*(4.6+stream*4.))*smoothstep(-pixel,pixel,edge);
+ colour+=mix(ember,hot,.38)*corona*(.10+stream*.21+pow(fine,4.)*.48)*strength;
+ colour+=hot*.055*exp(-rr*1.35)*strength;
+ if(rr<1.+pixel){
+  float z=sqrt(max(0.,1.-rr*rr));
+  vec3 surface=vec3(p,z);
+  surface.xz=stRotate(uTime*.16+seed)*surface.xz;
+  float convection=noise3(surface*7.8+vec3(seed,0.,uTime*.22));
+  float granules=noise3(surface*29.+vec3(seed*3.,uTime*.48,0.));
+  float cells=pow(smoothstep(.18,.86,granules),1.35);
+  float filaments=pow(1.-abs(sin((convection*3.+granules)*10.)),10.);
+  float spots=smoothstep(.67,.89,noise3(surface*5.4+seed*2.))*smoothstep(.3,.8,z);
+  float limb=.36+.64*pow(max(z,0.),.55);
+  vec3 plasma=mix(ember*.34,hot,.26+cells*.61);
+  plasma*=limb*(.72+convection*.7)*(1.-spots*.72);
+  plasma+=hot*filaments*.27*limb;
+  colour+=plasma*strength*(1.-smoothstep(1.-pixel,1.+pixel,rr));
+ }
+ // Three real projected magnetic loops: elliptical arcs outside the photosphere.
+ for(int f=0;f<3;f++){
+  float q=float(f),a=seed*.81+q*2.19+sin(uTime*.19+q)*.13;
+  vec2 radial=vec2(cos(a),sin(a)),tangent=vec2(-radial.y,radial.x);
+  float rise=.29+.11*sin(uTime*.32+seed+q);
+  vec2 loop=vec2((dot(p,radial)-1.035)/(.23+rise),dot(p,tangent)/(.13+q*.025));
+  float curve=abs(length(loop)-1.);
+  float thread=exp(-curve*31.)+.23*exp(-curve*9.);
+  float flicker=.63+.37*sin(uTime*.58+q+seed);
+  float mask=smoothstep(.96,1.04,rr)*(1.-smoothstep(1.72,1.93,rr));
+  colour+=mix(ember,hot,.64)*thread*mask*(.46+.25*flicker)*strength;
+ }
+ return colour;
+}
+
+vec3 stCluster(vec2 p,float seed,vec3 gas,vec3 stars,float variant,float strength){
+ vec2 turn=stRotate(uTime*(.018+variant*.006)+seed)*p;
+ float dist=length(turn*vec2(.86,1.14));
+ float fog=noise3(vec3(turn*2.3,seed+uTime*.06));
+ fog+=.5*noise3(vec3(turn*5.1+13.,seed-uTime*.08));
+ float veil=pow(max(0.,fog-.24),2.)*exp(-dist*dist*1.4);
+ vec3 colour=gas*veil*.27*strength;
+ if(variant>1.5){
+  float a=atan(turn.y,turn.x);
+  float tendril=pow(.5+.5*sin(a*3.+dist*6.-uTime*.12),4.);
+  colour+=mix(gas,stars,.3)*tendril*exp(-abs(dist-.9)*4.)*.045*strength;
+ }
+ // Fixed seeded stars have depth, unequal temperatures and individual scintillation.
+ // Only evaluated inside this cluster's small screen-space bounding disk.
+ for(int s=0;s<38;s++){
+  float k=float(s),h=hash13(vec3(k,seed,8.1)),h2=hash13(vec3(seed,k,3.7));
+  float a=k*2.399963+seed;
+  float r=pow(h,variant<.5?.48:.85)*(variant<.5?1.42:1.22);
+  vec2 at=vec2(cos(a),sin(a))*r;
+  at.y*=.72+.12*variant;
+  at.x+=sin(k*1.7)*.07;
+  float d=length(turn-at);
+  float core=exp(-d*(140.-h2*45.));
+  float glow=exp(-d*22.)*.055;
+  float life=.82+.18*sin(uTime*(.7+h2)+k*3.1);
+  vec3 temperature=mix(vec3(1.,.57,.23),stars,h2*.84+.16);
+  colour+=temperature*(core*(.40+h2*.62)+glow)*life*strength;
+  if(s<4){
+   vec2 off=turn-at;
+   float ray=exp(-abs(off.x)*260.-abs(off.y)*24.)+exp(-abs(off.y)*260.-abs(off.x)*24.);
+   colour+=temperature*ray*.085*strength;
+  }
+ }
+ return colour;
+}
+
+vec3 stellarField(vec2 screenUv,float aspect,float unit){
+ vec3 sum=vec3(0.);
+ float landscape=step(1.35,aspect),sizeBoost=mix(1.,1.55,landscape);
+ float spread=min(aspect*.62,.82);
+ for(int j=0;j<9;j++){
+  float k=float(j),row=floor(k/3.),column=mod(k,3.);
+  vec2 at=vec2((column-1.)*spread+sin(k*1.8)*spread*.065,
+    -.14-row*.235+sin(k*1.71)*.025);
+  if(landscape>.5){
+   float second=step(4.5,k),col=k-second*5.;
+   float count=mix(5.,4.,second);
+   float reach=min(aspect*.73,1.85);
+   at=vec2((col-(count-1.)*.5)*(reach*2./(count-1.)),mix(-.18,-.58,second)+sin(k*1.5)*.018);
+  }
+  float radius=(.031+hash13(vec3(k,6.,2.))*.008)*sizeBoost;
+  if(j==2)radius*=1.18;
+  if(j==4||j==5||j==7||j==8)radius=.054*sizeBoost;
+  vec2 p=(screenUv-at)/radius;
+  float dist=length(p);
+  // No detailed noise/particle work elsewhere on the screen.
+  if(dist<3.8){
+   float lit=1.-step(uCompleted,k);
+   float selected=1.-step(.4,abs(uCurrent-k-1.));
+   float failed=uFailed*selected;
+   float age=uImpacts[j];
+   float grow=age<0.?1.:smoothstep(0.,.85,age);
+   float strength=lit*grow;
+   float pixel=max(.018,2./max(1.,unit)/radius);
+   float seed=k*1.73+2.6;
+   vec3 ember=vec3(.98,.20,.025),hot=vec3(1.6,.94,.28);
+   if(j==1){ember=vec3(.06,.29,.95);hot=vec3(.78,1.15,1.65);}
+   if(j==2){ember=vec3(.66,.025,.008);hot=vec3(1.5,.37,.10);}
+   if(j==3){ember=vec3(.43,.35,.76);hot=vec3(1.35,1.43,1.65);}
+   if(j==6){ember=vec3(.02,.29,.52);hot=vec3(.32,1.45,1.65);}
+   vec3 body=vec3(0.);
+   if(strength>.001){
+    if(j==4){
+     body=stCluster(p,seed,vec3(.8,.23,.025),vec3(1.35,1.01,.49),0.,strength);
+    }else if(j==5){
+     body=stCluster(p,seed,vec3(.49,.10,.79),vec3(.79,.82,1.6),2.,strength);
+     body+=stPhotosphere((p-vec2(.10,.02))/.29,vec3(.21,.10,.66),vec3(.82,.63,1.6),seed,strength*.38,pixel/.29);
+    }else if(j==7){
+     body=stCluster(p,seed,vec3(.64,.09,.26),vec3(1.4,.77,.74),1.,strength);
+     body+=vec3(1.2,.56,.34)*exp(-dot(p,p)*18.)*.20*strength;
+    }else if(j==8){
+     body=stCluster(p,seed,vec3(.07,.32,.60),vec3(.67,1.08,1.65),2.,strength);
+     body+=stPhotosphere((p+vec2(.12,.01))/.34,vec3(.96,.19,.02),vec3(1.65,.98,.34),seed,strength*.65,pixel/.34);
+    }else if(j==1){
+     vec2 orbit=vec2(cos(uTime*.16+.4),sin(uTime*.16+.4)*.52)*.68;
+     body=stPhotosphere((p-orbit)/.67,ember,hot,seed,strength,pixel/.67);
+     body+=stPhotosphere((p+orbit)/.43,vec3(.60,.20,.035),vec3(1.4,.86,.35),seed+2.,strength*.8,pixel/.43);
+     float belt=abs(length(p/vec2(1.35,.73))-1.);
+     body+=vec3(.24,.46,.88)*exp(-belt*30.)*.018*strength;
+    }else{
+     body=stPhotosphere(p,ember,hot,seed,strength,pixel);
+     if(j==3){
+      float cross=exp(-abs(p.x)*55.-abs(p.y)*1.7)+exp(-abs(p.y)*55.-abs(p.x)*1.7);
+      body+=hot*cross*.15*strength;
+     }
+     if(j==6){
+      vec2 beam=stRotate(-.45+sin(uTime*.14)*.12)*p;
+      float jets=exp(-abs(beam.x)*28.)*exp(-abs(beam.y)*.92)*smoothstep(.8,1.22,abs(beam.y));
+      float belt=exp(-abs(length(p/vec2(1.75,.56))-1.)*42.);
+      body+=hot*(jets*.42+belt*.085)*strength;
+     }
+    }
+   }
+   // Dim unlit seeds and a restrained current-item breath never imply completion.
+   float waiting=.0028+selected*(1.-lit)*(1.-uFailed)*(.006+.005*sin(uTime*2.));
+   sum+=vec3(.44,.51,.64)*exp(-dist*23.)*waiting;
+   sum+=body*(1.-smoothstep(2.8,3.8,dist));
+   if(lit>.5&&age>=0.&&age<1.25){
+    float front=age*2.2+.95;
+    float ripple=exp(-abs(dist-front)*36.)*pow(1.-age/1.25,2.);
+    sum+=hot*ripple*.11;
+   }
+   if(failed>.5){
+    float edge=exp(-abs(dist-1.15)*25.);
+    sum+=vec3(1.1,.10,.018)*(edge*.11+exp(-dist*9.)*.3);
+   }
+  }
+ }
+ return sum;
+}
+
 void main(){
- float unit=min(uRes.x,uRes.y);
- vec2 uv=(gl_FragCoord.xy*2.-uRes)/unit;
- uv.y-=uRes.y/unit*.24;
- float roll=-.055+sin(uTime*.085)*.012;
+ float unit=uRes.y,aspect=uRes.x/uRes.y;
+ vec2 screenUv=(gl_FragCoord.xy*2.-uRes)/unit;
+ // Keep the complete horizon inside a phone, independent of its aspect ratio.
+ float framing=min(.49,aspect*.84);
+ vec2 uv=(screenUv-vec2(0.,.34))*1.30/framing;
+ float roll=-.045+sin(uTime*.085)*.009;
  uv=mat2(cos(roll),-sin(roll),sin(roll),cos(roll))*uv;
  uv.x+=sin(uTime*.095)*.018;
  float radius=1.30+sin(uTime*.06)*.012;
  float r=length(uv),edge=r-radius;
  float outer=smoothstep(-.004,.006,edge);
  float a=atan(uv.y,uv.x);
- vec3 flow=vec3(uv*2.2,uTime*.035);
- flow.xy=mat2(cos(uTime*.012),-sin(uTime*.012),sin(uTime*.012),cos(uTime*.012))*flow.xy;
+ vec3 flow=vec3(turn(uTime*.18)*uv*2.2,uTime*.025);
  float n=fbm(flow);
- float wisps=fbm(vec3(a*4.,sqrt(max(edge,0.))*9.-uTime*.08,uTime*.018));
+ float wisps=fbm(vec3(cos(a+uTime*.22)*4.,sin(a+uTime*.22)*4.,sqrt(max(edge,0.))*9.));
  float side=.24+1.7*exp(-length(uv-vec2(-1.26,-.10))*1.9);
  vec3 col=vec3(.0005,.0007,.001);
  // Background dust is stretched into the lens halo; the black core stays clear.
@@ -83,9 +259,9 @@ void main(){
  vec3 rd=normalize(vec3(uv.x,uv.y*.7-.08,1.95));
  float travel=1.7,transmittance=1.;vec3 scatter=vec3(0.);
  vec3 lightDir=normalize(vec3(-.8,.5,.15));
- for(int i=0;i<58;i++){
+ for(int i=0;i<48;i++){
   vec3 p=ro+rd*travel;
-  float stepSize=.19+travel*.022;
+  float stepSize=.23+travel*.027;
   if(p.y<1.2){
    float density=dust(p);
    if(density>.007){
@@ -105,6 +281,8 @@ void main(){
   travel+=stepSize;
   if(travel>30.)break;
  }
+ // The near cloud bank falls into shadow so the foreground stars keep their colour.
+ scatter*=mix(.20,1.,smoothstep(-.82,.1,screenUv.y));
  col=col*transmittance+scatter;
  // An original small navigation ring gives the scene a human scale.
  vec2 ship=uv-vec2(.20+sin(uTime*.12)*.13,-.03+cos(uTime*.16)*.015);
@@ -122,15 +300,7 @@ void main(){
  // Local optical glow spills across the lit ridge, with a faint anamorphic streak.
  float streak=exp(-abs(uv.y+.23)*200.)*exp(-abs(uv.x+.8)*1.5);
  col+=vec3(.75,.61,.43)*streak*.05;
- for(int j=0;j<9;j++){
-  float k=float(j);vec2 beacon=vec2((k-4.)*.175,-.64+sin(k*.58)*.065);
-  vec2 bp=uv-beacon;float d=length(bp);
-  float lit=1.-step(uCompleted,k),failed=uFailed*(1.-step(.4,abs(uCurrent-k-1.)));
-  vec3 bc=mix(vec3(1.,.85,.55),vec3(1.,.37,.08),failed);
-  col+=bc*(.009+lit*.34+failed*.2)*exp(-d*190.);
-  col+=bc*lit*.018*exp(-d*32.);
-  float age=uImpacts[j];if(age>=0.&&age<1.2){float wave=exp(-abs(d-age*.15)*220.)*pow(1.-age/1.2,2.);col+=bc*wave*.15;}
- }
+ col+=stellarField(screenUv,aspect,unit);
  col=aces(col*1.3);
  col=pow(col,vec3(.4545));
  float grain=(hash13(vec3(gl_FragCoord.xy,fract(uTime)*32.))-.5)/255.;
