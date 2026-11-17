@@ -54,5 +54,5 @@ visual asset is required. This is an artistic space effect, not a physical simul
 The existing renderer API, confirmed progress, error semantics and controls are
 unchanged. Both frontend and local bridge use the same renderer bytes; bridge
 HTML embeds the files at startup and requires a restart to refresh. The service
-worker cache is `lw5-home-v69-stellar-blackhole`. The previous black-hole renderer
+worker cache is `lw5-home-v70-stellar-blackhole`. The previous black-hole renderer
 remains available in Git at `46e317f` and the independent comparison preview.

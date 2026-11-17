@@ -46,7 +46,8 @@ float dust(vec3 p){
  // Advect a coherent volume around the hole; inner clouds overtake the outer bank.
  vec2 orbit=p.xz-vec2(0.,10.);
  float radial=length(orbit);
- float angle=uTime*(.21+.16*exp(-radial*.13))+.22*radial;
+ // Bounded differential shear avoids winding the clouds into finer stripes over time.
+ float angle=uTime*.24+.22*radial+.55*exp(-radial*.13)*sin(uTime*.35);
  vec2 q=turn(angle)*orbit;
  float n=fbm(vec3(q.x*1.35,p.y*2.2,q.y*1.35));
  float strand=sin(radial*1.9+atan(orbit.y,orbit.x)*2.-uTime*.32)*.028;
