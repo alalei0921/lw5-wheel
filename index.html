@@ -891,6 +891,8 @@
   <script defer src="./shared/supplements-store-v1.js"></script>
   <script defer src="./shared/supplements-v1.js"></script>
   <link rel="stylesheet" href="./shared/lights-on-v1.css" />
+  <link rel="stylesheet" href="./shared/lights-on-universe.css" />
+  <script defer src="./shared/lights-on-universe.js"></script>
   <script defer src="./shared/lights-on-v1.js"></script>
   <link rel="stylesheet" href="./shared/elevator-v1.css" />
   <script defer src="./shared/elevator-config-v1.js"></script>
@@ -929,12 +931,13 @@
   <button class="supplement-launch" id="supplementLaunch" type="button" aria-label="打开每日补剂打卡" aria-haspopup="dialog" aria-controls="supplementDialog" title="每日补剂打卡"><span aria-hidden="true">💊</span></button>
   <button class="lights-on-launch" id="lightsOnLaunch" type="button" aria-label="一键开灯" aria-haspopup="dialog" aria-controls="lightsOnDialog" title="一键开灯"><span aria-hidden="true">💡</span></button>
   <dialog class="lights-on-dialog" id="lightsOnDialog" aria-labelledby="lightsOnTitle" aria-describedby="lightsOnDetail">
-    <div class="lights-on-top"><span>LW&amp;5 · 点亮家里</span><button class="lights-on-close" id="lightsOnClose" type="button" aria-label="关闭开灯窗口" autofocus>×</button></div>
-    <div class="lights-on-art" aria-hidden="true"><div class="lights-on-halo"></div><span>💡</span><i></i><i></i><i></i></div>
-    <div class="lights-on-copy" role="status" aria-live="polite" aria-atomic="true"><h2 id="lightsOnTitle">正在连接中控</h2><p id="lightsOnDetail">正在进入家里的灯光控制…</p></div>
-    <div class="lights-on-progress" id="lightsOnProgress" role="progressbar" aria-label="正在连接中控"><span></span></div>
-    <div class="lights-on-help" id="lightsOnHelp" hidden><p>也可手动进入</p><div id="lightsOnLinks"></div></div>
-    <p class="lights-on-footnote">进入后查看每盏灯的实际进度</p>
+    <div class="lights-on-top"><span>LW5</span><button class="lights-on-close" id="lightsOnClose" type="button" aria-label="关闭开灯窗口" autofocus>×</button></div>
+    <div class="lights-on-scene">
+      <div class="lights-universe" id="lightsOnUniverse" aria-hidden="true"></div>
+      <div class="lights-on-copy" role="status" aria-live="polite" aria-atomic="true"><h2 id="lightsOnTitle">连接中</h2><p id="lightsOnDetail">正在连接中控</p></div>
+      <div class="lights-on-progress" id="lightsOnProgress" role="progressbar" aria-label="正在连接中控"><span></span></div>
+      <div class="lights-on-help" id="lightsOnHelp" hidden><div id="lightsOnLinks"></div></div>
+    </div>
   </dialog>
   <dialog class="supplement-dialog" id="supplementDialog" aria-labelledby="supplementTitle" aria-describedby="supplementPrivacy">
     <div class="supplement-top"><span class="supplement-eyebrow">LW&amp;5 · 每日小照顾</span><button class="supplement-close" id="supplementClose" type="button" aria-label="关闭补剂面板">×</button></div>

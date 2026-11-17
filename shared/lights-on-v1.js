@@ -16,6 +16,7 @@
   let navigationTimer;
   let handoffTimer;
   let expiryTimer;
+  let universe;
 
   function pendingOff() {
     generation += 1;
@@ -34,11 +35,13 @@
     title.textContent = heading;
     detail.textContent = description;
     progress.hidden = !connecting;
+    dialog.classList.toggle('is-connecting', connecting);
+    try { universe?.update({ status: connecting ? 'connecting' : 'failed', completed: 0, total: 9 }); } catch {}
   }
   function expire(value) {
     if (attempt !== value || !dialog.open) return;
     pendingOff();
-    copy('连接已过期', '请关闭窗口，再点灯泡重新开始。');
+    copy('连接已过期', '关闭后重试');
     links.querySelectorAll('a').forEach(link => {
       link.removeAttribute('href');
       link.setAttribute('aria-disabled', 'true');
@@ -48,13 +51,13 @@
   function showHelp(value) {
     if (attempt !== value || !dialog.open) return;
     if (!fresh(value)) { expire(value); return; }
-    copy('连接尚未完成', '可从下面的入口继续这次开灯，进入后查看实际进度。');
+    copy('连接未完成', '选择连接入口');
     help.hidden = false;
   }
   function prepareHandoff(value) {
     pendingOff();
     value.navigationStarted = true;
-    copy('正在连接中控', '正在进入家里的灯光控制…', true);
+    copy('连接中', '正在连接中控', true);
     handoffTimer = setTimeout(() => showHelp(value), local.navigationTimeoutMs);
   }
   function destination(origin, value) {
@@ -66,7 +69,7 @@
       const link = document.createElement('a');
       link.href = destination(origin, value);
       link.target = '_top';
-      link.textContent = index === 0 ? '通过家庭网络名称进入' : '通过备用地址 ' + new URL(origin).hostname + ' 进入';
+      link.textContent = index === 0 ? '家庭网络' : '备用入口 ' + index;
       link.addEventListener('click', event => {
         if (!event.isTrusted || !usable(value) || document.hidden || navigator.onLine === false) {
           event.preventDefault();
@@ -87,6 +90,8 @@
     launch.disabled = false;
     help.hidden = true;
     links.replaceChildren();
+    try { universe?.destroy(); } catch {}
+    universe = null;
   }
   async function begin(event) {
     if (!event.isTrusted || dialog.open || document.hidden ||
@@ -94,15 +99,17 @@
         document.body.classList.contains('tool-active') || document.body.classList.contains('nebula-active')) return;
     reset();
     launch.disabled = true;
-    copy('正在连接中控', '正在进入家里的灯光控制…', true);
+    copy('连接中', '正在连接中控', true);
     dialog.showModal(); // Native modal makes the rest of the page inert.
+    try { universe = window.LW5LightsUniverse?.create(document.getElementById('lightsOnUniverse')); } catch {}
+    try { universe?.update({ status: 'connecting', completed: 0, total: 9 }); } catch {}
     close.focus({ preventScroll: true });
     if (navigator.onLine === false) {
-      copy('请先连接家庭 Wi-Fi', '当前离线，尚未发送开灯请求。联网后关闭窗口，再点灯泡即可。');
+      copy('请连接家庭 Wi-Fi', '尚未发送开灯请求');
       return;
     }
     if (typeof crypto.randomUUID !== 'function') {
-      copy('暂时无法开始', '请更新浏览器后重试，尚未发送开灯请求。');
+      copy('暂时无法开始', '请更新浏览器后重试');
       return;
     }
     const createdAt = Date.now();
@@ -138,8 +145,8 @@
     pendingOff();
     help.hidden = true;
     copy('网络已断开', attempt?.navigationStarted
-      ? '连接中断，开灯结果未确认。请回到本地页面查看进度。'
-      : '尚未发送开灯请求。连接家庭 Wi-Fi 后关闭窗口，再点灯泡即可。');
+      ? '开灯结果未确认，请返回查看进度'
+      : '尚未发送开灯请求');
   });
   document.addEventListener('visibilitychange', () => {
     if (document.hidden && dialog.open && attempt && !attempt.navigationStarted) {

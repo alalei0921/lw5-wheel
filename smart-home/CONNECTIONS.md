@@ -52,8 +52,16 @@ reload, and returning from browser history never create an attempt or navigate.
 The local page continues the real per-light progress, with server-side task
 deduplication; finding the bridge is never presented as successful lighting.
 
-This release uses cache `lw5-home-v66-lights-on` and precaches the
-bulb module and styles. Publish the HTML, module and worker together, then reload/update the
+The connection modal and local progress page share the `lights-on-universe.js`
+Canvas renderer and its CSS. It animates a gold accretion disk, nine confirmed-light
+nodes, localized impact waves and a sun only after the job succeeds. The renderer
+never fetches or sends commands; counts and completion come from job snapshots.
+Reduced-motion mode renders a static scene; hidden or closed scenes stop animation.
+The local bridge embeds copies of these two assets so the LAN page works without
+loading scripts from the public site. Keep those copies identical when deploying.
+
+This release uses cache `lw5-home-v67-lights-cosmos` and precaches the
+bulb module, universe renderer and styles. Publish the HTML, modules and worker together, then reload/update the
 installed PWA. The existing GitHub Pages site deploys the repository root from `main`.
 
 Hardware-isolated checks (no real LAN or cloud requests):
@@ -62,6 +70,7 @@ Hardware-isolated checks (no real LAN or cloud requests):
 node --test tests/local-control.test.cjs tests/home-update.test.cjs tests/service-worker.test.cjs
 node --test tests/local-control-browser.cjs
 node --test tests/lights-on-browser.cjs
+node --test tests/lights-universe-browser.cjs
 node --test --test-name-pattern='all everyday screens|shared feedback' tests/app-ux.cjs
 ```
 

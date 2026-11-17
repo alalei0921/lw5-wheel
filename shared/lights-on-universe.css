@@ -1,0 +1,3 @@
+.lights-universe{position:relative;isolation:isolate;width:100%;aspect-ratio:1;overflow:hidden;contain:layout paint;pointer-events:none;user-select:none;-webkit-user-select:none}
+.lights-universe canvas{display:block;width:100%;height:100%;position:absolute;inset:0}
+@media(prefers-reduced-motion:reduce){.lights-universe{scroll-behavior:auto}}

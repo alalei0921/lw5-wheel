@@ -71,7 +71,7 @@ test('only a real bulb click creates one fresh ID, discovers with GET, then navi
     assert.equal(await s.page.evaluate(()=>window.__lightsUUIDs.length),0);
     assert.equal(s.pings.length,0);assert.equal(s.navigations.length,0);
     await s.page.locator('#lightsOnLaunch').click();
-    assert.equal(await s.page.locator('#lightsOnTitle').innerText(),'正在连接中控');
+    assert.equal(await s.page.locator('#lightsOnTitle').innerText(),'连接中');
     assert(await s.page.locator('#lightsOnDialog').isVisible());
     await waitFor(()=>s.pings.length===3);
     assert.equal(await s.page.evaluate(()=>window.__lightsUUIDs.length),1);
@@ -209,7 +209,7 @@ test('bulb stays aligned above the pill, avoids other launchers, and modal is us
       assert.equal(await s.page.evaluate(()=>document.activeElement.id),'lightsOnClose');
       assert.equal(await s.page.evaluate(()=>{document.getElementById('supplementLaunch').focus();return document.activeElement.id;}),'lightsOnClose');
       const modal=await s.page.locator('#lightsOnDialog').boundingBox();
-      assert(modal.x>=0 && modal.x+modal.width<=viewport.width);
+      assert(modal.x>=0 && modal.x+modal.width<=viewport.width, JSON.stringify({modal,viewport}));
       assert.equal(await s.page.locator('#lightsOnDialog').evaluate(el=>el.scrollWidth<=el.clientWidth+1),true);
       await s.page.emulateMedia({reducedMotion:'reduce'});
       assert.equal(await s.page.locator('.lights-on-progress span').evaluate(el=>getComputedStyle(el).animationName),'none');
@@ -221,5 +221,35 @@ test('bulb stays aligned above the pill, avoids other launchers, and modal is us
       await s.release();
       clean(s);
     } finally {await s.context.close();}
+  }
+});
+
+test('a failed optional animation cannot block the existing connection or close action', async () => {
+  for (const failCreation of [true, false]) {
+    const s = await setup({hold:true});
+    try {
+      await s.page.addInitScript(failCreation => {
+        Object.defineProperty(window, 'LW5LightsUniverse', {
+          configurable:true, set() {},
+          get() { return { create() {
+            if (failCreation) throw new Error('Visuals unavailable');
+            return { update() { throw new Error('Visuals unavailable'); }, destroy() { throw new Error('Visuals unavailable'); } };
+          } }; },
+        });
+      }, failCreation);
+      await s.page.goto(s.base+'/?visual-test=1');
+      await s.page.locator('#lightsOnLaunch').click();
+      await waitFor(() => s.pings.length === 3);
+      await s.page.locator('#lightsOnClose').click();
+      await s.release();
+      assert.equal(await s.page.locator('#lightsOnDialog').isVisible(), false);
+      assert.equal(s.navigations.length, 0);
+      await s.page.locator('#lightsOnLaunch').click();
+      await waitFor(() => s.pings.length === 6);
+      await s.release();
+      await s.page.waitForURL('http://192.168.1.136:8788/lights-on#start=*');
+      assert.equal(s.navigations.length, 1);
+      clean(s);
+    } finally { await s.context.close(); }
   }
 });
