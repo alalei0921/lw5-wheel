@@ -70,7 +70,7 @@ The bridge keeps matching files under `assets/lights-film/v1/` and serves only
 those files plus `credits.html` at `/lights-film/v1/`, with GET/HEAD and byte-range
 support. Control APIs and submission rules are unchanged. Shared film JS/CSS
 and the manifest are copied beside `lights-on-http.js` for embedding at startup.
-The service worker cache is `lw5-home-v77-orbital-dust`. The player streams
+The service worker cache is `lw5-home-v77-orbital-dust-player2`. The player streams
 films directly. Media URLs include the scene revision so cached immutable files
 stay separate across artwork revisions.
 

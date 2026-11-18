@@ -36,7 +36,7 @@
       video.setAttribute('aria-hidden', 'true');
       video.setAttribute('tabindex', '-1');
       host.append(video);
-      return { video, level: null, cleanup: null, frame: null };
+      return { video, level: null, cleanup: null, frame: null, epoch: 0 };
     });
     const motion = matchMedia('(prefers-reduced-motion: reduce)');
     let state = { status: 'idle', completed: 0, currentIndex: null };
@@ -59,6 +59,7 @@
       return (Number.isFinite(time) ? time : phase) % manifest.duration;
     }
     function release(slot) {
+      slot.epoch += 1;
       slot.cleanup?.(); slot.cleanup = null;
       if (slot.frame !== null) slot.video.cancelVideoFrameCallback?.(slot.frame);
       slot.frame = null;
@@ -91,24 +92,80 @@
       host.dataset.filmState = 'unavailable';
       if (failedPosterLevel === state.completed) restoreLegacy();
     }
+    function resume(slot) {
+      const epoch = slot.epoch;
+      Promise.resolve(slot.video.play()).then(() => {
+        if (slot.epoch !== epoch) return;
+        if (!animated()) slot.video.pause();
+        else if (active === slot && !pending) host.dataset.filmState = 'playing';
+      }).catch(() => {
+        if (slot.epoch !== epoch || active !== slot) return;
+        faultLevel = state.completed; staticView(); host.dataset.filmState = 'unavailable';
+        if (failedPosterLevel === state.completed) restoreLegacy();
+      });
+    }
     function loadLevel() {
       cancelPending();
       clearTimeout(fadeTimer);
       const slot = slots.find(candidate => candidate !== active);
       release(slot);
       pending = slot;
+      if (active?.video.paused && animated()) resume(active);
       const token = generation;
       slot.level = state.completed;
       const video = slot.video;
-      let aligned = false, starting = false, presented = false, alignmentAttempts = 0;
-      let firstFrameTimer = null;
-      const timeout = setTimeout(() => failMedia(slot, token), 10000);
+      const tolerance = Math.max(.1, 2 / manifest.fps);
+      let starting = false, presented = false, sought = false, seekingForSync = false;
+      let lockedPrevious = null, lockedPhase = null;
+      let firstFrameTimer = null, idleTimer = null;
       const valid = () => !destroyed && token === generation && pending === slot && slot.level === state.completed;
+      // Downloading a large film may legitimately exceed ten seconds. Only an
+      // actual media-progress event renews the idle budget; a hard cap also
+      // bounds endlessly trickling connections and repeated decode work.
+      const maximumTimer = setTimeout(() => failMedia(slot, token), 60000);
+      function progress() {
+        if (!valid()) return;
+        clearTimeout(idleTimer);
+        idleTimer = setTimeout(() => failMedia(slot, token), 12000);
+      }
+      function distance(a, b) {
+        const delta = Math.abs(a - b) % manifest.duration;
+        return Math.min(delta, manifest.duration - delta);
+      }
+      function clearFrameWait() {
+        clearTimeout(firstFrameTimer);
+        if (slot.frame !== null) video.cancelVideoFrameCallback?.(slot.frame);
+        slot.frame = null;
+      }
+      function unlockPrevious() {
+        const previous = lockedPrevious;
+        lockedPrevious = null; lockedPhase = null;
+        if (previous && active === previous && previous.level <= state.completed &&
+            animated() && faultLevel !== state.completed) resume(previous);
+      }
+      function lockPrevious() {
+        if (!lockedPrevious && active) {
+          // Keep the old film flowing while bytes arrive. Once a seek has
+          // demonstrably fallen behind, freeze its visible frame and align to
+          // that fixed phase rather than chasing an ever-moving target.
+          lockedPrevious = active;
+          lockedPrevious.video.pause();
+          lockedPhase = currentPhase();
+        }
+      }
+      function targetPhase() { return lockedPhase === null ? currentPhase() : lockedPhase; }
       function present() {
         if (!valid() || !animated() || video.readyState < 2 || video.seeking || video.paused) return;
+        // The first decoded frame is the final alignment gate. A delayed play
+        // promise/frame callback cannot silently accept an out-of-phase film.
+        if (distance(video.currentTime, targetPhase()) > tolerance) {
+          clearFrameWait(); video.pause(); starting = false;
+          lockPrevious(); ready(); return;
+        }
         presented = true;
-        clearTimeout(timeout); clearTimeout(firstFrameTimer);
+        clearTimeout(idleTimer); clearTimeout(maximumTimer); clearFrameWait();
         const previous = active;
+        unlockPrevious();
         active = slot; pending = null;
         video.style.zIndex = '3'; video.style.opacity = '1';
         host.dataset.filmState = 'playing';
@@ -120,28 +177,33 @@
       }
       function ready() {
         if (!valid() || starting || video.readyState < 2 || video.seeking || !animated()) return;
-        const target = currentPhase();
-        const distance = Math.abs(video.currentTime - target);
-        const circularDistance = Math.min(distance, Math.abs(manifest.duration - distance));
-        // Both films share a timeline. Seek before unveiling, never restart a new level at zero.
-        if ((!aligned || circularDistance > .16) && alignmentAttempts < 3) {
-          aligned = true; alignmentAttempts += 1;
-          if (circularDistance > 1 / manifest.fps) {
-            try { video.currentTime = Math.min(target, manifest.duration - 1 / manifest.fps); return; }
-            catch { failMedia(slot, token); return; }
-          }
+        if (sought && distance(video.currentTime, targetPhase()) > tolerance) lockPrevious();
+        const target = targetPhase();
+        if (distance(video.currentTime, target) > tolerance) {
+          sought = true; seekingForSync = true;
+          try { video.currentTime = Math.min(target, manifest.duration - 1 / manifest.fps); return; }
+          catch { failMedia(slot, token); return; }
         }
         starting = true;
         Promise.resolve(video.play()).then(() => {
           if (!valid()) return;
           if (!animated()) { video.pause(); return; }
-          if (typeof video.requestVideoFrameCallback === 'function') slot.frame = video.requestVideoFrameCallback(() => { slot.frame = null; present(); });
-          firstFrameTimer = setTimeout(present, 180);
+          if (typeof video.requestVideoFrameCallback === 'function') slot.frame = video.requestVideoFrameCallback(() => {
+            slot.frame = null; progress(); present();
+          });
+          // Older WebViews lack frame callbacks. HAVE_CURRENT_DATA plus a short
+          // playback interval provides the fallback, with the same phase gate.
+          firstFrameTimer = setTimeout(present, 70);
         }).catch(() => failMedia(slot, token));
       }
       function metadata() {
         if (!valid()) return;
         if (!Number.isFinite(video.duration) || Math.abs(video.duration - manifest.duration) > .1) { failMedia(slot, token); return; }
+        progress(); ready();
+      }
+      function loaded() { progress(); ready(); }
+      function seeked() {
+        if (seekingForSync) { seekingForSync = false; progress(); }
         ready();
       }
       function error() {
@@ -150,21 +212,24 @@
           if (failedPosterLevel === state.completed) restoreLegacy();
         } else failMedia(slot, token);
       }
+      video.addEventListener('progress', progress);
       video.addEventListener('loadedmetadata', metadata);
-      video.addEventListener('loadeddata', ready);
+      video.addEventListener('loadeddata', loaded);
       video.addEventListener('canplay', ready);
-      video.addEventListener('seeked', ready);
+      video.addEventListener('seeked', seeked);
       video.addEventListener('error', error);
       slot.cleanup = () => {
-        clearTimeout(timeout); clearTimeout(firstFrameTimer);
+        clearTimeout(idleTimer); clearTimeout(maximumTimer); clearFrameWait();
+        video.removeEventListener('progress', progress);
         video.removeEventListener('loadedmetadata', metadata);
-        video.removeEventListener('loadeddata', ready);
+        video.removeEventListener('loadeddata', loaded);
         video.removeEventListener('canplay', ready);
-        video.removeEventListener('seeked', ready);
+        video.removeEventListener('seeked', seeked);
         video.removeEventListener('error', error);
+        unlockPrevious();
       };
       video.preload = 'auto'; video.src = manifest.levels[slot.level].video;
-      video.load();
+      video.load(); progress();
       host.dataset.filmState = 'loading';
     }
     function reconcile() {
@@ -178,13 +243,7 @@
       }
       if (faultLevel === state.completed) return;
       if (active?.level === state.completed) {
-        if (active.video.paused) {
-          const slot = active;
-          Promise.resolve(slot.video.play()).then(() => {
-            if (active !== slot || !animated()) slot.video.pause();
-            else host.dataset.filmState = 'playing';
-          }).catch(() => { if (active === slot) { faultLevel = state.completed; staticView(); host.dataset.filmState = 'unavailable'; if (failedPosterLevel === state.completed) restoreLegacy(); } });
-        }
+        if (active.video.paused) resume(active);
         return;
       }
       if (pending?.level !== state.completed) loadLevel();

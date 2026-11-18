@@ -15,7 +15,7 @@ test.before(async () => {
 test.after(async () => browser?.close());
 const pixel = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+P+/HgAFgwJ/lkV+FAAAAABJRU5ErkJggg==', 'base64');
 
-async function setup({ reducedMotion = 'no-preference', width = 390, height = 844, realVideo = null, rejectPosters = false, renderer } = {}) {
+async function setup({ reducedMotion = 'no-preference', width = 390, height = 844, realVideo = null, rejectPosters = false, renderer, advancingMedia = false } = {}) {
   const context = await browser.newContext({ viewport: { width, height }, reducedMotion, serviceWorkers: 'block' });
   const requests = [], errors = [];
   await context.route('**/*', async route => {
@@ -36,7 +36,7 @@ async function setup({ reducedMotion = 'no-preference', width = 390, height = 84
   const page = await context.newPage(); page.setDefaultTimeout(6000); page.on('pageerror', error => errors.push(error.message));
   await page.setContent('<!doctype html><style>html,body{margin:0;overflow:hidden}#host{position:fixed;inset:0;overflow:hidden}</style><main id="wrapper"><div id="host"></div></main>');
   await page.addStyleTag({ content: css });
-  await page.evaluate(({ mocked, renderer }) => {
+  await page.evaluate(({ mocked, renderer, advancingMedia }) => {
     window.LW5LightsFilmConfig = { assetBase: 'https://film.test/assets/lights-film/v1/', renderer };
     window.__legacy = { creates: 0, updates: [], destroys: 0 };
     window.LW5LightsUniverse = { create(host) {
@@ -53,14 +53,27 @@ async function setup({ reducedMotion = 'no-preference', width = 390, height = 84
     Object.defineProperties(media, {
       readyState: { get() { return this.__ready || 0; } },
       duration: { get() { return 16; } },
-      seeking: { get() { return false; } },
+      seeking: { get() { return !!this.__seeking; } },
       paused: { get() { return !this.__playing; } },
-      currentTime: { get() { return this.__time || 0; }, set(value) { this.__time = value; queueMicrotask(() => this.dispatchEvent(new Event('seeked'))); } },
+      currentTime: {
+        get() { return ((this.__time || 0) + (advancingMedia && this.__playing ? (performance.now() - this.__playAt) / 1000 : 0)) % 16; },
+        set(value) {
+          clearTimeout(this.__seekTimer); this.__time = value; this.__playAt = performance.now();
+          this.__seeking = true; this.__seekCount = (this.__seekCount || 0) + 1;
+          const finish = () => { this.__seeking = false; this.dispatchEvent(new Event('seeked')); };
+          if (window.__seekDelayMs) this.__seekTimer = setTimeout(finish, window.__seekDelayMs);
+          else queueMicrotask(finish);
+        },
+      },
       src: { get() { return this.getAttribute('src') || ''; }, set(value) { this.setAttribute('src', value); } },
     });
-    media.load = function () { this.__ready = 0; this.__playing = false; this.__time = 0; };
-    media.play = function () { this.__playing = true; return Promise.resolve(); };
-    media.pause = function () { this.__playing = false; };
+    media.load = function () { clearTimeout(this.__seekTimer); this.__seeking = false; this.__ready = 0; this.__playing = false; this.__time = 0; };
+    media.play = function () {
+      if (this.__rejectPlay) return Promise.reject(new Error('Mock playback rejected'));
+      if (!this.__playing) this.__playAt = performance.now();
+      this.__playing = true; return Promise.resolve();
+    };
+    media.pause = function () { this.__time = this.currentTime; this.__playing = false; };
     HTMLVideoElement.prototype.requestVideoFrameCallback = function (callback) { return setTimeout(() => callback(performance.now(), {}), 0); };
     HTMLVideoElement.prototype.cancelVideoFrameCallback = clearTimeout;
     window.readyFilm = level => {
@@ -71,7 +84,7 @@ async function setup({ reducedMotion = 'no-preference', width = 390, height = 84
       video.dispatchEvent(new Event('loadeddata'));
     };
     window.failFilm = () => [...document.querySelectorAll('video')].find(video => video.hasAttribute('src'))?.dispatchEvent(new Event('error'));
-  }, { mocked: !realVideo, renderer });
+  }, { mocked: !realVideo, renderer, advancingMedia });
   for (const script of scripts) await page.addScriptTag({ content: script });
   await page.evaluate(() => { window.scene = window.LW5LightsUniverse.create(document.getElementById('host')); });
   return { page, context, requests, errors };
@@ -152,6 +165,101 @@ test('media errors retain the same poster; loss of both assets rolls back with t
     await missing.page.evaluate(() => window.scene.destroy());
     assert.equal(await missing.page.evaluate(() => window.__legacy.destroys), 1);
   } finally { await missing.context.close(); }
+});
+
+test('downloads with progress survive ten seconds; idle and endless loads still reach a final fallback', async () => {
+  const s = await setup();
+  try {
+    await ready(s.page, 0);
+    await s.page.clock.install();
+    await update(s.page, { status: 'running', completed: 4 });
+    for (let i = 0; i < 3; i++) {
+      await s.page.clock.runFor(9000);
+      await s.page.locator('video[src*="/level-04.mp4"]').dispatchEvent('progress');
+      assert.equal(await s.page.locator('#host').getAttribute('data-film-state'), 'loading');
+      assert.equal(await s.page.locator('video[src*="/level-00.mp4"]').evaluate(video => video.paused), false);
+    }
+    // Twenty-seven seconds of download is valid while actual media progress arrives.
+    await ready(s.page, 4);
+    assert.equal(await s.page.locator('#host').getAttribute('data-completed'), '4');
+    await update(s.page, { status: 'running', completed: 5 });
+    await s.page.clock.runFor(12050);
+    assert.equal(await s.page.locator('#host').getAttribute('data-film-state'), 'unavailable');
+    assert.match(await s.page.locator('.lights-film-poster').getAttribute('src'), /level-05.jpg/);
+    assert.equal(await s.page.locator('video[src]').count(), 0);
+
+    await update(s.page, { status: 'running', completed: 6 });
+    for (let i = 0; i < 6; i++) {
+      await s.page.clock.runFor(9000);
+      await s.page.locator('video[src*="/level-06.mp4"]').dispatchEvent('progress');
+    }
+    await s.page.clock.runFor(6050);
+    assert.equal(await s.page.locator('#host').getAttribute('data-film-state'), 'unavailable');
+    assert.equal(await s.page.locator('#host').getAttribute('data-completed'), '6');
+    assert.deepEqual(s.errors, []);
+  } finally { await s.context.close(); }
+});
+
+test('a slow seek locks the old phase, then resumes both films in phase before fading', async () => {
+  const s = await setup({ advancingMedia: true });
+  try {
+    await ready(s.page, 0);
+    await s.page.evaluate(() => { document.querySelector('video[src]').currentTime = 6; window.__seekDelayMs = 800; });
+    await update(s.page, { status: 'running', completed: 3 });
+    await s.page.evaluate(() => window.readyFilm(3));
+    const previous = s.page.locator('video[src*="/level-00.mp4"]');
+    await s.page.waitForTimeout(200);
+    assert.equal(await previous.evaluate(video => video.paused), false, 'Old film continues while the first seek waits');
+    await s.page.waitForFunction(() => document.querySelector('video[src*="/level-00.mp4"]').paused);
+    const locked = await previous.evaluate(video => video.currentTime);
+    await s.page.waitForTimeout(180);
+    assert.equal(await previous.evaluate(video => video.currentTime), locked, 'Lock phase cannot keep moving');
+    assert.equal(await s.page.locator('#host').getAttribute('data-film-level'), '0');
+    await s.page.waitForFunction(() => document.getElementById('host').dataset.filmLevel === '3');
+    const result = await s.page.evaluate(() => {
+      const old = document.querySelector('video[src*="/level-00.mp4"]');
+      const current = document.querySelector('video[src*="/level-03.mp4"]');
+      return { delta: Math.abs(old.currentTime - current.currentTime), oldPaused: old.paused, newPaused: current.paused, seeks: current.__seekCount };
+    });
+    assert(result.delta < .12, 'Slow seek phase gap: ' + result.delta);
+    assert.equal(result.oldPaused, false); assert.equal(result.newPaused, false);
+    assert.equal(result.seeks, 2, 'One moving seek, then one fixed-phase seek');
+    await s.page.waitForTimeout(230);
+    assert.equal(await s.page.locator('video[src]').count(), 1);
+    assert.deepEqual(s.errors, []);
+  } finally { await s.context.close(); }
+});
+
+test('cancelled phase locks restore the old film; rejected playback and hidden scenes cannot leave it frozen', async () => {
+  const s = await setup({ advancingMedia: true });
+  try {
+    await ready(s.page, 0);
+    await s.page.evaluate(() => { document.querySelector('video[src]').currentTime = 6; window.__seekDelayMs = 500; });
+    await update(s.page, { status: 'running', completed: 3 });
+    await s.page.evaluate(() => window.readyFilm(3));
+    await s.page.waitForFunction(() => document.querySelector('video[src*="/level-00.mp4"]').paused);
+    await update(s.page, { status: 'running', completed: 4 });
+    assert.equal(await s.page.locator('video[src*="/level-00.mp4"]').evaluate(video => video.paused), false);
+    assert.equal(await s.page.locator('video[src*="/level-03.mp4"]').count(), 0);
+
+    await s.page.evaluate(() => window.readyFilm(4));
+    await s.page.waitForFunction(() => document.querySelector('video[src*="/level-00.mp4"]').paused);
+    await s.page.evaluate(() => { document.getElementById('wrapper').hidden = true; });
+    await s.page.waitForFunction(() => !document.querySelector('video[src*="/level-04.mp4"]'));
+    assert.equal(await s.page.locator('video[src*="/level-00.mp4"]').evaluate(video => video.paused), true);
+    await s.page.evaluate(() => { document.getElementById('wrapper').hidden = false; window.__seekDelayMs = 0; });
+    await s.page.waitForFunction(() => !document.querySelector('video[src*="/level-00.mp4"]').paused);
+    await ready(s.page, 4);
+    assert.equal(await s.page.locator('video[src*="/level-04.mp4"]').evaluate(video => video.paused), false);
+
+    await update(s.page, { status: 'running', completed: 5 });
+    await s.page.locator('video[src*="/level-05.mp4"]').evaluate(video => { video.__rejectPlay = true; });
+    await s.page.evaluate(() => window.readyFilm(5));
+    await s.page.waitForFunction(() => document.getElementById('host').dataset.filmState === 'unavailable');
+    assert.equal(await s.page.locator('video[src]').count(), 0);
+    assert.equal(await s.page.locator('#host').getAttribute('data-completed'), '5');
+    assert.deepEqual(s.errors, []);
+  } finally { await s.context.close(); }
 });
 
 test('explicit rollback bypasses film assets; host aspect ratio controls portrait fill and safe containment', async () => {

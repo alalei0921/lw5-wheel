@@ -46,7 +46,7 @@
   <!-- Older app workers ignore the v query parameter when matching cached assets. -->
   <script src="../shared/lights-on-universe.js?scene=77"></script>
   <script src="../shared/lights-on-film-manifest.js?scene=77"></script>
-  <script src="../shared/lights-on-film.js?scene=77"></script>
+  <script src="../shared/lights-on-film.js?player=77.2"></script>
   <script>
     // This page only simulates progress. It contains no device discovery or control.
     (() => {
@@ -162,16 +162,14 @@
 
       function holdScene(callback, delay) {
         // Only the simulator waits for a film. The home controller owns its own clock.
-        let waitLeft = 12000;
+        let posterWaitLeft = 12000;
         function checkFrame() {
           const { renderer, filmState, filmLevel } = universe.dataset;
           const still = universe.querySelector('.lights-film-poster');
-          const waiting = renderer === 'film' && (
-            filmState === 'loading' || filmState === 'paused' ||
-            Number(filmLevel) !== state.completed || (filmState !== 'playing' && still && !still.complete)
-          );
-          if (waiting && waitLeft > 0) {
-            waitLeft -= 100;
+          const awaitingFilm = filmState === 'loading' || filmState === 'paused' || Number(filmLevel) !== state.completed;
+          const awaitingPoster = filmState !== 'playing' && still && !still.complete;
+          if (renderer === 'film' && (awaitingFilm || (awaitingPoster && posterWaitLeft > 0))) {
+            if (!awaitingFilm) posterWaitLeft -= 100;
             schedule(checkFrame, 100);
           } else {
             schedule(callback, MIN_VISIBLE);

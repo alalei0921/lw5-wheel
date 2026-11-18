@@ -49,7 +49,7 @@ test('offline manifest covers every module and shared asset without eager heavy 
   }
   for(const file of ['shared/supplements-v1.js','shared/supplements-store-v1.js','shared/supplements-v1.css','conflict/index.html','stock/bg.jpg','smart-home/panel-mute.html','shared/app-ui-v1.js','shared/local-control-v1.js','shared/elevator-v1.js','shared/elevator-ascent-v1.js','shared/particle-light-v1.js','shared/scene-depth-v1.js','shared/elevator-v1.css','shared/elevator-config-v1.js'])assert(s.installed.includes(scope+file));
   assert(!s.installed.some(url=>url.includes('.m4a')||url.includes('.mp4')||url.includes('/lights-film/')||url.includes('room-data')));
-  for(const file of ['shared/lights-on-v1.js','shared/lights-on-v1.css','shared/lights-on-universe.js','shared/lights-on-universe.css','shared/lights-on-film.js','shared/lights-on-film.css?scene=77','shared/lights-on-film-manifest.js?scene=77'])assert(s.installed.includes(scope+file));
+  for(const file of ['shared/lights-on-v1.js','shared/lights-on-v1.css','shared/lights-on-universe.js','shared/lights-on-universe.css','shared/lights-on-film.js?player=77.2','shared/lights-on-film.css?scene=77','shared/lights-on-film-manifest.js?scene=77'])assert(s.installed.includes(scope+file));
 });
 
 test('activation only removes older LW5 caches, not unrelated apps',async()=>{
