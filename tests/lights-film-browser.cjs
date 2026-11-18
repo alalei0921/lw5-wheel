@@ -22,7 +22,7 @@ async function setup({ reducedMotion = 'no-preference', width = 390, height = 84
     const request = route.request(), url = new URL(request.url());
     requests.push({ url: url.href, method: request.method() });
     assert.equal(request.method(), 'GET'); assert.equal(url.origin, 'https://film.test');
-    assert.equal(url.searchParams.get('scene'), '76');
+    assert.equal(url.searchParams.get('scene'), '77');
     assert.match(url.pathname, /^\/assets\/lights-film\/v1\/level-0[0-9]\.(jpg|mp4)$/);
     if (url.pathname.endsWith('.jpg')) return route.fulfill(rejectPosters ? { status: 404, body: '' } : { contentType: 'image/png', body: pixel });
     if (realVideo) {
@@ -167,6 +167,10 @@ test('explicit rollback bypasses film assets; host aspect ratio controls portrai
     await s.page.setViewportSize({ width: 390, height: 844 });
     assert.equal(await s.page.locator('.lights-film-poster').evaluate(image => getComputedStyle(image).objectFit), 'cover');
     assert.equal(await s.page.locator('video').first().evaluate(video => getComputedStyle(video).objectFit), 'cover');
+    const positions = await s.page.locator('.lights-film-poster, .lights-film-video').evaluateAll(
+      nodes => nodes.map(node => getComputedStyle(node).objectPosition)
+    );
+    assert(positions.every(position => position === '27% 50%'), 'Both orbital wings must fit throughout the video/poster handoff');
     // A narrow embedded host must use its own shape, not the phone's media query.
     await s.page.locator('#host').evaluate(host => { host.style.width = '200px'; host.style.height = '844px'; });
     assert.equal(await s.page.locator('.lights-film-poster').evaluate(image => getComputedStyle(image).objectFit), 'contain');

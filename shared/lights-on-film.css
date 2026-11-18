@@ -7,11 +7,13 @@
 /* Fill ordinary portrait phones. Keep the complete composition in wider or
    unusually tall hosts, where a cover crop would remove important cloud roots. */
 @container (min-aspect-ratio:2/5) and (max-aspect-ratio:3/4){
-  .lights-film-poster,.lights-film-video{object-fit:cover}
+  .lights-film-poster,.lights-film-video{object-fit:cover;object-position:27% 50%}
+  .lights-film-backdrop{background-position:27% 50%}
 }
 @supports not (container-type:size){
   @media (min-aspect-ratio:2/5) and (max-aspect-ratio:3/4){
-    .lights-film-poster,.lights-film-video{object-fit:cover}
+    .lights-film-poster,.lights-film-video{object-fit:cover;object-position:27% 50%}
+    .lights-film-backdrop{background-position:27% 50%}
   }
 }
 @media(prefers-reduced-motion:reduce){.lights-film-video{transition:none}}
