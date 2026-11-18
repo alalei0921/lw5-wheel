@@ -40,41 +40,122 @@
     }
     const side = 128;
     const values = Uint8Array.from({length: side * side}, () => Math.floor(random() * 256));
-    // A periodic height field of overlapping cloud lobes. The same field supplies
-    // several scales of real surface relief in the ray / cloud intersection.
-    const lobes = Array.from({length: 64}, () => ({
-      x: .16 + .68 * random(), y: .16 + .68 * random(),
-      radius: .62 + .30 * random(), height: .59 + .37 * random()
-    }));
     const pixels = new Uint8Array(side * side * 4);
     for (let y = 0; y < side; y++) for (let x = 0; x < side; x++) {
-      const u = (x + .5) / 16, v = (y + .5) / 16;
-      const cellX = Math.floor(u), cellY = Math.floor(v);
-      let top = 0;
-      for (let j = -1; j <= 1; j++) for (let i = -1; i <= 1; i++) {
-        const lobe = lobes[((cellY + j + 8) % 8) * 8 + (cellX + i + 8) % 8];
-        const dx = u - (cellX + i + lobe.x), dy = v - (cellY + j + lobe.y);
-        const depth = 1 - (dx * dx + dy * dy) / (lobe.radius * lobe.radius);
-        if (depth <= 0) continue;
-        const h = lobe.height * Math.sqrt(depth);
-        const blend = Math.max(0, 1 - Math.abs(h - top) / .07);
-        top = Math.max(top, h) + .0175 * blend * blend;
-      }
       const offset = (y * side + x) * 4;
       pixels[offset] = values[y * side + x];
       pixels[offset + 1] = values[((y + 17) % side) * side + (x + 37) % side];
-      pixels[offset + 2] = Math.round(Math.min(1, top) * 255);
       pixels[offset + 3] = 255;
     }
     noisePixels = pixels;
     return pixels;
   }
+  // WebGL 1 has no 3D textures. Bake the billows and their light transport into
+  // guttered XZ slices, so one trilinear sample carries both shape and shadow.
+  const cloudSide = 96, cloudSlices = 32, cloudTile = cloudSide + 2;
+  let cloudAtlas;
+  function getCloudAtlas() {
+    if (cloudAtlas) return cloudAtlas;
+    const side = cloudSide, plane = side * side;
+    const mass = new Float32Array(plane * cloudSlices);
+    let seed = 54901;
+    function random() { seed = seed * 16807 % 2147483647; return seed / 2147483647; }
+    function wrap(x) { return (x + side) % side; }
+    function billow(cx, cy, cz, rx, ry, rz) {
+      for (let y = Math.max(0, Math.ceil(cy - ry)); y <= Math.min(cloudSlices - 1, cy + ry); y++) {
+        const section = 1 - ((y - cy) / ry) ** 2;
+        for (let z = Math.ceil(cz - rz); z <= cz + rz; z++) {
+          const row = section - ((z - cz) / rz) ** 2;
+          if (row <= 0) continue;
+          const span = Math.sqrt(row) * rx, start = y * plane + wrap(z) * side;
+          for (let x = Math.ceil(cx - span); x <= cx + span; x++) {
+            const i = start + wrap(x);
+            const value = Math.min(1, (row - ((x - cx) / rx) ** 2) * 1.6);
+            mass[i] = Math.max(mass[i], value);
+          }
+        }
+      }
+    }
+    // Each parent has a low, broad base and successively smaller turrets on
+    // its flanks. Gaps between families let the light cut deep into a bank.
+    for (let row = 0; row < 5; row++) for (let col = 0; col < 5; col++) {
+      const cx = (col + .12 + random() * .76) * side / 5;
+      const cz = (row + .10 + random() * .80) * side / 5;
+      const height = 3.0 + random() * 11, radius = 7.2 + random() * 3.8;
+      const crown = 4.5 + random() * 5.5, angle = random() * TAU;
+      billow(cx, height - 1, cz, radius * 1.48, crown, radius * 1.28);
+      billow(cx, height + crown * .44, cz, radius * .85, crown * 1.09, radius * .88);
+      const count = 5 + Math.floor(random() * 3);
+      for (let i = 0; i < count; i++) {
+        const phi = angle + TAU * (i + .36 * random()) / count;
+        const r = radius * (.57 + .43 * random());
+        const x = cx + r * Math.cos(phi), z = cz + r * Math.sin(phi);
+        const head = radius * (.42 + .33 * random());
+        const y = height + crown * (.12 + .66 * random());
+        billow(x, y, z, head * 1.08, head * (1 + random() * .35), head);
+        const daughter = head * (.40 + .24 * random());
+        billow(x + head * .59 * Math.cos(phi + .5), y + head * .47,
+          z + head * .59 * Math.sin(phi + .5), daughter, daughter * 1.16, daughter);
+        // Cluster small rounded turrets on the face and summit of this head.
+        // They participate in the same extinction and cast their own shadows.
+        for (let tip = 0; tip < 4; tip++) {
+          const az = phi + tip * 1.63;
+          const lift = .45 + .20 * Math.sin(az * 3.1);
+          const knob = head * (.37 + .10 * Math.cos(az * 2.4));
+          billow(x + head * .77 * Math.cos(az), y + head * lift,
+            z + head * .77 * Math.sin(az), knob, knob * 1.22, knob);
+        }
+      }
+    }
+    const width = cloudTile * 8, output = new Uint8Array(width * cloudTile * 4 * 4);
+    // March sunlight and skylight once, including the cloud casting the shadow.
+    // Horizontal addressing repeats, including filtering at every atlas seam.
+    const sun = new Float32Array(mass.length), sky = new Float32Array(mass.length);
+    for (let y = cloudSlices - 1; y >= 0; y--) {
+      const above = Math.min(y + 1, cloudSlices - 1) * plane;
+      const below = Math.max(0, y - 1) * plane;
+      for (let z = 0; z < side; z++) for (let x = 0; x < side; x++) {
+        const j = z * side + x, i = y * plane + j, rho = mass[i];
+        const back = wrap(z - 1) * side, right = wrap(x + 1);
+        const beam = y === cloudSlices - 1 ? 1 :
+          .21 * sun[above + j] + .27 * sun[above + z * side + right] +
+          .22 * sun[above + back + x] + .30 * sun[above + back + right];
+        sun[i] = beam * Math.exp(-rho * .45);
+        sky[i] = (y === cloudSlices - 1 ? 1 : sky[above + j]) * Math.exp(-rho * .28);
+        const dx = mass[y * plane + z * side + wrap(x - 1)] - mass[y * plane + z * side + right];
+        const dy = (mass[below + j] - mass[above + j]) * 1.20;
+        const dz = mass[y * plane + back + x] - mass[y * plane + wrap(z + 1) * side + x];
+        const facing = (.49 * dx + .76 * dy - .42 * dz) / Math.sqrt(dx * dx + dy * dy + dz * dz + .025);
+        const px = (y % 8) * cloudTile + x + 1, pz = Math.floor(y / 8) * cloudTile + z + 1;
+        const target = (pz * width + px) * 4;
+        output[target] = Math.round(255 * rho);
+        output[target + 1] = Math.round(255 * sun[i]);
+        output[target + 2] = Math.round(255 * sky[i]);
+        output[target + 3] = Math.round(127.5 * (1 + facing));
+      }
+      const left = (y % 8) * cloudTile, top = Math.floor(y / 8) * cloudTile;
+      for (let z = -1; z <= side; z++) for (const x of [-1, side]) {
+        const src = ((top + wrap(z) + 1) * width + left + wrap(x) + 1) * 4;
+        const dst = ((top + z + 1) * width + left + x + 1) * 4;
+        output.copyWithin(dst, src, src + 4);
+      }
+      for (const z of [-1, side]) {
+        const src = ((top + wrap(z) + 1) * width + left + 1) * 4;
+        const dst = ((top + z + 1) * width + left + 1) * 4;
+        output.copyWithin(dst, src, src + side * 4);
+      }
+    }
+    cloudAtlas = output;
+    return output;
+  }
+
   const PHASES = new Set(['idle', 'queued', 'connecting', 'running', 'verifying', 'succeeded', 'failed']);
   const VERTEX = 'attribute vec2 aPos; void main(){gl_Position=vec4(aPos,0.,1.);}';
   const FRAGMENT = `precision highp float;
 uniform vec2 uRes;
 uniform float uTime;
 uniform sampler2D uNoise;
+uniform sampler2D uCloudVolume;
 uniform float uSuccess,uProgress,uFailed;
 uniform float uImpacts[9];
 float hash13(vec3 p){p=fract(p*.1031);p+=dot(p,p.zyx+31.32);return fract((p.x+p.y)*p.z);}
@@ -91,6 +172,18 @@ float loopNoise(vec3 p,float distance){
  float phase=fract(uTime/16.),blend=phase*phase*(3.-2.*phase);
  return mix(noise3(p+vec3(0.,phase*distance,0.)),
             noise3(p+vec3(0.,(phase-1.)*distance,0.)),blend);
+}
+
+// One material coordinate runs up the curtain, around the lower lip and into
+// the near disk. Four unequal condensations travel 6.8 world units per loop;
+// their phase and identity survive both handoffs rather than restarting there.
+float feedKnot(float distance,float across){
+ float phase=distance*.9239978393-uTime*.3926990817;
+ float crest=phase*4.+.27*sin(phase)+.16*sin(phase*3.);
+ float knot=pow(.5+.5*cos(crest+across*.18),8.);
+ float identity=.52+.48*noise3(vec3(cos(phase)*2.1,sin(phase)*2.1,5.7));
+ float lane=.48+.52*exp(-pow((across-.22*sin(phase*3.))/.48,2.));
+ return knot*identity*lane;
 }
 
 // x extinction, y equatorial hot fibers, z equatorial sparks, w rising stream.
@@ -118,6 +211,16 @@ vec4 matter(vec3 p){
   float inner=exp(-abs(radial-1.60)*1.65);
   float whiteRidge=exp(-pow((radial-1.52-(n-.5)*.10)/.13,2.));
   plasma=rim*thin*(.025+fibers*.48+fine*fine*.17+whiteRidge*.40)*inner;
+  // The incoming stream spreads radially and loses contrast as it joins the
+  // disk's shear. Its first material coordinate is the end of the lower bend.
+  float diskTravel=mod(a-2.7312+6.2831853072,6.2831853072);
+  if(diskTravel<1.30){
+   float spread=.105+.34*smoothstep(0.,1.15,diskTravel);
+   float across=(radial-(1.58+.23*diskTravel))/spread;
+   float merge=exp(-across*across*1.5)*(1.-smoothstep(.22,1.30,diskTravel));
+   float carried=feedKnot(1.91637+diskTravel*1.58,across);
+   plasma+=merge*thin*(.10+carried*1.35)*(.75+.25*n);
+  }
   vec3 grainCell=floor(q*3.2),grainOffset=fract(q*3.2)-.5;
   spark=step(.993,hash13(grainCell+9.3))*exp(-dot(grainOffset,grainOffset)*130.)*rim*vertical;
  }
@@ -144,9 +247,34 @@ vec4 matter(vec3 p){
     float vein=exp(-pow((x-veinX)/veinWidth,2.));
     vein+=exp(-pow((x+veinX*.60+.30)/.044,2.))*.34;
     float weight=layer==1?.58:layer==2?.78:1.;
-    stream+=sheet*cap*weight*(.10+fibers*.24*beads+flowing*flowing*.20+vein*(.62+.20*flowing))*.62;
-    stream+=sheet*cap*weight*exp(-t*16.)*.14;
+    float carried=feedKnot(-t*3.05,x);
+    stream+=sheet*cap*weight*(.10+fibers*.20*beads+flowing*flowing*.15+vein*(.40+.18*flowing)+carried*(.65+vein*.85))*.62;
     density+=sheet*cap*weight*(.035+flowing*.055);
+   }
+  }
+ }
+ // A front-side ribbon curves around the opaque sphere. This is a real
+ // volume, clipped by the same near-sphere depth as every other gas sample.
+ // Its increasing cross-section changes a narrow rising vein into disk shear.
+ if(p.y<.12&&p.y>-1.75&&p.x<.30&&p.x>-2.1){
+  float bend=atan(-p.x,-p.y);
+  if(bend>-.12&&bend<1.68){
+   float angle=clamp(bend,0.,1.570796327);
+   float radius=.91+.54*smoothstep(0.,1.570796327,angle);
+   float width=.075+.125*smoothstep(0.,1.570796327,angle);
+   float across=(length(p.xy)-radius)/width;
+   float centreZ=.63+.10*sin(angle*2.);
+   float z=(p.z-centreZ)/(.235+.055*sin(angle));
+   float body=exp(-across*across*1.45-z*z*1.5);
+   float ends=smoothstep(-.12,.045,bend)*(1.-smoothstep(1.43,1.68,bend));
+   if(body>.003){
+    float distance=angle*1.22;
+    float carried=feedKnot(distance,across);
+    float folds=loopNoise(vec3(across*5.,distance*4.,z*.5+18.),9.);
+    float silk=.18+.82*pow(max(0.,1.-abs(folds-.52)*3.2),3.);
+    float threads=.22+.78*pow(.5+.5*sin(across*18.+folds*5.),6.);
+    stream+=body*ends*(.075+silk*.18+carried*(.38+threads*.90));
+    density+=body*ends*(.028+folds*.045);
    }
   }
  }
@@ -200,6 +328,15 @@ vec3 lensImage(vec2 p,float critical,float pixel,float progress,float power,vec3
  float photon=exp(-abs(edge)/max(.006,pixel*.8));
  col+=lensHot*photon*(.42+.58*upper)*approaching*(power+packet)*1.3;
  col+=vec3(.025,.056,.105)*exp(-abs(edge-.025)*65.)*upper*power;
+ // Only a faint bent image of the incoming material lives at this image
+ // depth; the clearly moving ribbon itself is integrated in the near volume.
+ float bend=atan(-p.x,-p.y);
+ if(bend>0.&&bend<1.60){
+  float spread=.055+.15*smoothstep(0.,1.60,bend);
+  float carried=feedKnot(bend*1.22,edge/spread);
+  float trail=exp(-max(edge,0.)/spread)*(1.-smoothstep(1.25,1.60,bend));
+  col+=mix(copper,hot,.45)*trail*carried*power*.19;
+ }
  return col;
 }
 // A thin-lens map stretches the same distant star field into tangential arcs.
@@ -271,76 +408,87 @@ vec3 flightDust(vec2 view,float pixel,float depthLimit){
  return sum;
 }
 
-// Rounded cloud heads bound this volume. Inside each bank, three-dimensional
-// turbulence opens gullies between lobes and breaks up the illuminated margins.
-float oceanDensity(vec3 p,vec2 drift) {
- vec2 q=p.xz*1.65+drift;
- vec2 warp=vec2(noise3(vec3(q*.55,12.1)),noise3(vec3(q*.53,33.7)))-.5;
- q+=warp*.80;
- float bank=noise3(vec3(q*.67,4.2));
- // Advance the wrapped relief towards the camera. Exactly one full texture
- // period per lap gives the foreground real parallax without reversing.
- vec2 travel=vec2(0.,-uTime/16.);
- float heads=texture2D(uNoise,q*.148+vec2(.13,.62)+travel).b;
- float folds=texture2D(uNoise,turn(.72)*q*.363+heads*.032+vec2(.41,.27)+travel).b;
- // Tall low-frequency billows break the oblique bank into individual rising heads.
- float towers=smoothstep(.27,.79,bank);
- float ceiling=-4.02+1.02*towers+1.10*heads+.36*folds;
- float below=ceiling-p.y;
- if(below<-.43)return 0.;
- vec3 detail=vec3(q.x,p.y*2.25,q.y);
- float n=.55*noise3(detail*2.33)+.29*noise3(detail*4.91+16.7)+.16*noise3(detail*10.21+6.1);
- return clamp(below*1.18+(n-.50)*1.07,0.,1.9);
+// Sample the advected cloud volume. R is condensate, G and B are integrated
+// sun/sky transmittance, and A is the normal's sunward component.
+vec4 billows(vec3 p,vec2 drift) {
+ vec3 flow=p;flow.z-=uTime*.578125;
+ vec3 land=vec3(p.x*.91,p.y*1.13,p.z*.91);
+ vec3 wind=vec3(drift.x,0.,drift.y);
+ float large=noise3(land+wind+3.1);
+ float mid=noise3(land*2.27-wind*1.4+11.8);
+ float fine=noise3(land*5.08+wind*2.1+26.3);
+ // Fold strands of condensate back onto themselves at progressively finer scales.
+ vec3 curl=vec3(large+mid,-large,mid)*1.42;
+ vec3 crestCoord=land*9.8+curl+wind*2.6;
+ float crest=noise3(crestCoord);
+ float micro=noise3(crestCoord*2.13+fine*1.4);
+ float rough=(large-.5)*.57+(mid-.5)*.34+(fine-.5)*.16+(crest-.5)*.10+(micro-.5)*.05;
+ flow+=vec3(rough*.66+drift.x,rough,rough*.44+drift.y);
+ vec2 uv=fract(flow.xz/9.25+vec2(.31,.19))*96.+1.5;
+ float slice=clamp((flow.y+4.72)/3.42,0.,1.)*31.;
+ vec2 layers=vec2(floor(slice),min(31.,floor(slice)+1.));
+ vec4 offsets=vec4(mod(layers.x,8.),floor(layers.x/8.),mod(layers.y,8.),floor(layers.y/8.))*98.;
+ vec4 coords=(uv.xyxy+offsets)/vec2(784.,392.).xyxy;
+ vec4 field=mix(texture2D(uCloudVolume,coords.xy),texture2D(uCloudVolume,coords.zw),fract(slice));
+ float edge=(mid-.5)*.46+(fine-.50)*.37+(crest-.5)*.21;
+ float heads=smoothstep(.012,.76,field.r+edge*smoothstep(.005,.11,field.r));
+ // A continuous low deck fills the ravines without closing the upper gaps.
+ float bed=smoothstep(0.,.82,-3.94-flow.y+(large-.53)*.55);
+ field.r=max(heads,bed*.89);
+ field.g*=1.-.76*bed;
+ field.b*=1.-.68*bed;
+ float slope=(fine-noise3(land*5.08+wind*2.1+26.3+vec3(.32,.43,-.28)))*.66;
+ slope+=(crest-noise3(crestCoord+vec3(.35,.40,-.28)))*.44;
+ slope+=(micro-.5)*.16;
+ field.a=clamp(field.a+slope,0.,1.);
+ field.g*=clamp(.91+.70*slope+.15*(mid-.5),.27,1.);
+ return field;
 }
 vec4 cloudOcean(vec3 ro,vec3 rd,float stopDepth,float progress,float power,vec3 sky,out vec4 nearT,out vec4 farT,out vec2 sampledDepths) {
  nearT=vec4(0.);farT=vec4(0.);sampledDepths=vec2(0.);
  if(rd.y>=-.001)return vec4(0.,0.,0.,-1.);
  float phi=uTime*.3926990817;
- vec2 drift=vec2(.070*cos(phi),.082*sin(phi));
- float first=(-1.50-ro.y)/rd.y;
+ vec2 drift=vec2(.22*cos(phi),.24*sin(phi));
+ float first=(-1.10-ro.y)/rd.y;
  float last=min(stopDepth,min((-5.4-ro.y)/rd.y,16.0));
  if(last<=first)return vec4(0.,0.,0.,-1.);
  sampledDepths=vec2(first,last);
- float stepSize=(last-first)/40.;
+ float stepSize=(last-first)/64.;
+ // Stable per-pixel stratification suppresses parallel sampling bands on
+ // oblique cloud faces without temporal sparkle at the loop boundary.
+ float cellPhase=.26+.48*fract(52.9829189*fract(dot(gl_FragCoord.xy,vec2(.06711056,.00583715))));
  float transmission=1.,surface=-1.;
  vec3 scatter=vec3(0.);
- vec3 sun=normalize(vec3(.62,.65,-.44));
  vec3 rose=mix(vec3(.45,.12,.085),vec3(1.,.49,.39),progress);
  vec3 ivory=mix(vec3(.84,.45,.31),vec3(1.26,1.04,.92),progress);
- for(int i=0;i<40;i++){
+ for(int i=0;i<64;i++){
   // Keep eight transmittance samples so filaments fade into the soft cloud
   // boundary at their own depth, rather than stopping at an opaque cutout.
-  if(i==5)nearT.x=transmission;else if(i==10)nearT.y=transmission;
-  else if(i==15)nearT.z=transmission;else if(i==20)nearT.w=transmission;
-  else if(i==25)farT.x=transmission;else if(i==30)farT.y=transmission;
-  else if(i==35)farT.z=transmission;
-  float depth=first+(float(i)+.5)*stepSize;
+  if(i==8)nearT.x=transmission;else if(i==16)nearT.y=transmission;
+  else if(i==24)nearT.z=transmission;else if(i==32)nearT.w=transmission;
+  else if(i==40)farT.x=transmission;else if(i==48)farT.y=transmission;
+  else if(i==56)farT.z=transmission;
+  float depth=first+(float(i)+cellPhase)*stepSize;
   vec3 p=ro+rd*depth;
-  float density=oceanDensity(p,drift)*(1.-smoothstep(11.1,16.,depth));
-  if(density<.005)continue;
-  float alpha=1.-exp(-5.8*density*stepSize);
-  float dx=density-oceanDensity(p+vec3(.095,0.,0.),drift);
-  float dy=density-oceanDensity(p+vec3(0.,.095,0.),drift);
-  float dz=density-oceanDensity(p+vec3(0.,0.,.095),drift);
-  vec3 normal=normalize(vec3(dx,dy,dz)+vec3(0.,.012,0.));
-  float slopeLight=clamp(dot(normal,sun),0.,1.);
-  float closeShadow=oceanDensity(p+sun*.34,drift);
-  float distantShadow=oceanDensity(p+sun*.93,drift);
-  float sunlit=exp(-6.1*closeShadow-3.45*distantShadow);
-  float rim=clamp((density-closeShadow)*2.35,0.,1.);
-  float height=smoothstep(-3.55,-2.14,p.y);
-  vec3 smoke=mix(vec3(.0034,.0041,.0083),vec3(.027,.013,.023),height*.77+.10);
-  vec3 light=smoke*(.45+.57*power);
-  light+=rose*(.033+.48*rim)*sunlit*(.17+.57*power);
-  light+=ivory*(.11*sunlit*sunlit+.41*rim*rim*sunlit)*(.035+power*.54);
-  // Localized diffusion where the gas stream meets the cloud tops.
-  float feedDistance=length((p-vec3(-.20,-2.82,1.85))*vec3(.85,.78,.90));
-  float root=exp(-feedDistance*2.55);
-  light*=(.075+.62*exp(-.62*feedDistance))*(.18+.91*slopeLight);
-  light+=mix(rose,ivory,.67)*root*(.045+.55*sunlit+.17*rim)*power*.58*(.28+.72*slopeLight);
-  // Fine condensate at the sunward edge gives the crown a broken silver lining.
-  float lining=pow(slopeLight,3.)*sunlit*smoothstep(.30,.75,noise3(p*12.7));
-  light+=ivory*lining*(.01+.050*root)*power;
+  vec4 field=billows(p,drift);
+  float density=field.r*(1.-smoothstep(9.5,15.0,depth));
+  if(density<.004)continue;
+  float alpha=1.-exp(-5.45*density*stepSize);
+  float face=smoothstep(.31,.94,field.a);
+  float direct=pow(field.g,1.45)*(.065+.935*face);
+  float skyFill=field.b;
+  float crown=direct*direct*skyFill;
+  float feedDistance=length((p-vec3(-.20,-2.63,1.85))*vec3(.75,.64,.83));
+  float feed=exp(-feedDistance*1.28);
+  // Violet ambient light stays visible on the lee sides of rolling heads;
+  // progressively warmer rim light models the disk shining across the crests.
+  vec3 ash=mix(vec3(.0021,.0020,.0053),vec3(.019,.010,.019),skyFill);
+  float altitude=smoothstep(-4.02,-2.26,p.y);
+  float spill=(.14+.86*exp(-.38*feedDistance))*(.39+.61*altitude);
+  vec3 light=ash*(.53+.58*power)*(.48+.52*altitude);
+  light+=rose*(.008*skyFill+.19*direct)*spill*(.12+.54*power);
+  light+=ivory*(.105*crown+.235*pow(crown,3.))*spill*(.048+.53*power);
+  light+=mix(rose,ivory,.53)*feed*(.034+.58*direct+.082*skyFill)*(.10+.68*power);
   scatter+=transmission*light*alpha;
   transmission*=1.-alpha;
   if(transmission<.014){surface=depth;break;}
@@ -471,7 +619,7 @@ void main(){
     const info = gl.getExtension('WEBGL_debug_renderer_info');
     const software = info && /swiftshader|llvmpipe|softpipe|software rasterizer/i.test(gl.getParameter(info.UNMASKED_RENDERER_WEBGL));
     const pixelBudget = software ? 100000 : 520000;
-    let program, buffer, texture, shaders=[], uniforms={};
+    let program, buffer, texture, cloudTexture, shaders=[], uniforms={};
     let destroyed=false, contextLost=false, fallback=null, frame=0, intersecting=true;
     let width=0, height=0, quality=1, lastPaint=-Infinity, lastTick=null, slowFrames=0;
     let heatWaveUntil=0;
@@ -493,18 +641,23 @@ void main(){
       buffer=gl.createBuffer();gl.bindBuffer(gl.ARRAY_BUFFER,buffer);gl.bufferData(gl.ARRAY_BUFFER,new Float32Array([-1,-1,3,-1,-1,3]),gl.STATIC_DRAW);
       const attribute=gl.getAttribLocation(program,'aPos');gl.enableVertexAttribArray(attribute);gl.vertexAttribPointer(attribute,2,gl.FLOAT,false,0,0);
       uniforms={};
-      for(const name of ['uRes','uTime','uNoise','uSuccess','uProgress','uFailed','uImpacts[0]']) uniforms[name]=gl.getUniformLocation(program,name);
+      for(const name of ['uRes','uTime','uNoise','uCloudVolume','uSuccess','uProgress','uFailed','uImpacts[0]']) uniforms[name]=gl.getUniformLocation(program,name);
       // Repeatable 3D value noise, packed into two channels for a single lookup.
       texture=gl.createTexture();gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,texture);
       gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,128,128,0,gl.RGBA,gl.UNSIGNED_BYTE,getNoisePixels());
       gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.LINEAR);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.LINEAR);
       gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S,gl.REPEAT);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.REPEAT);gl.uniform1i(uniforms.uNoise,0);
+      cloudTexture=gl.createTexture();gl.activeTexture(gl.TEXTURE1);gl.bindTexture(gl.TEXTURE_2D,cloudTexture);
+      gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,cloudTile*8,cloudTile*4,0,gl.RGBA,gl.UNSIGNED_BYTE,getCloudAtlas());
+      gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.LINEAR);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.LINEAR);
+      gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S,gl.CLAMP_TO_EDGE);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.CLAMP_TO_EDGE);
+      gl.uniform1i(uniforms.uCloudVolume,1);gl.activeTexture(gl.TEXTURE0);
       host.dataset.renderer='webgl';delete host.dataset.rendererReason;
     }
     function release() {
-      if(program)gl.deleteProgram(program);if(buffer)gl.deleteBuffer(buffer);if(texture)gl.deleteTexture(texture);
+      if(program)gl.deleteProgram(program);if(buffer)gl.deleteBuffer(buffer);if(texture)gl.deleteTexture(texture);if(cloudTexture)gl.deleteTexture(cloudTexture);
       for(const shader of shaders)gl.deleteShader(shader);
-      program=null;buffer=null;texture=null;shaders=[];
+      program=null;buffer=null;texture=null;cloudTexture=null;shaders=[];
     }
     try { allocate(); } catch (failure) { console.warn(failure.message);release();return compatibility('shader'); }
     function visible() {
@@ -680,26 +833,44 @@ void main(){
     const clouds = Array.from({ length: 38 }, (_, i) => {
       const row = Math.floor(i / 10), x = -.10 + random() * 1.24;
       return { row, x, y: .71 + row * .105 - x * .16 + (random() - .5) * .105,
-        radius: .13 + row * .024 + random() * .075, aspect: .61 + random() * .46,
+        radius: .16 + row * .021 + random() * .068, aspect: .71 + random() * .35,
         phase: random() * TAU, highlight: random(), texture: i % 3 };
     });
     function puffMap(hot, variant) {
-      const map = document.createElement('canvas'); map.width = map.height = 128;
+      const size = 160, map = document.createElement('canvas'); map.width = map.height = size;
       const painter = map.getContext('2d'); if (!painter) return map;
-      const data = painter.createImageData(128, 128);
-      for (let y = 0; y < 128; y += 1) for (let x = 0; x < 128; x += 1) {
-        const px = (x + .5) / 64 - 1, py = (y + .5) / 64 - 1, r = Math.hypot(px, py);
-        if (r > 1) continue;
-        const n = fbm(px * 5.7 + 11 + variant * 13, py * 5.7 + 28 + variant * 9), grain = noise(px * 19.3 + 3, py * 19.3 + 5);
-        const alpha = smooth((1 - r) * 3.7) * clamp(.87 + (n - .5) * .72);
-        const height = Math.sqrt(Math.max(0, 1 - r * r));
-        const light = clamp(.32 - px * .23 - py * .39 + height * .34 + (n - .5) * .24 + (grain - .5) * .045);
-        const crest = smooth((light - .43) / .43), white = smooth((light - .45) / .28);
-        const j = (y * 128 + x) * 4;
-        data.data[j] = hot ? 235 + white * 20 : 8 + light * 75;
-        data.data[j + 1] = hot ? 139 + white * 108 : 8 + light * 48;
-        data.data[j + 2] = hot ? 121 + white * 113 : 14 + light * 44;
-        data.data[j + 3] = alpha * (hot ? crest : 1) * 245;
+      const data = painter.createImageData(size, size);
+      // Rounded overlapping lobes describe a solid cloud surface; fine noise
+      // only wrinkles that surface, rather than punching holes through it.
+      const lobes = [
+        [-.42, .24, .51, .08], [.07, .22, .62, .04], [.50, .22, .43, .06],
+        [-.40, -.23, .36, .08], [.03, -.35, .43, .12], [.43, -.24, .33, .06],
+        [-.64, .08, .27, 0], [.67, .04, .25, -.03], [-.13, -.64, .23, .04],
+      ].map((v, i) => [v[0] + Math.sin(i * 2.4 + variant) * .055,
+        v[1] + Math.cos(i * 1.8 + variant * 2) * .045, v[2], v[3]]);
+      for (let y = 0; y < size; y += 1) for (let x = 0; x < size; x += 1) {
+        const px = (x + .5) / (size / 2) - 1, py = (y + .5) / (size / 2) - 1;
+        const n = fbm(px * 5.4 + 11 + variant * 13, py * 5.4 + 28 + variant * 9);
+        let surface = -2, edge = 0, nx = 0, ny = 0, nz = 0, weight = 0;
+        for (const [lx, ly, r, z] of lobes) {
+          const dx = px - lx, dy = py - ly, rr = r * (1 + (n - .5) * .10), d2 = dx * dx + dy * dy;
+          if (d2 >= rr * rr) continue;
+          const depth = Math.sqrt(rr * rr - d2), front = z + depth;
+          edge = Math.max(edge, smooth((rr - Math.sqrt(d2)) / .16));
+          const contribution = Math.exp(front * 11);
+          nx += dx / rr * contribution; ny += dy / rr * contribution; nz += depth / rr * contribution;
+          weight += contribution; surface = Math.max(surface, front);
+        }
+        if (surface < -1) continue;
+        nx /= weight; ny /= weight; nz /= weight;
+        const grain = noise(px * 25.3 + variant * 4, py * 25.3 + 5);
+        const light = clamp(.19 - nx * .36 - ny * .59 + nz * .49 + (n - .5) * .37 + (grain - .5) * .05);
+        const crest = smooth((light - .31) / .58), white = smooth((light - .52) / .33);
+        const alpha = edge * (.94 + (n - .5) * .10), j = (y * size + x) * 4;
+        data.data[j] = hot ? 231 + white * 24 : 8 + light * 71;
+        data.data[j + 1] = hot ? 133 + white * 113 : 8 + light * 45;
+        data.data[j + 2] = hot ? 117 + white * 119 : 14 + light * 42;
+        data.data[j + 3] = alpha * (hot ? crest : 1) * 255;
       }
       painter.putImageData(data, 0, 0); return map;
     }
@@ -897,17 +1068,73 @@ void main(){
       }
       ctx.restore();
     }
+    function capturedFlow(radius, cx, cy, time, energy, near) {
+      const angle = .72, join = .57, turn = Math.cos(TILT), slope = Math.sin(TILT);
+      const transform = (x, y) => ({ x: cx + x * turn - y * slope, y: cy + x * slope + y * turn });
+      const end = transform(Math.cos(angle) * radius * 1.17, Math.sin(angle) * radius * 1.055);
+      const tx = Math.sin(angle) * 1.17 * turn + Math.cos(angle) * 1.055 * slope;
+      const ty = Math.sin(angle) * 1.17 * slope - Math.cos(angle) * 1.055 * turn;
+      const start = { x: width * .78, y: height * .69 };
+      const first = { x: start.x - width * .14, y: start.y - height * .025 };
+      const last = { x: end.x - tx * radius * .62, y: end.y - ty * radius * .62 };
+      function path(p) {
+        if (p < join) return { ...bezier(start, first, last, end, p / join), near: true, spread: 0 };
+        const q = (p - join) / (1 - join), a = angle - q * 4.7;
+        const spread = smooth(q), expansion = 1 + spread * .16;
+        return { ...transform(Math.cos(a) * radius * 1.17 * expansion,
+          Math.sin(a) * radius * 1.055 * expansion), near: Math.sin(a) >= 0, spread };
+      }
+      // Distance sampling preserves speed at the curve-to-orbit handover.
+      const samples = [path(0)]; samples[0].distance = 0;
+      for (let i = 1; i <= 160; i += 1) {
+        const at = path(i / 160), previous = samples[i - 1];
+        at.distance = previous.distance + Math.hypot(at.x - previous.x, at.y - previous.y); samples.push(at);
+      }
+      function byDistance(p) {
+        const target = clamp(p) * samples[160].distance;
+        let lo = 0, hi = 160;
+        while (hi - lo > 1) { const middle = (lo + hi) >> 1; if (samples[middle].distance < target) lo = middle; else hi = middle; }
+        const a = samples[lo], b = samples[hi], mix = (target - a.distance) / Math.max(.001, b.distance - a.distance);
+        return { x: a.x + (b.x - a.x) * mix, y: a.y + (b.y - a.y) * mix,
+          near: mix < .5 ? a.near : b.near, spread: a.spread + (b.spread - a.spread) * mix };
+      }
+      const head = (time / 16 * 2 + .08) % 1, firstP = Math.max(0, head - .16), lastP = Math.min(1, head + .035);
+      const from = byDistance(firstP), to = byDistance(lastP), leading = byDistance(head);
+      const envelope = smooth(head / .10) * smooth((1 - head) / .22);
+      const alpha = envelope * (.012 + energy * .70), thickness = radius * (.019 + leading.spread * .095);
+      ctx.save(); ctx.globalCompositeOperation = 'screen'; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+      for (let halo = 3; halo >= 1; halo -= 1) {
+        const strength = alpha * (halo === 1 ? .80 : halo === 2 ? .20 : .065);
+        const colour = ctx.createLinearGradient(from.x, from.y, to.x, to.y);
+        const tint = halo === 1 ? '255,242,220' : '231,156,133';
+        colour.addColorStop(0, 'rgba(' + tint + ',0)');
+        colour.addColorStop(.48, 'rgba(' + tint + ',' + strength * .40 + ')');
+        colour.addColorStop(.80, 'rgba(' + tint + ',' + strength + ')');
+        colour.addColorStop(1, 'rgba(' + tint + ',0)');
+        ctx.strokeStyle = colour; ctx.lineWidth = thickness * (halo === 3 ? 5 : halo === 2 ? 2.7 : 1);
+        ctx.beginPath(); let drawing = false;
+        for (let i = 0; i <= 48; i += 1) {
+          const at = byDistance(firstP + (lastP - firstP) * i / 48);
+          if (at.near !== near) { drawing = false; continue; }
+          if (drawing) ctx.lineTo(at.x, at.y); else ctx.moveTo(at.x, at.y);
+          drawing = true;
+        }
+        ctx.stroke();
+      }
+      ctx.restore();
+    }
     function cloudSea(time, energy, foreground) {
       ctx.save();
       for (const cloud of clouds) {
         if ((cloud.row >= 3) !== foreground) continue;
-        const x = width * (cloud.x + Math.sin(time * TAU / 16 + cloud.phase) * .012);
-        const y = height * (cloud.y + Math.cos(time * TAU / 16 + cloud.phase) * .004);
-        const r = Math.min(width, height * .95) * cloud.radius;
-        ctx.globalCompositeOperation = 'source-over'; ctx.globalAlpha = .74 + cloud.row * .055;
+        const phase = time * TAU / 16 + cloud.phase;
+        const x = width * (cloud.x + Math.sin(phase) * (.013 + cloud.row * .004));
+        const y = height * (cloud.y + Math.cos(phase) * (.006 + cloud.row * .002));
+        const r = Math.min(width, height * .95) * cloud.radius * (1 + .035 * Math.sin(phase + 1.2));
+        ctx.globalCompositeOperation = 'source-over'; ctx.globalAlpha = .91 + cloud.row * .025;
         ctx.drawImage(shadowPuffs[cloud.texture], x - r, y - r * cloud.aspect, r * 2, r * cloud.aspect * 2);
         const sourceDistance = Math.hypot((cloud.x - .77) * 1.4, (cloud.y - .68) * 2.1);
-        const illumination = (.12 + .88 * Math.exp(-sourceDistance * 2.4)) * (.7 + cloud.highlight * .3);
+        const illumination = (.18 + .82 * Math.exp(-sourceDistance * 2.0)) * (.72 + cloud.highlight * .28);
         ctx.globalCompositeOperation = 'screen'; ctx.globalAlpha = (.008 + energy * .98) * illumination;
         ctx.drawImage(lightPuffs[cloud.texture], x - r, y - r * cloud.aspect, r * 2, r * cloud.aspect * 2);
       }
@@ -952,6 +1179,7 @@ void main(){
         [[0, 'rgba(255,227,198,' + (.008 + energy * .42) + ')'], [.28, 'rgba(211,145,111,' + (.004 + energy * .16) + ')'], [1, 'rgba(100,59,45,0)']]);
       streamVolume(radius, cx, cy, t, energy, false);
       infall(radius, cx, cy, t, energy, false);
+      capturedFlow(radius, cx, cy, t, energy, false);
       ctx.save(); ctx.translate(cx, cy);
       diskHalf(radius, t, energy, false);
       lensArc(radius, t, energy);
@@ -961,6 +1189,7 @@ void main(){
       ctx.restore();
       streamVolume(radius, cx, cy, t, energy, true);
       infall(radius, cx, cy, t, energy, true);
+      capturedFlow(radius, cx, cy, t, energy, true);
       radial(cx + radius * .128, cy + radius * .241, 0, radius * .22, [[0, 'rgba(255,247,223,' + energy * .40 + ')'], [.28, 'rgba(247,181,144,' + energy * .14 + ')'], [1, 'rgba(130,70,50,0)']]);
       radial(width * .78, height * .69, 0, width * .145, [[0, 'rgba(255,247,225,' + energy * .48 + ')'], [.24, 'rgba(255,208,169,' + energy * .19 + ')'], [1, 'rgba(147,78,52,0)']]);
       cloudSea(t, energy, true);

@@ -42,16 +42,18 @@ v61 名称兼容：读取时将对应行的旧数字/中文序号占位名显示
 v62 说明兼容：仅为对应默认短名称下的空说明或原“点「编辑」填写名称和用量”占位说明补齐默认小字。读取时不重写原始存储，其他自定义名称、说明与当天开关保留。显式保存写入 `notesVersion:1`，之后尊重用户编辑，包括主动清空说明。默认公开说明仅限已获批准的四句，不上传本地配置或打卡。
 
 
-## Black-hole lighting visual (2026-11-18)
+## Black-hole lighting visual v73 (2026-11-18)
 
 Each confirmed circuit raises the luminosity of the same accretion disk by one
 level. A travelling heat front follows the orbit as the new light reaches the
 lensed arc and rotating dust. The ninth confirmation brings the disk to full
 intensity around the central shadow. An opaque central sphere clips rays through
 the far half of the rotating disk. Dust on the near side crosses its silhouette.
-Rose-gold gas rises from a lower cloud bank towards the disk. Background stars
-bend around the shadow, while nearby dust moves past the camera in a 16-second
-loop. Lamp confirmations run on a separate clock. Reduced-motion mode shows
+Thick, layered cloud billows roll below the disk with illuminated crests and
+shadowed sides. A bright knot follows the rising rose-gold stream, turns
+tangentially around the shadow, then broadens and fades into the outer halo.
+Background stars bend around the shadow, while nearby dust moves past the camera
+in a 16-second loop. Lamp confirmations run on a separate clock. Reduced-motion mode shows
 the settled level immediately. A Canvas 2D renderer supports devices without WebGL.
 The [interactive preview](smart-home/lights-preview.html) simulates all nine
 confirmations and supports scrubbing to an individual level. Open it with
@@ -60,6 +62,6 @@ is a 30 fps portrait render of that state.
 
 The frontend and local bridge share the renderer. The bridge embeds the script
 at startup and needs a restart to pick up visual changes. The service worker
-cache is `lw5-home-v72-blackhole-depth`. The first nine-level disk is available
+cache is `lw5-home-v73-storm-clouds`. The first nine-level disk is available
 at `b9f7bae`. The nine-star version is available
 at `45641ab`, and the earlier black-hole scene at `46e317f`.

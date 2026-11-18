@@ -315,6 +315,21 @@ test('lost GPU context uses compatibility rendering and recovers the same confir
     assert.equal(await s.page.locator('#host').getAttribute('data-phase'),'verifying');
     assert.equal(await s.page.locator('#host').getAttribute('data-completed'),'9');
     assert((await s.page.evaluate(()=>window.__gpuDraws))>before);
+    // A restored program can draw using the noise texture for both samplers.
+    // Verify the volumetric clouds regained their own texture after the reset.
+    const distinctTextures = await s.page.locator('#host canvas').evaluate(canvas => {
+      const gl = canvas.getContext('webgl');
+      const program = gl.getParameter(gl.CURRENT_PROGRAM);
+      const active = gl.getParameter(gl.ACTIVE_TEXTURE);
+      const textures = ['uNoise', 'uCloudVolume'].map(name => {
+        const unit = gl.getUniform(program, gl.getUniformLocation(program, name));
+        gl.activeTexture(gl.TEXTURE0 + unit);
+        return gl.getParameter(gl.TEXTURE_BINDING_2D);
+      });
+      gl.activeTexture(active);
+      return textures.every(texture => gl.isTexture(texture)) && textures[0] !== textures[1];
+    });
+    assert(distinctTextures, 'Context restoration must rebind both volume and noise textures');
     await expectStopped(s.page);
     await s.page.evaluate(()=>window.scene.destroy());
     await expectStopped(s.page);
