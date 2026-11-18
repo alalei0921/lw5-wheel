@@ -48,8 +48,8 @@ test('offline manifest covers every module and shared asset without eager heavy 
     assert(fs.existsSync(path.join(root,rel)),`Missing offline asset: ${rel}`);
   }
   for(const file of ['shared/supplements-v1.js','shared/supplements-store-v1.js','shared/supplements-v1.css','conflict/index.html','stock/bg.jpg','smart-home/panel-mute.html','shared/app-ui-v1.js','shared/local-control-v1.js','shared/elevator-v1.js','shared/elevator-ascent-v1.js','shared/particle-light-v1.js','shared/scene-depth-v1.js','shared/elevator-v1.css','shared/elevator-config-v1.js'])assert(s.installed.includes(scope+file));
-  assert(!s.installed.some(url=>url.includes('.m4a')||url.includes('room-data')));
-  for(const file of ['shared/lights-on-v1.js','shared/lights-on-v1.css','shared/lights-on-universe.js','shared/lights-on-universe.css'])assert(s.installed.includes(scope+file));
+  assert(!s.installed.some(url=>url.includes('.m4a')||url.includes('.mp4')||url.includes('/lights-film/')||url.includes('room-data')));
+  for(const file of ['shared/lights-on-v1.js','shared/lights-on-v1.css','shared/lights-on-universe.js','shared/lights-on-universe.css','shared/lights-on-film.js','shared/lights-on-film.css','shared/lights-on-film-manifest.js'])assert(s.installed.includes(scope+file));
 });
 
 test('activation only removes older LW5 caches, not unrelated apps',async()=>{
@@ -77,7 +77,7 @@ test('stalled or failed HTML request returns the cached page',async()=>{
 test('assets are cached; APIs, writes, ranges and other origins never intercepted',async()=>{
   const s=setup();const req=s.request('shared/app-ui-v1.js',{mode:'cors'});
   await s.event('fetch',req);await s.event('fetch',req);assert.equal(s.calls,1);
-  for(const req of [s.request('api/status'),s.request('x',{method:'POST'}),s.request('x',{headers:new Headers({range:'bytes=0-1'})}),s.request('https://other.test/x'),s.request('../other/index.html')])assert.equal(await s.event('fetch',req),undefined);
+  for(const req of [s.request('assets/lights-film/v1/level-09.mp4'),s.request('api/status'),s.request('x',{method:'POST'}),s.request('x',{headers:new Headers({range:'bytes=0-1'})}),s.request('https://other.test/x'),s.request('../other/index.html')])assert.equal(await s.event('fetch',req),undefined);
   assert.equal(s.calls,1);
 });
 

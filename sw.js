@@ -1,5 +1,5 @@
 // Keep app code consistent per release; cache large media only when it is used.
-const CACHE = 'lw5-home-v74-smooth-rim';
+const CACHE = 'lw5-home-v75-prerendered-film';
 const ASSETS = [
   './',
   './index.html',
@@ -16,6 +16,9 @@ const ASSETS = [
   './shared/lights-on-v1.css',
   './shared/lights-on-universe.js',
   './shared/lights-on-universe.css',
+  './shared/lights-on-film-manifest.js',
+  './shared/lights-on-film.js',
+  './shared/lights-on-film.css',
   './shared/elevator-v1.css',
   './shared/elevator-v1.js',
   './shared/elevator-ascent-v1.js',
@@ -116,7 +119,7 @@ self.addEventListener('fetch', (event) => {
   const url = new URL(req.url);
 
   const scope = new URL(self.registration.scope);
-  if (req.method !== 'GET' || url.origin !== scope.origin || !url.pathname.startsWith(scope.pathname) || url.pathname.includes('/api/') || req.headers.has('range')) return;
+  if (req.method !== 'GET' || url.origin !== scope.origin || !url.pathname.startsWith(scope.pathname) || url.pathname.includes('/api/') || url.pathname.endsWith('.mp4') || req.headers.has('range')) return;
   // Old links used timestamps to reload HTML. Keep one offline copy per page.
   const key = new URL(url);
   key.searchParams.delete('v');

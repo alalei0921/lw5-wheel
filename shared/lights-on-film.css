@@ -1,0 +1,17 @@
+.lights-film{background:#030407;container-type:size}
+.lights-film-backdrop,.lights-film-poster,.lights-film-video{position:absolute;inset:0;display:block;width:100%;height:100%;pointer-events:none}
+.lights-film-backdrop{z-index:0;background-position:center;background-size:cover;filter:blur(32px) brightness(.28);transform:scale(1.12)}
+.lights-film-poster,.lights-film-video{object-fit:contain;object-position:center}
+.lights-film-poster{z-index:1;color:transparent}
+.lights-film-video{z-index:2;opacity:0;transition:opacity 180ms linear}
+/* Fill ordinary portrait phones. Keep the complete composition in wider or
+   unusually tall hosts, where a cover crop would remove important cloud roots. */
+@container (min-aspect-ratio:2/5) and (max-aspect-ratio:3/4){
+  .lights-film-poster,.lights-film-video{object-fit:cover}
+}
+@supports not (container-type:size){
+  @media (min-aspect-ratio:2/5) and (max-aspect-ratio:3/4){
+    .lights-film-poster,.lights-film-video{object-fit:cover}
+  }
+}
+@media(prefers-reduced-motion:reduce){.lights-film-video{transition:none}}
