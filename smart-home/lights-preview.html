@@ -57,8 +57,10 @@
       const slider = element('slider');
       const announcement = element('announcement');
       const progress = element('progress');
+      const universe = element('universe');
       const TOTAL = 9;
       const STEP_DELAY = 1200;
+      const MIN_VISIBLE = 500;
       const state = { completed: 0, phase: 'idle', active: false, ready: false };
       let scene = null;
       let timer = null;
@@ -158,12 +160,32 @@
         announcement.textContent = '模拟完成，九档亮度已全部点亮。';
       }
 
+      function holdScene(callback, delay) {
+        // Only the simulator waits for a film. The home controller owns its own clock.
+        let waitLeft = 12000;
+        function checkFrame() {
+          const { renderer, filmState, filmLevel } = universe.dataset;
+          const still = universe.querySelector('.lights-film-poster');
+          const waiting = renderer === 'film' && (
+            filmState === 'loading' || filmState === 'paused' ||
+            Number(filmLevel) !== state.completed || (filmState !== 'playing' && still && !still.complete)
+          );
+          if (waiting && waitLeft > 0) {
+            waitLeft -= 100;
+            schedule(checkFrame, 100);
+          } else {
+            schedule(callback, MIN_VISIBLE);
+          }
+        }
+        schedule(checkFrame, Math.max(0, delay - MIN_VISIBLE));
+      }
+
       function advance() {
         if (!state.active) return;
         const next = state.completed + 1;
         show(next === TOTAL ? 'verifying' : 'running', next);
         announcement.textContent = `模拟点亮 ${state.completed} / ${TOTAL}`;
-        schedule(state.completed < TOTAL ? advance : finish, state.completed < TOTAL ? STEP_DELAY : 650);
+        holdScene(state.completed < TOTAL ? advance : finish, state.completed < TOTAL ? STEP_DELAY : 650);
       }
 
       function play() {
@@ -181,7 +203,7 @@
           announcement.textContent = '开始模拟九档点亮。';
           schedule(() => {
             show('running', 0);
-            schedule(advance, STEP_DELAY);
+            holdScene(advance, STEP_DELAY);
           }, 650);
         } else if (nextTask) {
           schedule(nextTask, remaining);
@@ -189,7 +211,7 @@
           updateButton();
         } else {
           show('running', state.completed);
-          schedule(advance, STEP_DELAY);
+          holdScene(advance, STEP_DELAY);
         }
       }
 
