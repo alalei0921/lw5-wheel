@@ -1,0 +1,230 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#030407">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self';script-src 'self' 'unsafe-inline';style-src 'self' 'unsafe-inline';img-src 'self' data:;connect-src 'none';object-src 'none';base-uri 'none';form-action 'none'">
+  <title>吸积盘 · LW5 预览</title>
+  <link rel="stylesheet" href="../shared/lights-on-universe.css?v=71">
+  <style>
+    :root{color-scheme:dark;font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif;color:#e7dfd2;background:#030407;font-synthesis:none}
+    *{box-sizing:border-box}html,body{width:100%;height:100%;margin:0;overflow:hidden}body{overscroll-behavior:none;-webkit-tap-highlight-color:transparent}button,input{font:inherit}button,a,summary{color:inherit;touch-action:manipulation}button,summary{cursor:pointer}button:focus-visible,a:focus-visible,summary:focus-visible,input:focus-visible{outline:2px solid #e9c995;outline-offset:5px}[hidden]{display:none!important}
+    .experience{position:fixed;inset:0;width:100%;height:100%;height:100dvh;overflow:hidden;isolation:isolate}
+    #universe{position:absolute;inset:0;width:100%;height:100%;aspect-ratio:auto}
+    .shade{position:absolute;z-index:1;inset:0;pointer-events:none;background:linear-gradient(180deg,#03040766,transparent 15%,transparent 85%,#03040799)}
+    header{position:absolute;z-index:3;top:max(14px,env(safe-area-inset-top));left:max(22px,env(safe-area-inset-left));right:max(22px,env(safe-area-inset-right));display:flex;justify-content:space-between;align-items:center;gap:16px;min-height:44px}
+    .brand{display:flex;align-items:center;gap:13px;text-shadow:0 2px 15px #000}.brand strong{font-size:11px;letter-spacing:3px;font-weight:500}.brand span{font-size:9px;letter-spacing:2px;color:#c2b7a1aa;border-left:1px solid #d3c2a32b;padding-left:13px}
+    footer{position:absolute;z-index:3;bottom:max(22px,calc(env(safe-area-inset-bottom) + 12px));left:50%;transform:translateX(-50%);display:flex;align-items:center;justify-content:center;gap:19px;max-width:calc(100% - 36px);min-height:46px}
+    .count{white-space:nowrap;font-size:15px;font-weight:350;letter-spacing:1px;line-height:1.3;font-variant-numeric:tabular-nums;text-shadow:0 2px 16px #000}.count small{font-size:10px;color:#a89d8b;letter-spacing:.7px}
+    .play{height:44px;min-width:104px;display:flex;align-items:center;justify-content:center;gap:8px;padding:0 20px;border:1px solid #d1b98c48;border-radius:25px;background:linear-gradient(140deg,#8b704124,#110f0b70);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);font-size:11px;letter-spacing:2px;white-space:nowrap;box-shadow:inset 0 1px #ffeac306}.play svg{width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:1.3;stroke-linejoin:round;stroke-linecap:round}.play:disabled{opacity:.4;cursor:default}.play:active{background:#8b704140}
+    .tuning{position:relative}.tuning summary{display:grid;place-items:center;list-style:none;width:36px;height:44px;color:#ab9d84}.tuning summary::-webkit-details-marker{display:none}.tuning summary svg{width:19px;height:19px;fill:none;stroke:currentColor;stroke-width:1.25}.tuning[open] summary{color:#f2d6a1}
+    .panel{position:absolute;right:0;bottom:58px;width:230px;max-width:calc(100vw - 40px);padding:18px 19px;border:1px solid #c7ab782e;border-radius:15px;background:#0f1016eb;backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);box-shadow:0 16px 46px #0008;color:#c6b79e;font-size:11px}.panel label{display:flex;justify-content:space-between;gap:20px;letter-spacing:1px}.panel input{display:block;width:100%;height:32px;margin:10px 0 0;accent-color:#e1be82;touch-action:pan-x}.panel small{display:block;text-align:center;letter-spacing:2px;color:#8c8274;font-size:9px;margin-top:4px}
+    .error{position:absolute;z-index:4;left:24px;right:24px;top:44%;margin:0;text-align:center;font-size:12px;line-height:1.8;letter-spacing:2px;color:#d8c39e;text-shadow:0 2px 15px #000}
+    .sr-only{position:absolute!important;width:1px!important;height:1px!important;padding:0!important;margin:-1px!important;overflow:hidden!important;clip:rect(0,0,0,0)!important;white-space:nowrap!important;border:0!important}
+    @media(min-width:800px) and (min-height:601px){header{top:24px;left:32px;right:32px}footer{bottom:28px;gap:24px}}
+    @media(max-width:350px){header{left:max(16px,env(safe-area-inset-left));right:max(16px,env(safe-area-inset-right))}footer{gap:12px;max-width:calc(100% - 24px)}.play{min-width:96px;padding:0 16px}.count{font-size:14px}}
+    @media(max-height:600px){header{top:max(8px,env(safe-area-inset-top))}footer{bottom:max(10px,calc(env(safe-area-inset-bottom) + 6px));gap:15px}.panel{bottom:51px}}
+    @media(orientation:landscape) and (max-height:500px){header{left:max(20px,env(safe-area-inset-left));right:max(20px,env(safe-area-inset-right));top:max(6px,env(safe-area-inset-top))}.brand span{display:none}footer{bottom:max(8px,env(safe-area-inset-bottom));gap:15px}.play{height:40px;min-width:96px}.tuning summary{height:40px}.shade{background:linear-gradient(180deg,#03040745,transparent 18%,transparent 87%,#03040780)}}
+    @media(prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important}}
+  </style>
+</head>
+<body>
+  <main class="experience" aria-label="吸积盘九级点亮预览">
+    <div id="universe" class="lights-universe" aria-hidden="true"></div>
+    <div class="shade" aria-hidden="true"></div>
+    <header><div class="brand"><strong>LW5</strong><span>预览</span></div></header>
+    <p id="error" class="error" role="alert" hidden>画面暂时无法显示</p>
+    <footer>
+      <div id="progress" role="progressbar" aria-label="模拟点亮进度" aria-valuemin="0" aria-valuemax="9" aria-valuenow="0" aria-valuetext="0 / 9 盏灯（模拟）"><span class="count" aria-hidden="true"><span id="count">00</span><small> / 09</small></span></div>
+      <button id="play" class="play" type="button" disabled aria-label="开始模拟九盏灯点亮"><svg id="playIcon" viewBox="0 0 20 20" aria-hidden="true"><path d="m7 4 9 6-9 6V4Z"/></svg><span id="playLabel">点亮</span></button>
+      <details class="tuning" id="tuning"><summary aria-label="手动调节模拟进度" title="调节进度"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 7h6m4 0h8M3 17h11m4 0h3"/><circle cx="11" cy="7" r="2"/><circle cx="16" cy="17" r="2"/></svg></summary><div class="panel"><label for="slider">进度<output id="output" for="slider">0 / 9</output></label><input id="slider" type="range" min="0" max="9" step="1" value="0" disabled aria-label="模拟已点亮灯数"><small>模拟预览</small></div></details>
+    </footer>
+    <span id="announcement" class="sr-only" aria-live="polite">独立模拟预览，不连接中控，不控制真实灯光。</span>
+  </main>
+  <script src="../shared/lights-on-universe.js?v=71"></script>
+  <script>
+    // This page only simulates progress. It contains no device discovery or control.
+    (() => {
+      'use strict';
+
+      const element = id => document.getElementById(id);
+      const playButton = element('play');
+      const slider = element('slider');
+      const announcement = element('announcement');
+      const progress = element('progress');
+      const TOTAL = 9;
+      const STEP_DELAY = 1200;
+      const state = { completed: 0, phase: 'idle', active: false, ready: false };
+      let scene = null;
+      let timer = null;
+      let nextTask = null;
+      let due = 0;
+      let remaining = 0;
+
+      function updateButton() {
+        const finished = state.completed === TOTAL;
+        const resumable = state.phase !== 'idle';
+        element('playLabel').textContent = state.active ? '暂停' : finished ? '重播' : resumable ? '继续' : '点亮';
+        playButton.setAttribute('aria-label', state.active ? '暂停模拟' : finished
+          ? '重新模拟九盏灯点亮' : resumable ? '继续模拟点亮' : '开始模拟九盏灯点亮');
+        element('playIcon').innerHTML = state.active
+          ? '<path d="M7 5v10M13 5v10"/>'
+          : finished
+            ? '<path d="M5 7a6 6 0 1 1-1 5M5 3v4H1"/>'
+            : '<path d="m7 4 9 6-9 6V4Z"/>';
+        playButton.disabled = !state.ready;
+        slider.disabled = !state.ready;
+      }
+
+      function pauseClock() {
+        if (timer === null) return;
+        remaining = Math.max(0, due - performance.now());
+        clearTimeout(timer);
+        timer = null;
+      }
+
+      function cancel() {
+        pauseClock();
+        nextTask = null;
+        state.active = false;
+      }
+
+      function showError() {
+        cancel();
+        state.ready = false;
+        element('error').hidden = false;
+        updateButton();
+      }
+
+      function createScene() {
+        try {
+          scene = window.LW5LightsUniverse.create(element('universe'));
+          state.ready = true;
+          element('error').hidden = true;
+        } catch {
+          showError();
+        }
+        updateButton();
+      }
+
+      function show(phase, value) {
+        state.phase = phase;
+        state.completed = Math.max(0, Math.min(TOTAL, Math.round(Number(value) || 0)));
+        document.body.dataset.progress = String(state.completed);
+        document.body.dataset.phase = phase;
+        element('count').textContent = String(state.completed).padStart(2, '0');
+        slider.value = String(state.completed);
+        element('output').value = `${state.completed} / ${TOTAL}`;
+        progress.setAttribute('aria-valuenow', String(state.completed));
+        progress.setAttribute('aria-valuetext', `${state.completed} / ${TOTAL} 盏灯（模拟）`);
+        try {
+          scene?.update({
+            status: phase,
+            completed: state.completed,
+            total: TOTAL,
+            currentIndex: phase === 'running' ? Math.min(TOTAL, state.completed + 1) : null,
+          });
+        } catch {
+          showError();
+        }
+        updateButton();
+      }
+
+      function schedule(callback, delay) {
+        if (!state.ready || !state.active) return;
+        clearTimeout(timer);
+        timer = null;
+        nextTask = callback;
+        remaining = Math.max(0, delay);
+        due = performance.now() + remaining;
+        if (document.hidden) return;
+        timer = setTimeout(() => {
+          timer = null;
+          const task = nextTask;
+          nextTask = null;
+          if (state.active && state.ready) task?.();
+        }, remaining);
+      }
+
+      function finish() {
+        if (!state.active) return;
+        state.active = false;
+        show('succeeded', TOTAL);
+        announcement.textContent = '模拟完成，九档亮度已全部点亮。';
+      }
+
+      function advance() {
+        if (!state.active) return;
+        const next = state.completed + 1;
+        show(next === TOTAL ? 'verifying' : 'running', next);
+        announcement.textContent = `模拟点亮 ${state.completed} / ${TOTAL}`;
+        schedule(state.completed < TOTAL ? advance : finish, state.completed < TOTAL ? STEP_DELAY : 650);
+      }
+
+      function play() {
+        if (!state.ready) return;
+        if (state.active) {
+          pauseClock();
+          state.active = false;
+          announcement.textContent = '模拟已暂停。';
+          updateButton();
+          return;
+        }
+        state.active = true;
+        if (state.completed === TOTAL || state.phase === 'idle') {
+          show('connecting', 0);
+          announcement.textContent = '开始模拟九档点亮。';
+          schedule(() => {
+            show('running', 0);
+            schedule(advance, STEP_DELAY);
+          }, 650);
+        } else if (nextTask) {
+          schedule(nextTask, remaining);
+          announcement.textContent = '继续模拟点亮。';
+          updateButton();
+        } else {
+          show('running', state.completed);
+          schedule(advance, STEP_DELAY);
+        }
+      }
+
+      function setProgress(value) {
+        cancel();
+        const count = Math.max(0, Math.min(TOTAL, Math.round(Number(value) || 0)));
+        show(count === TOTAL ? 'succeeded' : count ? 'running' : 'idle', count);
+        announcement.textContent = `模拟亮度：${count} / ${TOTAL}`;
+      }
+
+      playButton.addEventListener('click', play);
+      slider.addEventListener('input', event => setProgress(event.currentTarget.value));
+      document.addEventListener('visibilitychange', () => {
+        if (document.hidden) pauseClock();
+        else if (state.active && nextTask) schedule(nextTask, remaining);
+      });
+      document.addEventListener('keydown', event => {
+        if (event.key === 'Escape') element('tuning').open = false;
+      });
+      window.addEventListener('pagehide', () => {
+        cancel();
+        try { scene?.destroy(); } catch { /* Cleanup must not block navigation. */ }
+        scene = null;
+        state.ready = false;
+      });
+      window.addEventListener('pageshow', event => {
+        if (!event.persisted) return;
+        // Returning from browser history keeps progress paused; it never auto-starts.
+        createScene();
+        show(state.phase, state.completed);
+      });
+
+      window.blackholePreview = Object.freeze({
+        setProgress,
+        getState: () => ({ ...state }),
+      });
+      createScene();
+      show('idle', 0);
+    })();
+  </script>
+</body>
+</html>

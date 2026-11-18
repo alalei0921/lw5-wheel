@@ -44,15 +44,15 @@ v62 说明兼容：仅为对应默认短名称下的空说明或原“点「编�
 
 ## Black-hole lighting visual (2026-11-18)
 
-The lighting scene fits the full event-horizon arc inside phone viewports.
-Its volumetric foreground advects around the black hole with differential angular
-speed. Nine confirmed circuits illuminate nine distinct procedural stars and
-clusters, including convection cells, coronae, magnetic loops, binary orbits,
-seeded star particles and nebular gas. No generated image/video or external
-visual asset is required. This is an artistic space effect, not a physical simulation.
+Each confirmed circuit raises the luminosity of the same accretion disk by one
+level. A travelling heat front follows the orbit as the new light reaches the
+lensed arc and rotating dust. The ninth confirmation brings the disk to full
+intensity around the central shadow. Reduced-motion mode shows the settled
+level immediately. A Canvas 2D renderer supports devices without WebGL.
+The [interactive preview](smart-home/lights-preview.html) simulates all nine
+confirmations and supports scrubbing to an individual level.
 
-The existing renderer API, confirmed progress, error semantics and controls are
-unchanged. Both frontend and local bridge use the same renderer bytes; bridge
-HTML embeds the files at startup and requires a restart to refresh. The service
-worker cache is `lw5-home-v70-stellar-blackhole`. The previous black-hole renderer
-remains available in Git at `46e317f` and the independent comparison preview.
+The frontend and local bridge share the renderer. The bridge embeds the script
+at startup and needs a restart to pick up visual changes. The service worker
+cache is `lw5-home-v71-blackhole-ignition`. The nine-star version is available
+at `45641ab`, and the earlier black-hole scene at `46e317f`.

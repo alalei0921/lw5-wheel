@@ -107,6 +107,63 @@ test('reduced motion stays static and responds to new confirmation snapshots wit
   } finally { await s.context.close(); }
 });
 
+test('each confirmation makes the settled disk visibly brighter on both renderers', async () => {
+  for (const blockWebGL of [false, true]) {
+    const s = await scene({ width: 240, height: 400, reducedMotion: 'reduce', blockWebGL });
+    try {
+      let previous = -1;
+      for (let completed = 0; completed <= 9; completed++) {
+        await update(s.page, { status: 'running', completed });
+        const brightness = await s.page.evaluate(() => {
+          const canvas = document.querySelector('#host canvas');
+          const sample = document.createElement('canvas');
+          sample.width = 32;
+          sample.height = 48;
+          const ctx = sample.getContext('2d');
+          ctx.drawImage(canvas, 0, 0, sample.width, sample.height);
+          const { data } = ctx.getImageData(0, 0, sample.width, sample.height);
+          let sum = 0;
+          for (let i = 0; i < data.length; i += 4) {
+            sum += .2126 * data[i] + .7152 * data[i + 1] + .0722 * data[i + 2];
+          }
+          return sum / (sample.width * sample.height);
+        });
+        assert(brightness > previous + .15, `Confirmation ${completed} should brighten the scene (${previous} → ${brightness})`);
+        previous = brightness;
+      }
+      clean(s);
+    } finally { await s.context.close(); }
+  }
+});
+
+test('overlapping confirmations finish their own warm-up and repeated polls do not launch another wave', async () => {
+  const s = await scene({ width: 240, height: 400 });
+  try {
+    const values = await s.page.evaluate(() => {
+      const gl = document.querySelector('#host canvas').getContext('webgl');
+      const program = gl.getParameter(gl.CURRENT_PROGRAM);
+      const power = gl.getUniformLocation(program, 'uProgress');
+      const start = performance.now();
+      let elapsed = 0;
+      Object.defineProperty(performance, 'now', { configurable: true, value: () => start + elapsed });
+      function read(ms, completed, status = 'running') {
+        elapsed = ms;
+        window.scene.update({ status, completed });
+        return gl.getUniform(program, power) * 9;
+      }
+      try {
+        return [read(0, 0, 'connecting'), read(100, 1), read(550, 1), read(550, 2),
+          read(1000, 2), read(2000, 2), read(10000, 2), read(10000, 0, 'connecting')];
+      } finally {
+        delete performance.now;
+      }
+    });
+    const expected = [0, 0, .5, .5, 1.5, 2, 2, 0];
+    values.forEach((v, i) => assert(Math.abs(v - expected[i]) < .001, `Unexpected light at snapshot ${i}: ${v}`));
+    clean(s);
+  } finally { await s.context.close(); }
+});
+
 test('hidden ancestors and a closed dialog suspend animation; destroy releases its canvas and callbacks', async () => {
   const s = await scene({ dialog: true });
   try {

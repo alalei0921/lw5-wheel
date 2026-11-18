@@ -36,245 +36,149 @@
 uniform vec2 uRes;
 uniform float uTime;
 uniform sampler2D uNoise;
-uniform float uSuccess,uPulse,uProgress,uCompleted,uCurrent,uFailed,uFinishAge;
+uniform float uSuccess,uProgress,uFailed;
 uniform float uImpacts[9];
 float hash13(vec3 p){p=fract(p*.1031);p+=dot(p,p.zyx+31.32);return fract((p.x+p.y)*p.z);}
 float noise3(vec3 p){vec3 i=floor(p),f=fract(p);f=f*f*(3.-2.*f);vec2 uv=i.xy+vec2(37.,17.)*i.z+f.xy;vec2 v=texture2D(uNoise,(uv+.5)/128.).rg;return mix(v.x,v.y,f.z);}
-float fbm(vec3 p){float n=.5*noise3(p);p=p*2.02+17.3;n+=.25*noise3(p);p=p*2.04+11.7;n+=.125*noise3(p);p=p*2.01+7.2;n+=.0625*noise3(p);p=p*2.03+11.7;n+=.03125*noise3(p);return n;}
+float fbm(vec3 p){float n=.53*noise3(p);p=p*2.02+17.3;n+=.27*noise3(p);p=p*2.04+11.7;n+=.13*noise3(p);p=p*2.01+7.2;n+=.07*noise3(p);return n;}
 mat2 turn(float a){float c=cos(a),s=sin(a);return mat2(c,-s,s,c);}
+vec3 aces(vec3 c){return clamp((c*(2.51*c+.03))/(c*(2.43*c+.59)+.14),0.,1.);}
+
+// Coherent world-space cloud matter follows an annulus around the hole.
+// Rotation advects the noise itself; there is no scrolling billboard or radial bar.
 float dust(vec3 p){
- // Advect a coherent volume around the hole; inner clouds overtake the outer bank.
  vec2 orbit=p.xz-vec2(0.,10.);
  float radial=length(orbit);
- // Bounded differential shear avoids winding the clouds into finer stripes over time.
- float angle=uTime*.24+.22*radial+.55*exp(-radial*.13)*sin(uTime*.35);
+ if(radial<=2.4||radial>=14.||p.y>=1.55)return 0.;
+ float ring=smoothstep(2.4,3.9,radial)*(1.-smoothstep(10.5,14.,radial));
+ float roof=1.-smoothstep(.25,1.55,p.y);
+ if(ring*roof<.002)return 0.;
+ float angle=uTime*.19+radial*.17+.32*sin(uTime*.23-radial*.19);
  vec2 q=turn(angle)*orbit;
- float n=fbm(vec3(q.x*1.35,p.y*2.2,q.y*1.35));
- float strand=sin(radial*1.9+atan(orbit.y,orbit.x)*2.-uTime*.32)*.028;
- return max(0.,n-.47-p.y*.31+strand);
-}
-vec3 aces(vec3 c){return clamp((c*(2.51*c+.03))/(c*(2.43*c+.59)+.14),0.,1.);}
-// Original procedural stellar studies. Linear HDR output; compose before ACES.
-// Requires existing noise3/hash13, uTime/uCompleted/uCurrent/uFailed/uImpacts.
-mat2 stRotate(float a){float c=cos(a),s=sin(a);return mat2(c,-s,s,c);}
-
-vec3 stPhotosphere(vec2 p,vec3 ember,vec3 hot,float seed,float strength,float pixel){
- float rr=length(p),ang=atan(p.y,p.x),edge=rr-1.;
- vec3 colour=vec3(0.);
- // Uneven coronal streamers are rooted to the rotating sphere, not a soft disk.
- vec2 orbit=stRotate(uTime*.075+seed)*vec2(cos(ang),sin(ang));
- float stream=noise3(vec3(orbit*7.4,seed+uTime*.11));
- float fine=noise3(vec3(orbit*19.,seed-uTime*.15));
- float corona=exp(-max(edge,0.)*(4.6+stream*4.))*smoothstep(-pixel,pixel,edge);
- colour+=mix(ember,hot,.38)*corona*(.10+stream*.21+pow(fine,4.)*.48)*strength;
- colour+=hot*.055*exp(-rr*1.35)*strength;
- if(rr<1.+pixel){
-  float z=sqrt(max(0.,1.-rr*rr));
-  vec3 surface=vec3(p,z);
-  surface.xz=stRotate(uTime*.16+seed)*surface.xz;
-  float convection=noise3(surface*7.8+vec3(seed,0.,uTime*.22));
-  float granules=noise3(surface*29.+vec3(seed*3.,uTime*.48,0.));
-  float cells=pow(smoothstep(.18,.86,granules),1.35);
-  float filaments=pow(1.-abs(sin((convection*3.+granules)*10.)),10.);
-  float spots=smoothstep(.67,.89,noise3(surface*5.4+seed*2.))*smoothstep(.3,.8,z);
-  float limb=.36+.64*pow(max(z,0.),.55);
-  vec3 plasma=mix(ember*.34,hot,.26+cells*.61);
-  plasma*=limb*(.72+convection*.7)*(1.-spots*.72);
-  plasma+=hot*filaments*.27*limb;
-  colour+=plasma*strength*(1.-smoothstep(1.-pixel,1.+pixel,rr));
- }
- // Three real projected magnetic loops: elliptical arcs outside the photosphere.
- for(int f=0;f<3;f++){
-  float q=float(f),a=seed*.81+q*2.19+sin(uTime*.19+q)*.13;
-  vec2 radial=vec2(cos(a),sin(a)),tangent=vec2(-radial.y,radial.x);
-  float rise=.29+.11*sin(uTime*.32+seed+q);
-  vec2 loop=vec2((dot(p,radial)-1.035)/(.23+rise),dot(p,tangent)/(.13+q*.025));
-  float curve=abs(length(loop)-1.);
-  float thread=exp(-curve*31.)+.23*exp(-curve*9.);
-  float flicker=.63+.37*sin(uTime*.58+q+seed);
-  float mask=smoothstep(.96,1.04,rr)*(1.-smoothstep(1.72,1.93,rr));
-  colour+=mix(ember,hot,.64)*thread*mask*(.46+.25*flicker)*strength;
- }
- return colour;
+ float volume=fbm(vec3(q.x*1.23,p.y*2.05,q.y*1.23));
+ float strands=.032*sin(radial*2.4+atan(orbit.y,orbit.x)*2.-uTime*.41);
+ return max(0.,volume-.43-p.y*.26+strands)*ring*roof;
 }
 
-vec3 stCluster(vec2 p,float seed,vec3 gas,vec3 stars,float variant,float strength){
- vec2 turn=stRotate(uTime*(.018+variant*.006)+seed)*p;
- float dist=length(turn*vec2(.86,1.14));
- float fog=noise3(vec3(turn*2.3,seed+uTime*.06));
- fog+=.5*noise3(vec3(turn*5.1+13.,seed-uTime*.08));
- float veil=pow(max(0.,fog-.24),2.)*exp(-dist*dist*1.4);
- vec3 colour=gas*veil*.27*strength;
- if(variant>1.5){
-  float a=atan(turn.y,turn.x);
-  float tendril=pow(.5+.5*sin(a*3.+dist*6.-uTime*.12),4.);
-  colour+=mix(gas,stars,.3)*tendril*exp(-abs(dist-.9)*4.)*.045*strength;
- }
- // Fixed seeded stars have depth, unequal temperatures and individual scintillation.
- // Only evaluated inside this cluster's small screen-space bounding disk.
- for(int s=0;s<38;s++){
-  float k=float(s),h=hash13(vec3(k,seed,8.1)),h2=hash13(vec3(seed,k,3.7));
-  float a=k*2.399963+seed;
-  float r=pow(h,variant<.5?.48:.85)*(variant<.5?1.42:1.22);
-  vec2 at=vec2(cos(a),sin(a))*r;
-  at.y*=.72+.12*variant;
-  at.x+=sin(k*1.7)*.07;
-  float d=length(turn-at);
-  float core=exp(-d*(140.-h2*45.));
-  float glow=exp(-d*22.)*.055;
-  float life=.82+.18*sin(uTime*(.7+h2)+k*3.1);
-  vec3 temperature=mix(vec3(1.,.57,.23),stars,h2*.84+.16);
-  colour+=temperature*(core*(.40+h2*.62)+glow)*life*strength;
-  if(s<4){
-   vec2 off=turn-at;
-   float ray=exp(-abs(off.x)*260.-abs(off.y)*24.)+exp(-abs(off.y)*260.-abs(off.x)*24.);
-   colour+=temperature*ray*.085*strength;
-  }
- }
- return colour;
-}
-
-vec3 stellarField(vec2 screenUv,float aspect,float unit){
- vec3 sum=vec3(0.);
- float landscape=step(1.35,aspect),sizeBoost=mix(1.,1.55,landscape);
- float spread=min(aspect*.62,.82);
+// Each successful acknowledgement injects a short, overlapping thermal packet.
+// Time never creates progress: only real uImpacts entries can launch these waves.
+float thermalPackets(float angle,float radial){
+ float heat=0.;
  for(int j=0;j<9;j++){
-  float k=float(j),row=floor(k/3.),column=mod(k,3.);
-  vec2 at=vec2((column-1.)*spread+sin(k*1.8)*spread*.065,
-    -.14-row*.235+sin(k*1.71)*.025);
-  if(landscape>.5){
-   float second=step(4.5,k),col=k-second*5.;
-   float count=mix(5.,4.,second);
-   float reach=min(aspect*.73,1.85);
-   at=vec2((col-(count-1.)*.5)*(reach*2./(count-1.)),mix(-.18,-.58,second)+sin(k*1.5)*.018);
-  }
-  float radius=(.031+hash13(vec3(k,6.,2.))*.008)*sizeBoost;
-  if(j==2)radius*=1.18;
-  if(j==4||j==5||j==7||j==8)radius=.054*sizeBoost;
-  vec2 p=(screenUv-at)/radius;
-  float dist=length(p);
-  // No detailed noise/particle work elsewhere on the screen.
-  if(dist<3.8){
-   float lit=1.-step(uCompleted,k);
-   float selected=1.-step(.4,abs(uCurrent-k-1.));
-   float failed=uFailed*selected;
-   float age=uImpacts[j];
-   float grow=age<0.?1.:smoothstep(0.,.85,age);
-   float strength=lit*grow;
-   float pixel=max(.018,2./max(1.,unit)/radius);
-   float seed=k*1.73+2.6;
-   vec3 ember=vec3(.98,.20,.025),hot=vec3(1.6,.94,.28);
-   if(j==1){ember=vec3(.06,.29,.95);hot=vec3(.78,1.15,1.65);}
-   if(j==2){ember=vec3(.66,.025,.008);hot=vec3(1.5,.37,.10);}
-   if(j==3){ember=vec3(.43,.35,.76);hot=vec3(1.35,1.43,1.65);}
-   if(j==6){ember=vec3(.02,.29,.52);hot=vec3(.32,1.45,1.65);}
-   vec3 body=vec3(0.);
-   if(strength>.001){
-    if(j==4){
-     body=stCluster(p,seed,vec3(.8,.23,.025),vec3(1.35,1.01,.49),0.,strength);
-    }else if(j==5){
-     body=stCluster(p,seed,vec3(.49,.10,.79),vec3(.79,.82,1.6),2.,strength);
-     body+=stPhotosphere((p-vec2(.10,.02))/.29,vec3(.21,.10,.66),vec3(.82,.63,1.6),seed,strength*.38,pixel/.29);
-    }else if(j==7){
-     body=stCluster(p,seed,vec3(.64,.09,.26),vec3(1.4,.77,.74),1.,strength);
-     body+=vec3(1.2,.56,.34)*exp(-dot(p,p)*18.)*.20*strength;
-    }else if(j==8){
-     body=stCluster(p,seed,vec3(.07,.32,.60),vec3(.67,1.08,1.65),2.,strength);
-     body+=stPhotosphere((p+vec2(.12,.01))/.34,vec3(.96,.19,.02),vec3(1.65,.98,.34),seed,strength*.65,pixel/.34);
-    }else if(j==1){
-     vec2 orbit=vec2(cos(uTime*.16+.4),sin(uTime*.16+.4)*.52)*.68;
-     body=stPhotosphere((p-orbit)/.67,ember,hot,seed,strength,pixel/.67);
-     body+=stPhotosphere((p+orbit)/.43,vec3(.60,.20,.035),vec3(1.4,.86,.35),seed+2.,strength*.8,pixel/.43);
-     float belt=abs(length(p/vec2(1.35,.73))-1.);
-     body+=vec3(.24,.46,.88)*exp(-belt*30.)*.018*strength;
-    }else{
-     body=stPhotosphere(p,ember,hot,seed,strength,pixel);
-     if(j==3){
-      float cross=exp(-abs(p.x)*55.-abs(p.y)*1.7)+exp(-abs(p.y)*55.-abs(p.x)*1.7);
-      body+=hot*cross*.15*strength;
-     }
-     if(j==6){
-      vec2 beam=stRotate(-.45+sin(uTime*.14)*.12)*p;
-      float jets=exp(-abs(beam.x)*28.)*exp(-abs(beam.y)*.92)*smoothstep(.8,1.22,abs(beam.y));
-      float belt=exp(-abs(length(p/vec2(1.75,.56))-1.)*42.);
-      body+=hot*(jets*.42+belt*.085)*strength;
-     }
-    }
-   }
-   // Dim unlit seeds and a restrained current-item breath never imply completion.
-   float waiting=.0028+selected*(1.-lit)*(1.-uFailed)*(.006+.005*sin(uTime*2.));
-   sum+=vec3(.44,.51,.64)*exp(-dist*23.)*waiting;
-   sum+=body*(1.-smoothstep(2.8,3.8,dist));
-   if(lit>.5&&age>=0.&&age<1.25){
-    float front=age*2.2+.95;
-    float ripple=exp(-abs(dist-front)*36.)*pow(1.-age/1.25,2.);
-    sum+=hot*ripple*.11;
-   }
-   if(failed>.5){
-    float edge=exp(-abs(dist-1.15)*25.);
-    sum+=vec3(1.1,.10,.018)*(edge*.11+exp(-dist*9.)*.3);
-   }
+  float age=uImpacts[j];
+  if(age>=0.&&age<3.8){
+   float life=sin(clamp(age/3.8,0.,1.)*3.14159265);
+   float front=float(j)*1.83-age*2.25;
+   float arc=exp(-(1.-cos(angle-front))*17.);
+   float spread=exp(-abs(radial-(1.37+age*.12))*6.5);
+   heat+=arc*spread*life*.34;
   }
  }
- return sum;
+ return min(heat,1.2);
 }
 
 void main(){
  float unit=uRes.y,aspect=uRes.x/uRes.y;
  vec2 screenUv=(gl_FragCoord.xy*2.-uRes)/unit;
- // Keep the complete horizon inside a phone, independent of its aspect ratio.
- float framing=min(.49,aspect*.84);
- vec2 uv=(screenUv-vec2(0.,.34))*1.30/framing;
- float roll=-.045+sin(uTime*.085)*.009;
- uv=mat2(cos(roll),-sin(roll),sin(roll),cos(roll))*uv;
- uv.x+=sin(uTime*.095)*.018;
- float radius=1.30+sin(uTime*.06)*.012;
- float r=length(uv),edge=r-radius;
- float outer=smoothstep(-.004,.006,edge);
- float a=atan(uv.y,uv.x);
- vec3 flow=vec3(turn(uTime*.18)*uv*2.2,uTime*.025);
- float n=fbm(flow);
- float wisps=fbm(vec3(cos(a+uTime*.22)*4.,sin(a+uTime*.22)*4.,sqrt(max(edge,0.))*9.));
- float side=.24+1.7*exp(-length(uv-vec2(-1.26,-.10))*1.9);
- vec3 col=vec3(.0005,.0007,.001);
- // Background dust is stretched into the lens halo; the black core stays clear.
- float halo=exp(-max(edge,0.)*3.4)*(.02+pow(n,2.)*.34+pow(wisps,3.)*.3)*outer;
- col+=vec3(.92,.76,.60)*halo*side;
- float horizonVisibility=smoothstep(-.12,.20,uv.y);
- float photon=exp(-abs(edge)/max(.0035,1.2/unit))*horizonVisibility;
- col+=vec3(1.,.94,.83)*photon*2.7*side*(1.+uSuccess*.65);
- col+=vec3(.92,.77,.58)*exp(-abs(edge)*22.)*.28*side*mix(.15,1.,outer)*horizonVisibility;
- col+=vec3(.75,.55,.35)*exp(-abs(edge)*5.)*.07*side*outer*horizonVisibility;
- // Sparse stars only outside the silhouette.
- vec2 grid=uv*135.;vec2 cell=floor(grid);float star=hash13(vec3(cell,3.));
- float dotStar=exp(-length(fract(grid)-.5)*17.)*step(.994,star);
- col+=vec3(.8,.86,1.)*dotStar*outer*.8;
- // A single powerful backlight at the left horizon, soft enough to bloom.
- vec2 lightPosition=vec2(-1.25,-.18);
- float lightDistance=length((uv-lightPosition)*vec2(.8,1.));
- col+=vec3(1.,.88,.72)*(.13*exp(-lightDistance*3.1)+.7*exp(-lightDistance*13.));
- float diskY=uv.y+.23;
- col+=vec3(.82,.68,.51)*exp(-abs(diskY)*36.)*(.045+.2*exp(-abs(uv.x+.8)*2.));
- // World-space foreground: nearer formations move faster and absorb the light.
- vec3 ro=vec3(sin(uTime*.07)*.1,1.2,0.);
- vec3 rd=normalize(vec3(uv.x,uv.y*.7-.08,1.95));
- float travel=1.7,transmittance=1.;vec3 scatter=vec3(0.);
- vec3 lightDir=normalize(vec3(-.8,.5,.15));
- for(int i=0;i<48;i++){
+ float framing=min(.62,aspect*.77);
+ vec2 uv=(screenUv-vec2(0.,.10))*1.24/framing;
+ uv=turn(-.095+sin(uTime*.075)*.007)*uv;
+ uv.x+=sin(uTime*.061)*.009;
+ float pixel=2.48/max(1.,unit)/framing;
+ float r=length(uv),angle=atan(uv.y,uv.x),edge=r-1.24;
+ float outside=smoothstep(-pixel,pixel,edge);
+ float progress=clamp(uProgress,0.,1.);
+ // Every stage raises each radiance channel. White heat appears gradually.
+ float power=.19+progress*1.72+progress*progress*.62;
+ float breath=1.+smoothstep(.88,1.,progress)*sin(uTime*.63)*.026;
+ power*=breath;
+ vec3 hot=mix(vec3(1.,.29,.075),vec3(1.46,1.08,.69),progress);
+ vec3 warm=mix(vec3(.52,.16,.045),vec3(.90,.36,.13),progress);
+ vec3 col=vec3(.00035,.00055,.00085);
+
+ // Sparse distant starlight remains behind the silhouette and absorbing dust.
+ vec2 grid=uv*104.;vec2 cell=floor(grid);
+ float star=hash13(vec3(cell,7.3));
+ float pin=exp(-length(fract(grid)-.5)*20.)*step(.996,star);
+ col+=vec3(.42,.52,.70)*pin*.23*outside;
+ float background=fbm(vec3(uv*.38,3.1));
+ col+=vec3(.0012,.0016,.0024)*pow(background,2.)*outside;
+
+ // Inclined accretion plane: the rear is occulted, the near bank crosses low.
+ vec2 disk=vec2(uv.x,(uv.y+.36)/.225);
+ float dr=length(disk),da=atan(disk.y,disk.x);
+ vec2 advected=turn(uTime*.235+.19*dr)*disk;
+ float diskNoise=fbm(vec3(advected*3.0,4.4));
+ float filament=noise3(vec3(advected*10.2,7.1));
+ float diskMask=smoothstep(1.10,1.30,dr)*(1.-smoothstep(2.8,3.75,dr));
+ float rear=smoothstep(-.36,-.29,uv.y);
+ float diskVisible=mix(1.,outside,rear);
+ float heat=thermalPackets(da,dr);
+ float beaming=.40+1.45*exp(-length(disk-vec2(-1.65,-.12))*.77);
+ float bands=.34+.66*pow(.5+.5*sin(dr*22.+diskNoise*8.),2.);
+ float diskBody=pow(max(0.,diskNoise-.12),1.45)*bands;
+ float innerBurn=exp(-abs(dr-1.38)*5.1);
+ vec2 fastSide=(disk-vec2(-1.20,-.82))*vec2(.94,1.12);
+ float blueShift=exp(-dot(fastSide,fastSide)*1.9);
+ vec3 diskHot=mix(hot,vec3(1.30,1.52,1.70),progress*blueShift*.78);
+ vec3 diskRadiance=diskHot*(.11+diskBody*.60)*innerBurn;
+ diskRadiance+=warm*diskBody*.19;
+ diskRadiance*=diskMask*diskVisible*beaming*(power+heat*1.8);
+ col+=diskRadiance;
+ // Thermal spill is broad and asymmetric, with no anamorphic camera cross.
+ float diskBloom=exp(-abs(uv.y+.36)*7.4)*exp(-abs(uv.x)*.55);
+ col+=warm*diskBloom*.019*power*mix(.18,1.,outside);
+
+ // The far side appears as a warped, turbulent lens arc above the black core.
+ vec2 lensOrbit=turn(uTime*.15)*vec2(cos(angle),sin(angle));
+ float lensNoise=fbm(vec3(lensOrbit*4.4,max(edge,0.)*8.));
+ float threads=noise3(vec3(lensOrbit*13.,max(edge,0.)*29.-uTime*.16));
+ float upper=smoothstep(-.20,.31,uv.y);
+ float doppler=.34+1.18*pow(.5-.5*cos(angle),1.7);
+ float arch=exp(-max(edge,0.)*7.)*outside*upper;
+ float ribbon=pow(.5+.5*sin(edge*55.+lensNoise*9.+angle*1.2),5.);
+ float lensTexture=.075+lensNoise*.21+threads*.065+ribbon*.12;
+ float lensHeat=thermalPackets(angle,1.55);
+ float shoulder=exp(-pow((angle-2.25)*3.2,2.));
+ vec3 lensHot=mix(hot,vec3(1.25,1.44,1.66),progress*shoulder*.70);
+ col+=lensHot*arch*lensTexture*doppler*(power+lensHeat*2.3);
+ col+=warm*exp(-max(edge,0.)*2.4)*outside*upper*.047*power;
+ // A narrow physical photon edge, not repeated decorative concentric rings.
+ float photonWidth=max(.0042,pixel*.75);
+ float photon=exp(-pow(abs(edge)/photonWidth,1.35));
+ float horizon=.32+.68*upper;
+ col+=lensHot*photon*horizon*doppler*(power+lensHeat*1.5)*.93;
+ col+=hot*exp(-abs(edge)*38.)*outside*horizon*power*.055;
+ // Barely separated cool outer light and warm inner light give optical depth.
+ float dispersion=exp(-abs(edge-.018)*95.)*outside*upper;
+ col+=vec3(.031,.066,.12)*dispersion*power*(.24+.36*smoothstep(-.6,.7,uv.x));
+
+ // A long ray through thick orbiting clouds resolves ridges, troughs and shadows.
+ vec3 ro=vec3(sin(uTime*.053)*.07,1.38,0.);
+ vec3 rd=normalize(vec3(uv.x,uv.y*.64-.035,2.22));
+ vec3 lightDir=normalize(vec3(-.75,.57,.25));
+ float travel=1.55,transmittance=1.;
+ vec3 scatter=vec3(0.);
+ for(int i=0;i<44;i++){
   vec3 p=ro+rd*travel;
-  float stepSize=.23+travel*.027;
-  if(p.y<1.2){
+  float stepSize=.23+travel*.028;
+  if(p.y>=1.6&&rd.y>=0.)break;
+  if(p.y<1.6){
    float density=dust(p);
-   if(density>.007){
-    float diff=clamp((density-dust(p+lightDir*.34))*5.,0.,1.);
-    float shadow=exp(-dust(p+lightDir*.8)*4.);
-    float left=1.8*exp(-abs(p.x+travel*.48)*.45)+.05;
-    float illumination=.006+diff*shadow*left*.26;
-    vec3 colour=vec3(.79,.68,.55)*illumination;
-    colour+=vec3(.24,.21,.17)*exp(-travel*.1)*.014;
-    colour*=1.+uSuccess*.35+uPulse*.08;
-    float alpha=1.-exp(-density*stepSize*5.5);
-    scatter+=transmittance*colour*alpha;
+   if(density>.006){
+    float toward=dust(p+lightDir*.38);
+    float rim=clamp((density-toward)*5.5,0.,1.);
+    float shade=exp(-toward*3.1);
+    float radial=length(p.xz-vec2(0.,10.));
+    float irradiance=exp(-abs(radial-4.4)*.58)*(.25+.75*smoothstep(3.,8.,travel));
+    float approach=.12+1.45*exp(-abs(p.x+travel*.39)*.42);
+    float backscatter=.0025+pow(rim,1.65)*shade*approach*.22;
+    // Unlit troughs remain cool; illuminated fibers become copper then ivory.
+    vec3 cloud=vec3(.0018,.0029,.0055)*exp(-travel*.033)*(1.-rim*.5);
+    cloud+=warm*backscatter*irradiance*(.18+power*.52+heat*1.8);
+    cloud+=hot*pow(rim,3.)*shade*irradiance*.039*(power+heat*2.1);
+    float alpha=1.-exp(-density*stepSize*5.25);
+    scatter+=transmittance*cloud*alpha;
     transmittance*=1.-alpha;
     if(transmittance<.018)break;
    }
@@ -282,30 +186,26 @@ void main(){
   travel+=stepSize;
   if(travel>30.)break;
  }
- // The near cloud bank falls into shadow so the foreground stars keep their colour.
- scatter*=mix(.20,1.,smoothstep(-.82,.1,screenUv.y));
  col=col*transmittance+scatter;
- // An original small navigation ring gives the scene a human scale.
- vec2 ship=uv-vec2(.20+sin(uTime*.12)*.13,-.03+cos(uTime*.16)*.015);
- float sa=.3+sin(uTime*.15)*.1;
- ship=mat2(cos(sa),-sin(sa),sin(sa),cos(sa))*ship;
- float hull=abs(length(ship/vec2(.014,.030))-1.);
- float metal=exp(-hull*12.);
- col+=vec3(.35,.32,.27)*metal*(.24+.65*step(ship.x,0.));
- // A single confirmation wave travels through the foreground, never fake progress.
- if(uFinishAge>=0.&&uFinishAge<3.&&uSuccess>0.){
-  float front=exp(-abs(length(uv-lightPosition)-uFinishAge*.82)*35.);
-  col+=vec3(.9,.65,.32)*front*max(0.,1.-uFinishAge/3.)*.24*(1.-smoothstep(.0,.25,uv.y));
- }
- col+=vec3(1.,.86,.68)*exp(-lightDistance*7.)*.16;
- // Local optical glow spills across the lit ridge, with a faint anamorphic streak.
- float streak=exp(-abs(uv.y+.23)*200.)*exp(-abs(uv.x+.8)*1.5);
- col+=vec3(.75,.61,.43)*streak*.05;
- col+=stellarField(screenUv,aspect,unit);
- col=aces(col*1.3);
+ // The near emitting disk lies in front of much of the absorbing cloud column.
+ // Its broken ridges remain readable across the lower third of the silhouette;
+ // thin nearer wisps still attenuate them instead of erasing the whole disk.
+ float nearDisk=1.-smoothstep(-.40,-.30,uv.y);
+ float veil=.58+.42*noise3(vec3(uv*7.5,uTime*.11));
+ float diskTransmission=nearDisk*(.38+.34*smoothstep(.15,.64,diskNoise))*veil;
+ col+=diskRadiance*max(0.,diskTransmission-transmittance);
+ // Local scattered backlight survives the near cloud bank, preserving depth.
+ float leftGlow=length((uv-vec2(-1.23,-.30))*vec2(.9,1.2));
+ col+=hot*exp(-leftGlow*7.5)*.022*power;
+ // A final settling warmth stays localized to the disk rather than flashing white.
+ col+=warm*diskBloom*.008*clamp(uSuccess,0.,1.);
+ // Keep inactive failure visibly restrained; progress remains the confirmed count.
+ col*=1.-uFailed*.055;
+ float vignette=1.-smoothstep(.55,1.9,length(screenUv*vec2(1./max(aspect,.4),.77)))*.24;
+ col=aces(col*vignette*1.28);
  col=pow(col,vec3(.4545));
- float grain=(hash13(vec3(gl_FragCoord.xy,fract(uTime)*32.))-.5)/255.;
- gl_FragColor=vec4(col+grain,1.);
+ float grain=(hash13(vec3(gl_FragCoord.xy,fract(uTime)*31.))-.5)/510.;
+ gl_FragColor=vec4(max(vec3(0.),col+grain),1.);
 }
 `;
 
@@ -332,8 +232,10 @@ void main(){
     let program, buffer, texture, shaders=[], uniforms={};
     let destroyed=false, contextLost=false, fallback=null, frame=0, intersecting=true;
     let width=0, height=0, quality=1, lastPaint=-Infinity, lastTick=null, slowFrames=0;
+    let heatWaveUntil=0;
     let state={status:'idle',completed:0,currentIndex:null}, successAt=null;
     const impactTimes=Array(9).fill(-Infinity), epoch=performance.now();
+    const impactAges=new Float32Array(9);
     const motion=window.matchMedia('(prefers-reduced-motion: reduce)');
     let resizeObserver, intersectionObserver, mutationObserver;
     function allocate() {
@@ -349,7 +251,7 @@ void main(){
       buffer=gl.createBuffer();gl.bindBuffer(gl.ARRAY_BUFFER,buffer);gl.bufferData(gl.ARRAY_BUFFER,new Float32Array([-1,-1,3,-1,-1,3]),gl.STATIC_DRAW);
       const attribute=gl.getAttribLocation(program,'aPos');gl.enableVertexAttribArray(attribute);gl.vertexAttribPointer(attribute,2,gl.FLOAT,false,0,0);
       uniforms={};
-      for(const name of ['uRes','uTime','uNoise','uSuccess','uPulse','uProgress','uCompleted','uCurrent','uFailed','uFinishAge','uImpacts[0]']) uniforms[name]=gl.getUniformLocation(program,name);
+      for(const name of ['uRes','uTime','uNoise','uSuccess','uProgress','uFailed','uImpacts[0]']) uniforms[name]=gl.getUniformLocation(program,name);
       // Repeatable 3D value noise, packed into two channels for a single lookup.
       let seed=13211;const values=new Uint8Array(128*128);
       for(let i=0;i<values.length;i++){seed=(seed*16807)%2147483647;values[i]=Math.floor(seed/2147483647*256);}
@@ -394,21 +296,34 @@ void main(){
       if(destroyed||contextLost||!program||!width||!height)return;
       lastPaint=time;
       const t=motion.matches?3:(time-epoch)/1000;
-      const ages=impactTimes.map(start=>motion.matches?-1:Math.min(9,(time-start)/1000));
+      // Each confirmation warms its share of the disk. Overlapping responses
+      // finish their own ramps even if another poll arrives in the meantime.
+      let light=state.completed;
+      for(let i=0;i<impactTimes.length;i++){
+        const age=(time-impactTimes[i])/1000;
+        const active=!motion.matches && i<state.completed && age>=0 && age<9;
+        impactAges[i]=active?age:-1;
+        if(!active)continue;
+        const x=Math.min(1,age/.9);
+        light-=1-x*x*(3-2*x);
+      }
       let success=state.status==='succeeded'?(motion.matches?1:Math.min(1,(time-successAt)/1000)):0;
       success=success*success*(3-2*success);
       gl.useProgram(program);gl.uniform2f(uniforms.uRes,canvas.width,canvas.height);gl.uniform1f(uniforms.uTime,t);
-      gl.uniform1f(uniforms.uFinishAge,state.status==='succeeded'&&!motion.matches?(time-successAt)/1000:-1);gl.uniform1f(uniforms.uSuccess,success);gl.uniform1f(uniforms.uProgress,state.completed/9);
-      gl.uniform1f(uniforms.uPulse,Math.max(0,...ages.map(a=>a>=0?1-a*2:0)));
-      gl.uniform1f(uniforms.uCompleted,state.completed);gl.uniform1f(uniforms.uCurrent,state.currentIndex||0);gl.uniform1f(uniforms.uFailed,state.status==='failed'?1:0);
-      gl.uniform1fv(uniforms['uImpacts[0]'],ages);gl.drawArrays(gl.TRIANGLES,0,3);
+      gl.uniform1f(uniforms.uSuccess,success);
+      gl.uniform1f(uniforms.uProgress,light/9);
+      gl.uniform1f(uniforms.uFailed,state.status==='failed'?1:0);
+      gl.uniform1fv(uniforms['uImpacts[0]'],impactAges);gl.drawArrays(gl.TRIANGLES,0,3);
     }
     function tick(time){
       frame=0;if(!visible()||motion.matches)return;
-      if(lastTick!==null){slowFrames=time-lastTick>68?slowFrames+1:Math.max(0,slowFrames-1);}
+      if(lastTick!==null){slowFrames=time-lastTick>50?slowFrames+1:Math.max(0,slowFrames-1);}
       lastTick=time;
       if(slowFrames>=12&&quality>.52){quality=Math.max(.5,quality*.8);slowFrames=0;resize();}
-      if(time-lastPaint>=30)paint(time);
+      // Spend the extra frames on a travelling heat front; the steady orbit
+      // can run at half that cadence and leave the mobile GPU breathing room.
+      const interval=time<heatWaveUntil && quality>=.8?15:30;
+      if(time-lastPaint>=interval)paint(time);
       if(!frame)frame=requestAnimationFrame(tick);
     }
     function update(next={}){
@@ -417,8 +332,13 @@ void main(){
       const completed=Math.min(9,Math.max(0,Number.isFinite(next.completed)?Math.floor(next.completed):0));
       const currentIndex=Number.isInteger(next.currentIndex)&&next.currentIndex>=1&&next.currentIndex<=9?next.currentIndex:null;
       const time=performance.now();
-      if(completed<state.completed||['idle','connecting','queued'].includes(status))impactTimes.fill(-Infinity);
-      else if(status!=='failed')for(let i=state.completed;i<completed;i++)impactTimes[i]=time;
+      if(completed<state.completed||['idle','connecting','queued','failed'].includes(status)){
+        impactTimes.fill(-Infinity);
+        heatWaveUntil=0;
+      }else if(completed>state.completed&&!motion.matches){
+        for(let i=state.completed;i<completed;i++)impactTimes[i]=time;
+        heatWaveUntil=time+2200;
+      }
       if(status==='succeeded'&&state.status!=='succeeded')successAt=time;
       else if(status!=='succeeded')successAt=null;
       state={status,completed,currentIndex};host.dataset.phase=status;host.dataset.completed=String(completed);
@@ -426,7 +346,7 @@ void main(){
     }
     function lost(event){
       event.preventDefault();contextLost=true;stop();canvas.style.visibility='hidden';
-      if(!fallback){try{fallback=createFallback(host);fallback.update(state);host.dataset.renderer='compatibility';}catch{}}
+      if(!fallback){try{fallback=createFallback(host,state);host.dataset.renderer='compatibility';}catch{}}
     }
     function restored(){
       if(destroyed)return;
@@ -455,239 +375,220 @@ void main(){
     return Object.freeze({update,destroy});
   }
 
-  function createFallback(host) {
+  function createFallback(host, initialState) {
     if (!host || typeof host.append !== 'function') throw new TypeError('A universe host is required');
     const canvas = document.createElement('canvas');
-    canvas.setAttribute('aria-hidden', 'true');
+    canvas.setAttribute('aria-hidden', 'true'); canvas.dataset.layer = 'space-compatibility';
     const hadClass = host.classList.contains('lights-universe');
-    host.classList.add('lights-universe');
-    host.append(canvas);
-    const ctx = canvas.getContext('2d', { alpha: true });
+    host.classList.add('lights-universe'); host.append(canvas);
+    const ctx = canvas.getContext('2d', { alpha: false });
     const motion = window.matchMedia('(prefers-reduced-motion: reduce)');
     let state = { status: 'idle', completed: 0, currentIndex: null };
-    let frame = 0, destroyed = false, intersecting = true, size = 0, scale = 1, lastPaint = -Infinity;
-    let successAt = null, impacts = [];
+    let width = 0, height = 0, dpr = 1, frame = 0, destroyed = false, intersecting = true;
+    let lastPaint = -Infinity, lastMotionTime = 0, orbitTime = 0;
+    let progressFrom = 0, progressAt = 0, successAt = null, confirmationAt = null, confirmationPower = 0;
     let resizeObserver, intersectionObserver, mutationObserver;
 
-    // A fixed sky keeps every screen and resize visually stable.
+    // Seeded cloud maps are built once. Their rotation happens in the inclined
+    // orbital plane, so the whole bank flows around the hole instead of drifting.
     let seed = 12873;
     const random = () => { seed = (seed * 16807) % 2147483647; return (seed - 1) / 2147483646; };
-    const stars = Array.from({ length: 62 }, () => ({ x: random() * 400 - 200, y: random() * 400 - 200,
-      r: .35 + random() * .65, a: .1 + random() * .36, phase: random() * TAU }));
-    const particles = Array.from({ length: 76 }, () => ({ phase: random(), angle: random() * TAU,
-      speed: .65 + random() * .7, size: .4 + random() * .75 }));
-    const nodes = Array.from({ length: 9 }, (_, i) => {
-      const angle = -Math.PI / 2 + i * TAU / 9;
-      return { x: Math.cos(angle) * 147, y: Math.sin(angle) * 147, angle };
-    });
+    const values = Float32Array.from({ length: 4096 }, random);
+    const stars = Array.from({ length: 116 }, () => ({ x: random(), y: random(),
+      radius: .25 + random() * .65, alpha: .06 + random() * .25 }));
+    const trails = Array.from({ length: 46 }, () => ({ phase: random() * TAU,
+      radius: .40 + random() * .56, speed: .72 + random() * .5, span: .018 + random() * .055 }));
+    const clamp = value => Math.max(0, Math.min(1, value));
+    const smooth = value => { const p = clamp(value); return p * p * (3 - 2 * p); };
+    function noise(x, y) {
+      const ix = Math.floor(x), iy = Math.floor(y), fx = smooth(x - ix), fy = smooth(y - iy);
+      const a = values[((iy & 63) << 6) + (ix & 63)], b = values[((iy & 63) << 6) + ((ix + 1) & 63)];
+      const c = values[(((iy + 1) & 63) << 6) + (ix & 63)], d = values[(((iy + 1) & 63) << 6) + ((ix + 1) & 63)];
+      return (a + (b - a) * fx) * (1 - fy) + (c + (d - c) * fx) * fy;
+    }
+    function fbm(x, y) {
+      return noise(x, y) * .52 + noise(x * 2.03 + 7.3, y * 2.03 + 17.1) * .27 +
+        noise(x * 4.11 + 19.7, y * 4.11 + 3.1) * .14 + noise(x * 8.29 + 1.8, y * 8.29 + 29.6) * .07;
+    }
+    function cloudMap(hot) {
+      const map = document.createElement('canvas'); map.width = map.height = 384;
+      const painter = map.getContext('2d'); if (!painter) return map;
+      const data = painter.createImageData(384, 384);
+      for (let y = 0; y < 384; y += 1) for (let x = 0; x < 384; x += 1) {
+        const px = (x + .5) / 192 - 1, py = (y + .5) / 192 - 1, r = Math.hypot(px, py);
+        if (r > 1 || r < .17) continue;
+        const angle = Math.atan2(py, px) + 1.35 * Math.log(r + .12);
+        const sx = Math.cos(angle) * r, sy = Math.sin(angle) * r;
+        const body = fbm(sx * 8.3 + 23, sy * 8.3 + 11);
+        const creases = noise(sx * 36 + body * 3, sy * 36 + body * 3);
+        const band = Math.exp(-Math.pow((r - .58) / .23, 2)) + .40 * Math.exp(-Math.pow((r - .84) / .10, 2));
+        const edge = smooth((r - .17) / .12) * smooth((1 - r) / .13);
+        const density = clamp((body - .25) * 2.25) * band * edge;
+        const ridge = clamp((body - .27) * 1.7 + (creases - .5) * .15);
+        const offset = (y * 384 + x) * 4;
+        data.data[offset] = hot ? 175 + ridge * 80 : 48 + ridge * 110;
+        data.data[offset + 1] = hot ? 105 + ridge * 137 : 27 + ridge * 78;
+        data.data[offset + 2] = hot ? 42 + ridge * 171 : 15 + ridge * 42;
+        data.data[offset + 3] = clamp(density * (hot ? .78 : .87)) * 255;
+      }
+      painter.putImageData(data, 0, 0); return map;
+    }
+    const copperCloud = cloudMap(false), hotCloud = cloudMap(true);
+    const frontCanvas = document.createElement('canvas'), frontCtx = frontCanvas.getContext('2d');
 
     function visible() {
-      if (destroyed || !ctx || document.hidden || !intersecting || !host.isConnected || !size) return false;
+      if (destroyed || !ctx || document.hidden || !intersecting || !host.isConnected || !width || !height) return false;
       const dialog = host.closest('dialog');
       if ((dialog && !dialog.open) || host.closest('[hidden]') || !host.getClientRects().length) return false;
       const style = getComputedStyle(host);
       return style.visibility !== 'hidden' && style.display !== 'none';
     }
-    function stop() { if (frame) cancelAnimationFrame(frame); frame = 0; }
+    function stop() { if (frame) cancelAnimationFrame(frame); frame = 0; lastMotionTime = 0; }
     function reconcile() {
       if (!visible()) { stop(); return; }
       paint(performance.now());
-      if (motion.matches) stop();
-      else if (!frame) frame = requestAnimationFrame(tick);
+      if (motion.matches) stop(); else if (!frame) frame = requestAnimationFrame(tick);
     }
     function tick(time) {
       frame = 0;
-      if (!visible() || motion.matches) return;
-      // Thirty frames per second is ample for these slow orbital movements.
+      if (!visible() || motion.matches) { lastMotionTime = 0; return; }
       if (time - lastPaint >= 30) paint(time);
       frame = requestAnimationFrame(tick);
     }
     function resize() {
       if (destroyed) return;
-      const rect = host.getBoundingClientRect();
-      size = Math.min(rect.width, rect.height);
-      const dpr = Math.min(window.devicePixelRatio || 1, 2);
-      const width = Math.max(1, Math.round(rect.width * dpr));
-      const height = Math.max(1, Math.round(rect.height * dpr));
-      if (canvas.width !== width || canvas.height !== height) { canvas.width = width; canvas.height = height; }
-      scale = size * dpr / 400;
+      const rect = host.getBoundingClientRect(); width = rect.width; height = rect.height;
+      dpr = Math.min(window.devicePixelRatio || 1, 1.5, Math.sqrt(800000 / Math.max(1, width * height)));
+      const w = Math.max(1, Math.round(width * dpr)), h = Math.max(1, Math.round(height * dpr));
+      if (canvas.width !== w || canvas.height !== h) { canvas.width = w; canvas.height = h; }
+      if (frontCanvas.width !== w || frontCanvas.height !== h) { frontCanvas.width = w; frontCanvas.height = h; }
       reconcile();
     }
-    function glow(x, y, radius, stops) {
-      const gradient = ctx.createRadialGradient(x, y, 0, x, y, radius);
-      for (const [offset, color] of stops) gradient.addColorStop(offset, color);
-      ctx.fillStyle = gradient;
-      ctx.beginPath(); ctx.arc(x, y, radius, 0, TAU); ctx.fill();
+    function progress(time) {
+      const target = state.completed / 9;
+      if (motion.matches || target <= progressFrom) return target;
+      return progressFrom + (target - progressFrom) * smooth((time - progressAt) / 900);
     }
-    function line(color, width, draw) {
-      ctx.strokeStyle = color; ctx.lineWidth = width;
-      ctx.beginPath(); draw(); ctx.stroke();
+    function radial(x, y, inner, outer, stops) {
+      const gradient = ctx.createRadialGradient(x, y, inner, x, y, outer);
+      for (const [offset, colour] of stops) gradient.addColorStop(offset, colour);
+      ctx.fillStyle = gradient; ctx.beginPath(); ctx.arc(x, y, outer, 0, TAU); ctx.fill();
     }
-    function ring(radius, color, width = .6) { line(color, width, () => ctx.arc(0, 0, radius, 0, TAU)); }
-    function sky(time) {
-      glow(0, 5, 195, [[0, 'rgba(149,91,33,.09)'], [.52, 'rgba(117,73,31,.035)'], [1, 'rgba(0,0,0,0)']]);
-      for (const star of stars) {
-        const twinkle = motion.matches ? 1 : .83 + Math.sin(time * .0005 + star.phase) * .17;
-        ctx.fillStyle = 'rgba(221,207,175,' + star.a * twinkle + ')';
-        ctx.beginPath(); ctx.arc(star.x, star.y, star.r, 0, TAU); ctx.fill();
-      }
-      ring(147, 'rgba(205,164,99,.16)');
-      ring(159, 'rgba(205,164,99,.035)');
-      for (let i = 0; i < 72; i += 1) {
-        const angle = i * TAU / 72 - Math.PI / 2;
-        const major = i % 8 === 0;
-        line(major ? 'rgba(205,164,99,.2)' : 'rgba(205,164,99,.065)', .55, () => {
-          ctx.moveTo(Math.cos(angle) * 157, Math.sin(angle) * 157);
-          ctx.lineTo(Math.cos(angle) * (major ? 162 : 159), Math.sin(angle) * (major ? 162 : 159));
-        });
-      }
+    function stroke(colour, lineWidth, draw, painter = ctx) {
+      painter.strokeStyle = colour; painter.lineWidth = lineWidth; painter.beginPath(); draw(painter); painter.stroke();
     }
-    function inflow(time) {
-      if (state.status === 'succeeded' || state.status === 'failed') return;
-      const active = ['connecting', 'queued', 'running', 'verifying'].includes(state.status);
-      const clock = motion.matches ? 1400 : time;
-      const quantity = active ? particles.length : 24;
-      for (let i = 0; i < quantity; i += 1) {
-        const particle = particles[i];
-        const p = (particle.phase + clock * .000052 * particle.speed) % 1;
-        const radius = 51 + 113 * Math.pow(1 - p, .8);
-        const angle = particle.angle + p * 3.2;
-        const alpha = Math.sin(Math.PI * p) * (active ? .68 : .31);
-        const x = Math.cos(angle) * radius, y = Math.sin(angle) * radius * .76;
-        line('rgba(224,178,108,' + alpha * .5 + ')', .5, () => {
-          ctx.moveTo(x, y);
-          for (let step = 1; step <= 5; step += 1) {
-            const q = Math.max(0, p - step * .008);
-            const r = 51 + 113 * Math.pow(1 - q, .8), a = particle.angle + q * 3.2;
-            ctx.lineTo(Math.cos(a) * r, Math.sin(a) * r * .76);
-          }
-        });
-        ctx.fillStyle = 'rgba(245,206,146,' + alpha + ')';
-        ctx.beginPath(); ctx.arc(x, y, particle.size, 0, TAU); ctx.fill();
-      }
+    function cloudLayer(map, rx, ry, angle, alpha, composite, painter) {
+      painter.save(); painter.globalCompositeOperation = composite; painter.globalAlpha = alpha;
+      painter.scale(rx, ry); painter.rotate(angle); painter.drawImage(map, -1, -1, 2, 2); painter.restore();
     }
-    function blackHole(time) {
-      const t = motion.matches ? 0 : time;
-      const breathing = .94 + Math.sin(t * .001) * .06;
-      glow(0, 0, 86, [[0, 'rgba(249,185,93,0)'], [.57, 'rgba(249,185,93,0)'], [.66, 'rgba(244,175,78,.1)'], [.8, 'rgba(220,151,67,.025)'], [1, 'rgba(0,0,0,0)']]);
-      ctx.save(); ctx.rotate(-.24);
-      // Fine elliptical filaments form the accretion disk, not a spinner.
-      for (let i = 15; i >= 0; i -= 1) {
-        const radius = 78 + i * 2.35;
-        line('rgba(229,170,87,' + (.035 + (15 - i) * .003) * breathing + ')', i % 3 === 0 ? 1 : .45,
-          () => ctx.ellipse(0, 0, radius, 14 + i * .95, 0, 0, TAU));
+    function orbitalBank(radius, t, energy, foreground, painter = ctx) {
+      painter.save(); painter.rotate(-.055); painter.translate(0, radius * .36);
+      const turn = t * .17;
+      cloudLayer(copperCloud, radius * 2.65, radius * .56, turn, .46, 'source-over', painter);
+      cloudLayer(hotCloud, radius * 2.65, radius * .56, turn, .08 + energy * .46, 'screen', painter);
+      cloudLayer(copperCloud, radius * 2.16, radius * .40, turn * 1.3 + 2.8, .21, 'source-over', painter);
+      cloudLayer(hotCloud, radius * 2.16, radius * .40, turn * 1.3 + 2.8, .035 + energy * .33, 'screen', painter);
+      if (foreground) {
+        // Nearer clouds spread in perspective; the differential rotation remains coherent.
+        cloudLayer(copperCloud, radius * 3.75, radius * 1.62, turn * .68 + 1.9, .42, 'source-over', painter);
+        cloudLayer(hotCloud, radius * 3.75, radius * 1.62, turn * .68 + 1.9, .045 + energy * .30, 'screen', painter);
+        cloudLayer(hotCloud, radius * 3.1, radius * 1.04, turn * .91 + .7, .02 + energy * .17, 'screen', painter);
       }
-      const outer = ctx.createLinearGradient(-113, 0, 113, 0);
-      outer.addColorStop(0, 'rgba(193,125,51,0)'); outer.addColorStop(.22, 'rgba(234,185,110,.45)');
-      outer.addColorStop(.45, 'rgba(255,223,166,.8)'); outer.addColorStop(.75, 'rgba(219,156,71,.3)'); outer.addColorStop(1, 'rgba(193,125,51,0)');
-      ctx.strokeStyle = outer; ctx.lineWidth = .9;
-      ctx.beginPath(); ctx.ellipse(0, 0, 103, 24, 0, 0, TAU); ctx.stroke();
-      ctx.restore();
-
-      // Warm lens halo surrounds a genuinely dark central silhouette.
-      glow(0, 0, 64, [[0, 'rgba(0,0,0,0)'], [.76, 'rgba(0,0,0,0)'], [.81, 'rgba(254,205,135,.2)'], [.85, 'rgba(250,193,110,.55)'], [.91, 'rgba(224,145,51,.1)'], [1, 'rgba(0,0,0,0)']]);
-      ctx.fillStyle = '#07090d'; ctx.beginPath(); ctx.arc(0, 0, 51, 0, TAU); ctx.fill();
-      line('rgba(255,221,164,.72)', .85, () => ctx.arc(0, 0, 52, Math.PI * 1.02, Math.PI * 1.91));
-      line('rgba(206,142,63,.2)', .7, () => ctx.arc(0, 0, 52, Math.PI * .02, Math.PI * .99));
-      ctx.save(); ctx.rotate(-.24);
-      for (let i = 0; i < 5; i += 1) {
-        line('rgba(248,193,113,' + (.26 - i * .04) * breathing + ')', i === 0 ? 1.3 : .65,
-          () => ctx.ellipse(0, 0, 103 + i * 2, 24 + i * 1.25, 0, .08, Math.PI - .08));
+      // Tangential streamlines share the cloud bank's orbital motion.
+      painter.globalCompositeOperation = 'screen';
+      for (let i = 0; i < trails.length; i += 1) {
+        const trail = trails[i], a = trail.phase + turn * trail.speed;
+        const rx = radius * (1.05 + trail.radius * 1.4), ry = rx * .21;
+        const brightSide = .36 + .64 * Math.pow(.5 + .5 * Math.cos(a + .5), 2);
+        stroke('rgba(255,213,153,' + (.035 + energy * .27) * brightSide + ')', .45 + energy * .35,
+          pen => pen.ellipse(0, 0, rx, ry, 0, a, a + trail.span), painter);
       }
-      // One slowly travelling filament gives the disk depth without a loading arc.
-      const phase = t * .00016;
-      line('rgba(255,224,165,.35)', .85, () => ctx.ellipse(0, 0, 96, 20, 0, phase, phase + .45));
-      ctx.restore();
+      painter.restore();
     }
-    function sun(time) {
-      const breathe = motion.matches ? 1 : 1 + Math.sin(time * .0009) * .025;
-      ctx.save(); ctx.scale(breathe, breathe);
-      glow(0, 0, 112, [[0, 'rgba(255,203,110,.12)'], [.4, 'rgba(245,176,71,.12)'], [.7, 'rgba(211,136,44,.035)'], [1, 'rgba(0,0,0,0)']]);
-      for (let i = 0; i < 72; i += 1) {
-        const angle = i * TAU / 72 + (motion.matches ? 0 : time * .000015);
-        const length = 5 + Math.sin(i * 2.39) * 3 + Math.cos(i * .73) * 5;
-        line('rgba(249,185,89,.13)', .8, () => {
-          ctx.moveTo(Math.cos(angle) * 52, Math.sin(angle) * 52);
-          ctx.lineTo(Math.cos(angle) * (60 + length), Math.sin(angle) * (60 + length));
-        });
-      }
-      glow(-4, -7, 56, [[0, '#fff1c8'], [.3, '#f8daa0'], [.67, '#eac080'], [.86, '#ca9452'], [.94, 'rgba(215,153,77,.42)'], [1, 'rgba(214,147,60,0)']]);
-      ring(54, 'rgba(255,224,170,.26)', .7);
-      ctx.restore();
-      if (!motion.matches && successAt !== null) {
-        const p = (time - successAt) / 1600;
-        if (p >= 0 && p < 1) ring(58 + p * 112, 'rgba(247,204,136,' + Math.pow(1 - p, 2) * .3 + ')', .8);
-      }
-    }
-    function satellites(time) {
-      for (let i = 0; i < nodes.length; i += 1) {
-        const node = nodes[i], done = i < state.completed;
-        const failed = state.status === 'failed' && state.currentIndex === i + 1;
-        const current = !done && ['running', 'verifying'].includes(state.status) && state.currentIndex === i + 1;
-        if (done || failed) {
-          glow(node.x, node.y, failed ? 13 : 14, [[0, failed ? 'rgba(234,149,61,.42)' : 'rgba(251,203,128,.46)'], [.3, 'rgba(224,163,77,.13)'], [1, 'rgba(224,163,77,0)']]);
-          ctx.fillStyle = failed ? '#e5a65b' : '#f9ddb0';
-          ctx.beginPath(); ctx.arc(node.x, node.y, 2.7, 0, TAU); ctx.fill();
-          line(failed ? 'rgba(223,154,68,.5)' : 'rgba(251,203,128,.3)', .65, () => ctx.arc(node.x, node.y, 5.6, 0, TAU));
-        } else {
-          ctx.fillStyle = 'rgba(188,157,110,.42)'; ctx.beginPath(); ctx.arc(node.x, node.y, 1.8, 0, TAU); ctx.fill();
-          if (current) {
-            const pulse = motion.matches ? .6 : .4 + (Math.sin(time * .004) + 1) * .2;
-            line('rgba(244,202,136,' + pulse + ')', .8, () => ctx.arc(node.x, node.y, 6, 0, TAU));
-          }
-        }
-      }
-    }
-    function collisionEffects(time) {
-      if (motion.matches) return;
-      impacts = impacts.filter(impact => time - impact.started < 1100);
-      for (const impact of impacts) {
-        const age = time - impact.started;
-        if (age < 0) continue;
-        const node = nodes[impact.index];
-        if (age < 360) {
-          const p = age / 360;
-          line('rgba(255,217,153,' + Math.sin(p * Math.PI) * .8 + ')', 1.2, () => {
-            for (let j = 0; j < 13; j += 1) {
-              const q = Math.max(0, p - j * .018), radius = 55 + 92 * q;
-              const angle = node.angle - .36 * Math.pow(1 - q, 2);
-              const x = Math.cos(angle) * radius, y = Math.sin(angle) * radius;
-              if (!j) ctx.moveTo(x, y); else ctx.lineTo(x, y);
-            }
-          });
-        } else {
-          const p = (age - 360) / 740, alpha = Math.pow(1 - p, 2);
-          line('rgba(255,214,149,' + alpha * .6 + ')', .7, () => ctx.arc(node.x, node.y, 5 + p * 22, 0, TAU));
-          glow(node.x, node.y, 15 * (1 - p) + 2, [[0, 'rgba(255,232,184,' + alpha * .65 + ')'], [1, 'rgba(255,207,128,0)']]);
-          for (let j = 0; j < 6; j += 1) {
-            const angle = node.angle + j * TAU / 6 + .2, radius = 5 + p * (16 + j % 3 * 4);
-            ctx.fillStyle = 'rgba(255,210,140,' + alpha * .7 + ')';
-            ctx.beginPath(); ctx.arc(node.x + Math.cos(angle) * radius, node.y + Math.sin(angle) * radius, .7, 0, TAU); ctx.fill();
-          }
-        }
-      }
+    function foregroundBank(radius, t, energy, cx, cy) {
+      if (!frontCtx) return;
+      frontCtx.setTransform(1, 0, 0, 1, 0, 0); frontCtx.clearRect(0, 0, frontCanvas.width, frontCanvas.height);
+      frontCtx.setTransform(dpr, 0, 0, dpr, cx * dpr, cy * dpr); frontCtx.globalAlpha = 1;
+      frontCtx.globalCompositeOperation = 'source-over'; orbitalBank(radius, t, energy, true, frontCtx);
+      // A soft optical depth boundary avoids a straight clipped seam through the core.
+      frontCtx.save(); frontCtx.rotate(-.055); frontCtx.globalCompositeOperation = 'destination-in';
+      const mask = frontCtx.createLinearGradient(0, radius * .12, 0, radius * .52);
+      mask.addColorStop(0, 'rgba(0,0,0,0)'); mask.addColorStop(.40, 'rgba(0,0,0,.08)'); mask.addColorStop(1, '#000');
+      frontCtx.fillStyle = mask; frontCtx.fillRect(-width * 2, -height * 2, width * 4, height * 4); frontCtx.restore();
+      ctx.drawImage(frontCanvas, -cx, -cy, width, height);
     }
     function paint(time) {
-      if (!ctx || !size || destroyed) return;
-      lastPaint = time;
-      ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(0, 0, canvas.width, canvas.height);
-      ctx.setTransform(scale, 0, 0, scale, canvas.width / 2, canvas.height / 2);
-      sky(time); inflow(time);
-      if (state.status === 'succeeded') sun(time); else blackHole(time);
-      satellites(time); collisionEffects(time);
+      if (!ctx || !width || !height || destroyed) return;
+      if (!motion.matches && lastMotionTime) orbitTime += Math.min(.1, Math.max(0, (time - lastMotionTime) / 1000));
+      lastMotionTime = time; lastPaint = time;
+      const t = motion.matches ? 3.5 : orbitTime, energy = progress(time);
+      const radius = Math.min(height * .31, width * .385), cx = width * .5, cy = height * .45;
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over';
+      ctx.fillStyle = '#030407'; ctx.fillRect(0, 0, width, height);
+      for (const star of stars) {
+        const x = star.x * width, y = star.y * height;
+        if (Math.hypot(x - cx, y - cy) < radius * 1.04) continue;
+        ctx.fillStyle = 'rgba(199,201,212,' + star.alpha + ')';
+        ctx.beginPath(); ctx.arc(x, y, star.radius, 0, TAU); ctx.fill();
+      }
+      ctx.save(); ctx.translate(cx, cy);
+      radial(-radius * .68, -radius * .18, radius * .64, radius * 2.5,
+        [[0, 'rgba(117,70,29,' + (.035 + energy * .055) + ')'], [.45, 'rgba(89,52,25,' + (.018 + energy * .028) + ')'], [1, 'rgba(0,0,0,0)']]);
+      orbitalBank(radius, t, energy, false);
+      // The upper lensed arc gains heat in nine true increments, while the core stays black.
+      radial(0, 0, radius * .94, radius * 1.35,
+        [[0, 'rgba(236,158,66,0)'], [.13, 'rgba(255,199,117,' + (.12 + energy * .31) + ')'], [.27, 'rgba(223,140,54,' + (.025 + energy * .12) + ')'], [1, 'rgba(116,66,24,0)']]);
+      ctx.fillStyle = '#010204'; ctx.beginPath(); ctx.arc(0, 0, radius, 0, TAU); ctx.fill();
+      const rim = ctx.createLinearGradient(-radius, -radius, radius, radius);
+      rim.addColorStop(0, 'rgba(255,234,189,' + (.40 + energy * .57) + ')');
+      rim.addColorStop(.46, 'rgba(247,188,98,' + (.26 + energy * .52) + ')');
+      rim.addColorStop(1, 'rgba(141,79,31,' + (.10 + energy * .28) + ')');
+      stroke(rim, .65 + energy * .7, () => ctx.arc(0, 0, radius * 1.006, Math.PI * .98, Math.PI * 2.07));
+      stroke('rgba(220,144,64,' + (.055 + energy * .10) + ')', .6, () => ctx.arc(0, 0, radius * 1.007, .12, Math.PI * .98));
+      foregroundBank(radius, t, energy, cx, cy);
+      // A warm inner arc is partially hidden by the near clouds, never divided into nodes.
+      ctx.save(); ctx.rotate(-.055); ctx.globalCompositeOperation = 'screen';
+      const inner = ctx.createLinearGradient(-radius * 1.9, 0, radius * 1.9, 0);
+      inner.addColorStop(0, 'rgba(181,101,32,0)'); inner.addColorStop(.22, 'rgba(255,184,84,' + (.10 + energy * .32) + ')');
+      inner.addColorStop(.44, 'rgba(255,240,207,' + (.17 + energy * .61) + ')'); inner.addColorStop(.73, 'rgba(221,137,51,' + (.06 + energy * .22) + ')'); inner.addColorStop(1, 'rgba(181,101,32,0)');
+      stroke(inner, .8 + energy * .65, () => ctx.ellipse(0, radius * .36, radius * 1.88, radius * .30, 0, .02, Math.PI - .02));
+      for (let i = 1; i <= 4; i += 1) stroke('rgba(255,200,123,' + (.015 + energy * .038) / i + ')', 1.1 + i * 1.1,
+        () => ctx.ellipse(0, radius * .36, radius * (1.88 + i * .012), radius * (.30 + i * .007), 0, .08, Math.PI - .08));
+      if (!motion.matches && confirmationAt !== null && state.status !== 'failed') {
+        const age = (time - confirmationAt) / 1050;
+        if (age >= 0 && age < 1) {
+          const a = .12 + age * 2.55, alpha = Math.sin(Math.PI * age) * confirmationPower;
+          stroke('rgba(255,231,180,' + alpha * .67 + ')', 1.2 + energy * .6,
+            () => ctx.ellipse(0, radius * .36, radius * 1.88, radius * .30, 0, a, a + .34));
+          stroke('rgba(255,185,92,' + alpha * .075 + ')', radius * .045,
+            () => ctx.ellipse(0, radius * .36, radius * 1.88, radius * .30, 0, a - .1, a + .44));
+        }
+      }
+      if (!motion.matches && successAt !== null && state.completed === 9) {
+        const age = (time - successAt) / 1800;
+        if (age >= 0 && age < 1) {
+          const spread = radius * (1.7 + age * 1.2);
+          stroke('rgba(255,219,157,' + Math.sin(Math.PI * age) * (1 - age) * .14 + ')', 1.1,
+            () => ctx.ellipse(0, radius * .36, spread, spread * .23, 0, .04, Math.PI - .04));
+        }
+      }
+      ctx.restore(); ctx.restore();
+      // Leave the bottom edge calm for the existing count and status controls.
+      const fade = ctx.createLinearGradient(0, height * .83, 0, height);
+      fade.addColorStop(0, 'rgba(3,4,7,0)'); fade.addColorStop(1, 'rgba(3,4,7,.64)');
+      ctx.globalCompositeOperation = 'source-over'; ctx.fillStyle = fade; ctx.fillRect(0, height * .83, width, height * .17);
     }
     function update(next = {}) {
       if (destroyed) return;
       const status = PHASES.has(next.status) ? next.status : 'idle';
       const completed = Math.min(9, Math.max(0, Number.isFinite(next.completed) ? Math.floor(next.completed) : 0));
       const currentIndex = Number.isInteger(next.currentIndex) && next.currentIndex >= 1 && next.currentIndex <= 9 ? next.currentIndex : null;
-      const time = performance.now();
-      if (completed < state.completed || status === 'idle' || ['connecting', 'queued'].includes(status)) impacts = [];
-      else if (!motion.matches && status !== 'failed') {
-        for (let i = state.completed; i < completed; i += 1) impacts.push({ index: i, started: time + (i - state.completed) * 24 });
-      }
-      if (status === 'succeeded' && state.status !== 'succeeded') successAt = time;
-      else if (status !== 'succeeded') successAt = null;
+      const time = performance.now(), shown = progress(time);
+      if (completed !== state.completed) { progressFrom = Math.min(shown, completed / 9); progressAt = time; }
+      if (completed < state.completed || ['idle', 'queued', 'connecting', 'failed'].includes(status)) confirmationAt = null;
+      else if (completed > state.completed) { confirmationAt = time; confirmationPower = Math.min(1, .45 + (completed - state.completed) * .2); }
+      if (status === 'succeeded' && completed === 9 && state.status !== 'succeeded') successAt = time;
+      else if (status !== 'succeeded' || completed !== 9) successAt = null;
       state = { status, completed, currentIndex };
       host.dataset.phase = status; host.dataset.completed = String(completed);
       reconcile();
@@ -696,32 +597,32 @@ void main(){
       if (destroyed) return;
       destroyed = true; stop();
       resizeObserver?.disconnect(); intersectionObserver?.disconnect(); mutationObserver?.disconnect();
-      window.removeEventListener('resize', resize);
-      document.removeEventListener('visibilitychange', reconcile);
-      if (motion.removeEventListener) motion.removeEventListener('change', reconcile);
-      else motion.removeListener(reconcile);
-      canvas.remove();
+      window.removeEventListener('resize', resize); document.removeEventListener('visibilitychange', reconcile);
+      if (motion.removeEventListener) motion.removeEventListener('change', reconcile); else motion.removeListener(reconcile);
+      canvas.remove(); copperCloud.width = copperCloud.height = hotCloud.width = hotCloud.height = frontCanvas.width = frontCanvas.height = 0;
       if (!hadClass) host.classList.remove('lights-universe');
       delete host.dataset.phase; delete host.dataset.completed;
-      impacts = [];
     }
-
     document.addEventListener('visibilitychange', reconcile);
-    if (motion.addEventListener) motion.addEventListener('change', reconcile);
-    else motion.addListener(reconcile);
+    if (motion.addEventListener) motion.addEventListener('change', reconcile); else motion.addListener(reconcile);
     window.addEventListener('resize', resize, { passive: true });
     if (typeof ResizeObserver === 'function') { resizeObserver = new ResizeObserver(resize); resizeObserver.observe(host); }
     if (typeof IntersectionObserver === 'function') {
-      intersectionObserver = new IntersectionObserver(entries => { intersecting = entries[0]?.isIntersecting !== false; reconcile(); });
-      intersectionObserver.observe(host);
+      intersectionObserver = new IntersectionObserver(entries => { intersecting = entries[0]?.isIntersecting !== false; reconcile(); }); intersectionObserver.observe(host);
     }
     if (typeof MutationObserver === 'function') {
-      mutationObserver = new MutationObserver(() => { resize(); });
-      // Attribute-only observation covers dialog open/close and ancestor hiding.
+      mutationObserver = new MutationObserver(resize);
       for (let node = host; node; node = node.parentElement) mutationObserver.observe(node, { attributes: true, attributeFilter: ['class', 'style', 'hidden', 'open'] });
     }
-    host.dataset.phase = state.status; host.dataset.completed = '0';
-    resize();
+    if (initialState && typeof initialState === 'object') {
+      state = {
+        status: PHASES.has(initialState.status) ? initialState.status : 'idle',
+        completed: Math.min(9, Math.max(0, Number.isFinite(initialState.completed) ? Math.floor(initialState.completed) : 0)),
+        currentIndex: Number.isInteger(initialState.currentIndex) && initialState.currentIndex >= 1 && initialState.currentIndex <= 9 ? initialState.currentIndex : null,
+      };
+      progressFrom = state.completed / 9; progressAt = performance.now();
+    }
+    host.dataset.phase = state.status; host.dataset.completed = String(state.completed); resize();
     return Object.freeze({ update, destroy });
   }
 
