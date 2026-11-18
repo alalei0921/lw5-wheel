@@ -1,5 +1,5 @@
 // Keep app code consistent per release; cache large media only when it is used.
-const CACHE = 'lw5-home-v73-storm-clouds';
+const CACHE = 'lw5-home-v74-smooth-rim';
 const ASSETS = [
   './',
   './index.html',

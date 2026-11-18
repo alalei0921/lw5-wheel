@@ -497,32 +497,33 @@ vec4 cloudOcean(vec3 ro,vec3 rd,float stopDepth,float progress,float power,vec3 
  if(surface<0.&&transmission<.999)surface=last;
  return vec4(scatter+transmission*sky,surface);
 }
-void main(){
- float aspect=uRes.x/uRes.y,phi=uTime*.3926990817;
- vec2 screenUv=(gl_FragCoord.xy*2.-uRes)/uRes.y;
- float framing=min(.38,aspect*.44);
- vec2 view=(screenUv-vec2(-.06*aspect,.24))/framing;
- view=turn(.49+sin(phi)*.004)*view;
+// The foreground disk and gas use their own visibility on each ray, including
+// the two subpixel rays that straddle the central shadow.
+vec3 shadeRay(vec2 view,float pixel){
+ float phi=uTime*.3926990817;
  vec3 ro=vec3(0.,.80,8.4);
  float cameraDistance=length(ro),focal=sqrt(cameraDistance*cameraDistance-1.);
  vec3 forward=-ro/cameraDistance,right=vec3(1.,0.,0.),up=normalize(cross(right,forward));
  vec3 rd=normalize(forward*focal+right*view.x+up*view.y);
- vec2 core=sphereSpan(ro,rd,1.);
- bool hitsCore=core.x>0.&&core.y>core.x;
+ // With this focal length the unit sphere projects to a unit circle.
+ // Factoring its discriminant preserves precision on nearly tangent rays.
+ float radius=length(view);
+ bool hitsCore=radius<1.;
+ float chord2=focal*focal*(1.-radius)*(1.+radius)/(focal*focal+radius*radius);
+ float coreDepth=-dot(ro,rd)-sqrt(max(0.,chord2));
  vec2 bounds=sphereSpan(ro,rd,7.0);
  float entry=max(0.,bounds.x),exitDepth=bounds.y;
- if(hitsCore)exitDepth=min(exitDepth,core.x);
+ if(hitsCore)exitDepth=min(exitDepth,coreDepth);
  float progress=clamp(uProgress,0.,1.);
  float power=(.19+progress*1.92+progress*progress*.70)*(1.+smoothstep(.88,1.,progress)*sin(phi*2.)*.025);
  vec3 hot=mix(vec3(1.,.28,.15),vec3(1.52,1.13,.96),progress);
  vec3 copper=mix(vec3(.55,.13,.075),vec3(.94,.32,.255),progress);
- float pixel=2./max(1.,uRes.y)/framing;
  vec3 sky=vec3(0.);
  if(!hitsCore)sky=gravitySky(view,pixel);
  vec4 nearT,farT;vec2 sampledDepths;
- vec4 ocean=cloudOcean(ro,rd,hitsCore?core.x:1e4,progress,power,sky,nearT,farT,sampledDepths);
+ vec4 ocean=cloudOcean(ro,rd,hitsCore?coreDepth:1e4,progress,power,sky,nearT,farT,sampledDepths);
  if(ocean.w>0.){sky=ocean.rgb;exitDepth=min(exitDepth,ocean.w);}
- float foregroundLimit=min(hitsCore?core.x:1e4,ocean.w>0.?ocean.w:1e4);
+ float foregroundLimit=min(hitsCore?coreDepth:1e4,ocean.w>0.?ocean.w:1e4);
  if(bounds.y>max(0.,bounds.x))foregroundLimit=min(foregroundLimit,max(0.,bounds.x));
 
  float planeDepth=-dot(ro,forward)/dot(rd,forward);
@@ -586,9 +587,51 @@ void main(){
  // All these near grains are closer than the scene's conservative near bound.
  col+=flightDust(view,pixel,foregroundLimit);
  col*=1.-uFailed*.055;
+ return col;
+}
+// Integrate the circular silhouette across a square framebuffer pixel. Over
+// this footprint the tangent gives a triangle at the corners and a trapezoid
+// in between. Its orientation is evaluated in screen coordinates before roll.
+float uncoveredArea(float d,float major,float minor){
+ float shoulder=.5*(major-minor);
+ if(abs(d)<=shoulder)return .5+d/major;
+ float tail=.5*(major+minor)-abs(d);
+ float corner=tail*tail/(2.*major*max(minor,.00001));
+ return d<0.?corner:1.-corner;
+}
+void main(){
+ float aspect=uRes.x/uRes.y;
+ vec2 screenUv=(gl_FragCoord.xy*2.-uRes)/uRes.y;
+ float framing=min(.38,aspect*.44);
+ vec2 screenView=(screenUv-vec2(-.06*aspect,.24))/framing;
+ mat2 roll=turn(.49+sin(uTime*.3926990817)*.004);
+ vec2 view=roll*screenView;
+ float pixel=2./uRes.y/framing;
+ float radius=length(screenView);
+ float d=(radius-1.)/pixel;
+ vec2 normalScreen=abs(screenView)/max(radius,.00001);
+ float major=max(normalScreen.x,normalScreen.y),minor=min(normalScreen.x,normalScreen.y);
+ float extent=.5*(major+minor);
+ bool mixed=abs(d)<extent;
+ float outside=mixed?uncoveredArea(d,major,minor):0.;
  float vignette=1.-smoothstep(.75,2.05,length(screenUv*vec2(1./max(aspect,.4),.78)))*.16;
- col=aces(col*vignette*1.35);
- col=pow(col,vec3(.4545));
+ vec3 col=vec3(0.);
+ for(int side=0;side<2;side++){
+  if(side==1&&!mixed)break;
+  vec2 sampleView=view;
+  float weight=1.;
+  if(mixed){
+   // Sample each visible portion on its own side of the horizon. At either
+   // limit the dominant sample converges back to the original pixel centre.
+   float offset=side==0?-.5*(extent-d):.5*(extent+d);
+   sampleView=view/radius*(1.+pixel*offset);
+   weight=side==0?1.-outside:outside;
+  }
+  vec3 hdr=shadeRay(sampleView,pixel);
+  // Resolve after tone mapping: a very bright uncovered sliver still occupies
+  // only its geometric share of the output pixel.
+  col+=weight*pow(aces(hdr*vignette*1.35),vec3(.4545));
+ }
  float grain=(hash13(vec3(gl_FragCoord.xy,4.1))-.5)/510.;
  gl_FragColor=vec4(max(vec3(0.),col+grain),1.);
 }

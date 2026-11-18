@@ -138,6 +138,60 @@ test('each confirmation makes the settled disk visibly brighter on both renderer
   }
 });
 
+test('the upper shadow rim has fractional pixel coverage while the interior stays dark', async () => {
+  const s = await scene({ width: 240, height: 400, reducedMotion: 'reduce' });
+  try {
+    await update(s.page, { status: 'succeeded', completed: 9 });
+    const result = await s.page.evaluate(() => {
+      const gl = document.querySelector('#host canvas').getContext('webgl');
+      const width = gl.drawingBufferWidth, height = gl.drawingBufferHeight;
+      const pixels = new Uint8Array(width * height * 4);
+      gl.readPixels(0, 0, width, height, gl.RGBA, gl.UNSIGNED_BYTE, pixels);
+      // Geometry is measured in framebuffer pixels, with a top-left origin.
+      // This upper arc is luminous outside the shadow and clear of near gas.
+      const cx = .47 * width, cy = .38 * height, radius = Math.min(.38 * height / 2, .22 * width);
+      function luminance(x, y) {
+        const px = Math.max(0, Math.min(width - 1, Math.floor(x)));
+        const py = Math.max(0, Math.min(height - 1, Math.floor(y)));
+        // WebGL readPixels rows start at the bottom, unlike the scene geometry.
+        const i = ((height - 1 - py) * width + px) * 4;
+        return .2126 * pixels[i] + .7152 * pixels[i + 1] + .0722 * pixels[i + 2];
+      }
+      const transitions = [], interior = [];
+      for (let y = Math.floor(cy - radius - 1); y < cy - radius * .78; y++) {
+        for (let x = Math.floor(cx - radius * .66); x < cx + radius * .26; x++) {
+          const dx = x + .5 - cx, dy = y + .5 - cy, distance = Math.hypot(dx, dy);
+          const nx = dx / distance, ny = dy / distance, signedDistance = distance - radius;
+          // Pixel centres just inside the circle should contain part of the
+          // bright exterior, rather than all being classified as opaque black.
+          if (nx < -.65 || nx > .25 || signedDistance < -.40 || signedDistance > -.07) continue;
+          const dark = luminance(x + .5 - nx * 2.5, y + .5 - ny * 2.5);
+          const bright = Math.max(...[1.2, 2.2, 3.2].map(step =>
+            luminance(x + .5 + nx * step, y + .5 + ny * step)));
+          if (bright < 40) continue;
+          interior.push(dark);
+          transitions.push((luminance(x + .5, y + .5) - dark) / Math.max(1, bright - dark));
+        }
+      }
+      const fractional = transitions.filter(value => value > .035 && value < .80);
+      return {
+        samples: transitions.length,
+        fractional: fractional.length,
+        coverageBands: [...new Set(fractional.map(value => Math.floor(value / .08)))].length,
+        darkestInterior: Math.min(...interior), brightestInterior: Math.max(...interior),
+        core: luminance(cx, cy - radius * .45),
+      };
+    });
+    assert(result.samples >= 12, `Need a visible unoccluded arc: ${JSON.stringify(result)}`);
+    assert(result.fractional >= Math.ceil(result.samples * .60),
+      `The rim must contain fractional coverage, not a binary hard cut: ${JSON.stringify(result)}`);
+    assert(result.coverageBands >= 3, `The edge must span several coverage levels: ${JSON.stringify(result)}`);
+    assert(result.brightestInterior < 8 && result.core < 4,
+      `Antialiasing must preserve the opaque dark interior: ${JSON.stringify(result)}`);
+    clean(s);
+  } finally { await s.context.close(); }
+});
+
 test('overlapping confirmations finish their own warm-up and repeated polls do not launch another wave', async () => {
   const s = await scene({ width: 240, height: 400 });
   try {
