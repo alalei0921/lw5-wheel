@@ -42,17 +42,17 @@ v61 名称兼容：读取时将对应行的旧数字/中文序号占位名显示
 v62 说明兼容：仅为对应默认短名称下的空说明或原“点「编辑」填写名称和用量”占位说明补齐默认小字。读取时不重写原始存储，其他自定义名称、说明与当天开关保留。显式保存写入 `notesVersion:1`，之后尊重用户编辑，包括主动清空说明。默认公开说明仅限已获批准的四句，不上传本地配置或打卡。
 
 
-## Prerendered lighting film v75 (2026-11-18)
+## Prerendered lighting film v76 (2026-11-18)
 
-The [full-light film](assets/lights-film/v1/level-09.mp4) and
-[900 × 1600 keyframe](assets/lights-film/v1/hero.jpg) use Cycles volume plates
-and offline optical compositing. [Production credits and asset licenses](assets/lights-film/v1/credits.html)
+The [full-light film](assets/lights-film/v1/level-09.mp4?scene=76) and
+[900 × 1600 keyframe](assets/lights-film/v1/hero.jpg?scene=76) use Cycles volume plates
+with layered cloud motion and a soft halo around the accretion arc. [Production credits and asset licenses](assets/lights-film/v1/credits.html)
 accompany these renders.
 
 The phone plays the Mac-rendered `assets/lights-film/v1/level-00.mp4` through
 `level-09.mp4`. All ten levels share the same 16-second, 24 fps timeline at
 720 × 1280; each has a matching phase-zero JPEG. H.264/yuv420p, no audio,
-faststart and a 12-frame GOP allow native playback and short seeks. The player
+faststart and regular keyframes allow native playback and short seeks. The player
 keeps at most two videos during a transition and switches only when the existing
 job snapshot confirms a different count. Video timing never changes progress;
 level 9 remains “确认中” until the job separately reports success.
@@ -63,21 +63,21 @@ with a dim blurred poster behind it. Reduced motion uses the matching still.
 Missing video falls back to that still; loss of both restores the existing
 WebGL/2D renderer with the same snapshot. Add `?sceneRenderer=webgl` to explicitly
 use the old renderer. The earlier [single film](smart-home/blackhole-loop.mp4)
-remains available. The [public preview](smart-home/lights-preview.html) simulates
+remains available. The [public preview](smart-home/lights-preview.html?scene=76#loop) simulates
 progress without loading device code; its settings link to the film credits.
 
 The bridge keeps matching files under `assets/lights-film/v1/` and serves only
 those files plus `credits.html` at `/lights-film/v1/`, with GET/HEAD and byte-range
 support. Control APIs and submission rules are unchanged. Shared film JS/CSS
 and the manifest are copied beside `lights-on-http.js` for embedding at startup.
-The service worker cache is `lw5-home-v75-prerendered-film`; videos are neither
-preloaded during installation nor intercepted by its cache. Use a new asset
-directory version when replacing published media, because those URLs are immutable.
+The service worker cache is `lw5-home-v76-flowing-clouds`. The player streams
+films directly. Media URLs include the scene revision so cached immutable files
+stay separate across artwork revisions.
 
 Run the player tests with a local QA H.264 fixture (outside production assets):
 `LW5_FILM_TEST_VIDEO=/absolute/path/to/16-second-fixture.mp4 node --test tests/lights-film-browser.cjs`.
 Without that variable, decoder and public-preview checks use the preserved old
-v74 film as read-only test media; it is distinct from the final v75 ten-level
+v74 film as read-only test media; it is distinct from the v76 ten-level
 assets. No fixture replaces a production level asset.
 Other player cases mock media events; bridge regressions use mock requests only.
 
@@ -95,7 +95,7 @@ tangentially around the shadow, then broadens and fades into the outer halo.
 Background stars bend around the shadow, while nearby dust moves past the camera
 in a 16-second loop. Lamp confirmations run on a separate clock. Reduced-motion mode shows
 the settled level immediately. A Canvas 2D renderer supports devices without WebGL.
-The [interactive preview](smart-home/lights-preview.html) simulates all nine
+The [interactive preview](smart-home/lights-preview.html?scene=76#loop) simulates all nine
 confirmations and supports scrubbing to an individual level. Open it with
 `#loop` to start at full brightness. The [16-second film](smart-home/blackhole-loop.mp4)
 is a 30 fps portrait render of that state.

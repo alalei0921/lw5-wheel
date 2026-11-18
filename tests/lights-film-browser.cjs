@@ -22,6 +22,7 @@ async function setup({ reducedMotion = 'no-preference', width = 390, height = 84
     const request = route.request(), url = new URL(request.url());
     requests.push({ url: url.href, method: request.method() });
     assert.equal(request.method(), 'GET'); assert.equal(url.origin, 'https://film.test');
+    assert.equal(url.searchParams.get('scene'), '76');
     assert.match(url.pathname, /^\/assets\/lights-film\/v1\/level-0[0-9]\.(jpg|mp4)$/);
     if (url.pathname.endsWith('.jpg')) return route.fulfill(rejectPosters ? { status: 404, body: '' } : { contentType: 'image/png', body: pixel });
     if (realVideo) {
@@ -63,7 +64,7 @@ async function setup({ reducedMotion = 'no-preference', width = 390, height = 84
     HTMLVideoElement.prototype.requestVideoFrameCallback = function (callback) { return setTimeout(() => callback(performance.now(), {}), 0); };
     HTMLVideoElement.prototype.cancelVideoFrameCallback = clearTimeout;
     window.readyFilm = level => {
-      const video = [...document.querySelectorAll('video')].find(video => video.src.endsWith('level-' + String(level).padStart(2, '0') + '.mp4'));
+      const video = [...document.querySelectorAll('video')].find(video => video.src && new URL(video.src).pathname.endsWith('level-' + String(level).padStart(2, '0') + '.mp4'));
       if (!video) throw new Error('No pending film for ' + level);
       video.__ready = 4;
       video.dispatchEvent(new Event('loadedmetadata'));
@@ -77,7 +78,7 @@ async function setup({ reducedMotion = 'no-preference', width = 390, height = 84
 }
 async function update(page, state) { await page.evaluate(state => window.scene.update(state), state); }
 async function ready(page, level) {
-  await page.locator('video[src$="level-' + String(level).padStart(2, '0') + '.mp4"]').waitFor({ state: 'attached' });
+  await page.locator('video[src*="/level-' + String(level).padStart(2, '0') + '.mp4"]').waitFor({ state: 'attached' });
   await page.evaluate(level => window.readyFilm(level), level);
   await page.waitForFunction(level => document.getElementById('host').dataset.filmLevel === String(level) && document.getElementById('host').dataset.filmState === 'playing', level);
 }
@@ -89,10 +90,10 @@ test('real confirmations select the exact level, skip stale loads and retain loo
     await s.page.evaluate(() => { document.querySelector('video[src]').currentTime = 7.25; });
     await update(s.page, { status: 'running', completed: 3, currentIndex: 4 });
     await ready(s.page, 3);
-    assert.equal(await s.page.locator('video[src$="level-03.mp4"]').evaluate(video => video.currentTime), 7.25);
+    assert.equal(await s.page.locator('video[src*="/level-03.mp4"]').evaluate(video => video.currentTime), 7.25);
     await update(s.page, { status: 'running', completed: 4 });
     await update(s.page, { status: 'running', completed: 7 });
-    assert.equal(await s.page.locator('video[src$="level-04.mp4"]').count(), 0);
+    assert.equal(await s.page.locator('video[src*="/level-04.mp4"]').count(), 0);
     await ready(s.page, 7);
     await s.page.waitForTimeout(250);
     assert.equal(await s.page.locator('video[src]').count(), 1);
@@ -104,7 +105,7 @@ test('real confirmations select the exact level, skip stale loads and retain loo
     assert.equal(await s.page.locator('#host').getAttribute('data-phase'), 'succeeded');
     await update(s.page, { status: 'failed', completed: 8 });
     assert.equal(await s.page.locator('video[src]').count(), 0);
-    assert.match(await s.page.locator('.lights-film-poster').getAttribute('src'), /level-08.jpg$/);
+    assert.match(new URL(await s.page.locator('.lights-film-poster').getAttribute('src')).pathname, /level-08.jpg$/);
     assert.equal(await s.page.locator('#host').getAttribute('data-completed'), '8');
     await update(s.page, { status: 'connecting', completed: 0 }); await ready(s.page, 0);
     assert.deepEqual(s.errors, []);
@@ -118,12 +119,12 @@ test('hidden scenes pause, reduced motion uses only the confirmed poster, destro
     await s.page.evaluate(() => { document.getElementById('wrapper').hidden = true; });
     await s.page.waitForFunction(() => [...document.querySelectorAll('video')].every(video => video.paused));
     await update(s.page, { status: 'running', completed: 5 });
-    assert.equal(await s.page.locator('video[src$="level-05.mp4"]').count(), 0);
+    assert.equal(await s.page.locator('video[src*="/level-05.mp4"]').count(), 0);
     await s.page.evaluate(() => { document.getElementById('wrapper').hidden = false; }); await ready(s.page, 5);
     await s.page.emulateMedia({ reducedMotion: 'reduce' });
     await s.page.waitForFunction(() => !document.querySelector('video[src]'));
     await update(s.page, { status: 'running', completed: 6 });
-    assert.match(await s.page.locator('.lights-film-poster').getAttribute('src'), /level-06.jpg$/);
+    assert.match(new URL(await s.page.locator('.lights-film-poster').getAttribute('src')).pathname, /level-06.jpg$/);
     await s.page.evaluate(() => { window.scene.destroy(); window.scene.update({ status: 'succeeded', completed: 9 }); });
     assert.equal(await s.page.locator('#host').evaluate(host => host.childElementCount), 0);
     assert.deepEqual(s.errors, []);
@@ -136,7 +137,7 @@ test('media errors retain the same poster; loss of both assets rolls back with t
     await update(s.page, { status: 'running', completed: 4 });
     await s.page.evaluate(() => window.failFilm());
     assert.equal(await s.page.locator('#host').getAttribute('data-film-state'), 'unavailable');
-    assert.match(await s.page.locator('.lights-film-poster').getAttribute('src'), /level-04.jpg$/);
+    assert.match(new URL(await s.page.locator('.lights-film-poster').getAttribute('src')).pathname, /level-04.jpg$/);
     assert.equal(await s.page.evaluate(() => window.__legacy.creates), 0);
   } finally { await s.context.close(); }
   const missing = await setup({ rejectPosters: true });
@@ -183,11 +184,11 @@ test('real H264 playback changes level without resetting the sixteen-second phas
     await s.page.waitForFunction(() => { const video = document.querySelector('video[src]'); return !video.seeking && video.currentTime >= 6; });
     await update(s.page, { status: 'running', completed: 3 });
     await s.page.waitForFunction(() => document.getElementById('host').dataset.filmLevel === '3');
-    const time = await s.page.locator('video[src$="level-03.mp4"]').evaluate(video => video.currentTime);
+    const time = await s.page.locator('video[src*="/level-03.mp4"]').evaluate(video => video.currentTime);
     assert(time > 6 && time < 8, 'New film retains the current phase: ' + time);
     const difference = await s.page.evaluate(() => {
-      const old = document.querySelector('video[src$="level-00.mp4"]');
-      const current = document.querySelector('video[src$="level-03.mp4"]');
+      const old = document.querySelector('video[src*="/level-00.mp4"]');
+      const current = document.querySelector('video[src*="/level-03.mp4"]');
       return old ? Math.abs(old.currentTime - current.currentTime) : 0;
     });
     assert(difference < .25, 'Both transition films remain in phase: ' + difference);
@@ -237,7 +238,7 @@ test('the public preview plays and simulates nine levels without device requests
         await page.screenshot({ path: path.join(process.env.SCREENSHOT_DIR, `film-preview-${viewport.width}.png`) });
       }
     }
-    assert(requests.some(url => url.endsWith('level-08.mp4')));
+    assert(requests.some(url => new URL(url).pathname.endsWith('/level-08.mp4')));
     assert.deepEqual(errors, []);
   } finally { await context.close(); }
 });
