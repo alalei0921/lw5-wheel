@@ -57,7 +57,9 @@ async function scene({ width = 390, height = 844, reducedMotion = 'no-preference
 async function update(page, value) { await page.evaluate(value => window.scene.update(value), value); }
 async function frameCount(page) { return page.evaluate(() => ({ callbacks: window.__frames.callbacks, pending: window.__frames.pending.size })); }
 async function expectStopped(page) {
-  await page.waitForTimeout(160);
+  // Media-query changes and intersection notifications are delivered on the
+  // browser's rendering cycle, which can be delayed on a software GPU.
+  await page.waitForFunction(() => window.__frames.pending.size === 0, null, { polling: 50, timeout: 4000 });
   const first = await frameCount(page);
   await page.waitForTimeout(160);
   assert.deepEqual(await frameCount(page), first, 'Hidden/static scenes must stop scheduling frames');
@@ -160,6 +162,48 @@ test('overlapping confirmations finish their own warm-up and repeated polls do n
     });
     const expected = [0, 0, .5, .5, 1.5, 2, 2, 0];
     values.forEach((v, i) => assert(Math.abs(v - expected[i]) < .001, `Unexpected light at snapshot ${i}: ${v}`));
+    clean(s);
+  } finally { await s.context.close(); }
+});
+
+test('the camera loops while the confirmed lighting level stays fixed', async () => {
+  const s = await scene({ width: 240, height: 400 });
+  try {
+    const result = await s.page.evaluate(() => {
+      const gl = document.querySelector('#host canvas').getContext('webgl');
+      const program = gl.getParameter(gl.CURRENT_PROGRAM);
+      const progress = gl.getUniformLocation(program, 'uProgress');
+      const start = performance.now();
+      let elapsed = 0;
+      Object.defineProperty(performance, 'now', { configurable: true, value: () => start + elapsed });
+      function snapshot(ms) {
+        elapsed = ms;
+        window.scene.update({ status: 'running', completed: 6 });
+        const width = gl.drawingBufferWidth, height = gl.drawingBufferHeight;
+        const data = new Uint8Array(width * height * 4);
+        gl.readPixels(0, 0, width, height, gl.RGBA, gl.UNSIGNED_BYTE, data);
+        return data;
+      }
+      function rgbDifference(a, b) {
+        let sum = 0;
+        for (let i = 0; i < a.length; i += 4) {
+          sum += Math.abs(a[i] - b[i]) + Math.abs(a[i + 1] - b[i + 1]) + Math.abs(a[i + 2] - b[i + 2]);
+        }
+        return sum / (a.length * .75);
+      }
+      try {
+        window.scene.update({ status: 'running', completed: 6 });
+        const first = snapshot(20000);
+        const middle = snapshot(28000);
+        const nextLap = snapshot(36000);
+        return { loop: rgbDifference(first, nextLap), motion: rgbDifference(first, middle), level: gl.getUniform(program, progress) };
+      } finally {
+        delete performance.now;
+      }
+    });
+    assert(result.loop < .1, 'The same point on successive laps should render the same scene');
+    assert(result.motion > .8, 'The scene should move between these two frames');
+    assert(Math.abs(result.level * 9 - 6) < .001);
     clean(s);
   } finally { await s.context.close(); }
 });

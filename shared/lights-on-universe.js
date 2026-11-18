@@ -30,6 +30,45 @@
 (() => {
   'use strict';
   const TAU = Math.PI * 2;
+  let noisePixels;
+  function getNoisePixels() {
+    if (noisePixels) return noisePixels;
+    let seed = 13211;
+    function random() {
+      seed = seed * 16807 % 2147483647;
+      return seed / 2147483647;
+    }
+    const side = 128;
+    const values = Uint8Array.from({length: side * side}, () => Math.floor(random() * 256));
+    // A periodic height field of overlapping cloud lobes. The same field supplies
+    // several scales of real surface relief in the ray / cloud intersection.
+    const lobes = Array.from({length: 64}, () => ({
+      x: .16 + .68 * random(), y: .16 + .68 * random(),
+      radius: .62 + .30 * random(), height: .59 + .37 * random()
+    }));
+    const pixels = new Uint8Array(side * side * 4);
+    for (let y = 0; y < side; y++) for (let x = 0; x < side; x++) {
+      const u = (x + .5) / 16, v = (y + .5) / 16;
+      const cellX = Math.floor(u), cellY = Math.floor(v);
+      let top = 0;
+      for (let j = -1; j <= 1; j++) for (let i = -1; i <= 1; i++) {
+        const lobe = lobes[((cellY + j + 8) % 8) * 8 + (cellX + i + 8) % 8];
+        const dx = u - (cellX + i + lobe.x), dy = v - (cellY + j + lobe.y);
+        const depth = 1 - (dx * dx + dy * dy) / (lobe.radius * lobe.radius);
+        if (depth <= 0) continue;
+        const h = lobe.height * Math.sqrt(depth);
+        const blend = Math.max(0, 1 - Math.abs(h - top) / .07);
+        top = Math.max(top, h) + .0175 * blend * blend;
+      }
+      const offset = (y * side + x) * 4;
+      pixels[offset] = values[y * side + x];
+      pixels[offset + 1] = values[((y + 17) % side) * side + (x + 37) % side];
+      pixels[offset + 2] = Math.round(Math.min(1, top) * 255);
+      pixels[offset + 3] = 255;
+    }
+    noisePixels = pixels;
+    return pixels;
+  }
   const PHASES = new Set(['idle', 'queued', 'connecting', 'running', 'verifying', 'succeeded', 'failed']);
   const VERTEX = 'attribute vec2 aPos; void main(){gl_Position=vec4(aPos,0.,1.);}';
   const FRAGMENT = `precision highp float;
@@ -43,168 +82,366 @@ float noise3(vec3 p){vec3 i=floor(p),f=fract(p);f=f*f*(3.-2.*f);vec2 uv=i.xy+vec
 float fbm(vec3 p){float n=.53*noise3(p);p=p*2.02+17.3;n+=.27*noise3(p);p=p*2.04+11.7;n+=.13*noise3(p);p=p*2.01+7.2;n+=.07*noise3(p);return n;}
 mat2 turn(float a){float c=cos(a),s=sin(a);return mat2(c,-s,s,c);}
 vec3 aces(vec3 c){return clamp((c*(2.51*c+.03))/(c*(2.43*c+.59)+.14),0.,1.);}
-
-// Coherent world-space cloud matter follows an annulus around the hole.
-// Rotation advects the noise itself; there is no scrolling billboard or radial bar.
-float dust(vec3 p){
- vec2 orbit=p.xz-vec2(0.,10.);
- float radial=length(orbit);
- if(radial<=2.4||radial>=14.||p.y>=1.55)return 0.;
- float ring=smoothstep(2.4,3.9,radial)*(1.-smoothstep(10.5,14.,radial));
- float roof=1.-smoothstep(.25,1.55,p.y);
- if(ring*roof<.002)return 0.;
- float angle=uTime*.19+radial*.17+.32*sin(uTime*.23-radial*.19);
- vec2 q=turn(angle)*orbit;
- float volume=fbm(vec3(q.x*1.23,p.y*2.05,q.y*1.23));
- float strands=.032*sin(radial*2.4+atan(orbit.y,orbit.x)*2.-uTime*.41);
- return max(0.,volume-.43-p.y*.26+strands)*ring*roof;
+vec2 sphereSpan(vec3 ro,vec3 rd,float radius){
+ float b=dot(ro,rd),c=dot(ro,ro)-radius*radius,d=b*b-c;
+ if(d<0.)return vec2(1e4,-1e4);
+ float s=sqrt(d);return vec2(-b-s,-b+s);
+}
+float loopNoise(vec3 p,float distance){
+ float phase=fract(uTime/16.),blend=phase*phase*(3.-2.*phase);
+ return mix(noise3(p+vec3(0.,phase*distance,0.)),
+            noise3(p+vec3(0.,(phase-1.)*distance,0.)),blend);
 }
 
-// Each successful acknowledgement injects a short, overlapping thermal packet.
-// Time never creates progress: only real uImpacts entries can launch these waves.
+// x extinction, y equatorial hot fibers, z equatorial sparks, w rising stream.
+// The ring, reservoir and curtain are actual world-space volumes. Their light
+// can only be integrated before the central opaque sphere's near intersection.
+vec4 matter(vec3 p){
+ float radial=length(p.xz),phi=uTime*.3926990817;
+ if(radial>6.2||p.y>1.15||p.y<-3.8)return vec4(0.);
+ float density=0.,plasma=0.,spark=0.,stream=0.;
+ if(radial>1.20&&abs(p.y)<1.15){
+  float rim=smoothstep(1.20,1.42,radial)*(1.-smoothstep(5.0,6.2,radial));
+  float a=atan(p.z,p.x);
+  float spin=phi+.19*radial+.20*sin(phi*2.-radial*.6);
+  vec2 orbit=turn(spin)*p.xz;
+  vec3 q=vec3(orbit.x*2.1,p.y*5.1,orbit.y*2.1);
+  float n=fbm(q+vec3(2.4,0.,7.1));
+  float warp=.045*sin(a*3.+radial*1.7-phi*2.)+.032*(n-.5);
+  float height=p.y-warp;
+  float vertical=exp(-pow(abs(height)/(.035+radial*.009),1.65));
+  float clumps=smoothstep(.25,.74,n);
+  density=rim*vertical*(.018+clumps*.32)*exp(-max(radial-2.0,0.)*1.6);
+  float fine=noise3(q*3.7+vec3(0.,sin(phi)*.28,0.));
+  float fibers=pow(.5+.5*sin(radial*36.+n*10.+fine*3.),5.);
+  float thin=exp(-abs(height)/(.016+radial*.003));
+  float inner=exp(-abs(radial-1.60)*1.65);
+  float whiteRidge=exp(-pow((radial-1.52-(n-.5)*.10)/.13,2.));
+  plasma=rim*thin*(.025+fibers*.48+fine*fine*.17+whiteRidge*.40)*inner;
+  vec3 grainCell=floor(q*3.2),grainOffset=fract(q*3.2)-.5;
+  spark=step(.993,hash13(grainCell+9.3))*exp(-dot(grainOffset,grainOffset)*130.)*rim*vertical;
+ }
+ // Curved sheet converging from the right-hand cloud crest into the lower lip.
+ float t=(-p.y-.91)/2.60;
+ if(t>=0.&&t<1.16){
+  float cap=smoothstep(-.05,.045,t)*(1.-smoothstep(1.02,1.16,t));
+  for(int layer=0;layer<3;layer++){
+   float k=float(layer),pathT=min(t,.69),fold=sin(pathT*3.14159265);
+   float centreX=-.29*pathT+(.05+k*.045)*sin(pathT*(5.+k)+phi+k*2.)*fold;
+   centreX+=(k-1.)*.075*fold;
+   float centreZ=.63+1.65*pathT+.22*pathT*pathT+(k-1.)*.16+(.025+k*.025)*sin(pathT*7.+phi+k)*fold;
+   float halfWidth=(.33+.10*k)+(.55+.22*k)*pow(max(t,0.),.85);
+   float x=(p.x-centreX)/halfWidth;
+   float z=(p.z-centreZ)/(.23+.10*t);
+   float sheet=exp(-z*z*1.9)*(1.-smoothstep(.64,1.06,abs(x)));
+   if(sheet>.003){
+    float flowing=loopNoise(vec3(x*6.5,t*13.,z*.15+k*11.),12.);
+    float grainFlow=loopNoise(vec3(x*24.+flowing*1.4,t*10.,sin(phi)*.15+k*17.),16.);
+    float fibers=pow(max(0.,1.-abs(grainFlow-.51)*5.),7.);
+    float beads=.40+.60*flowing;
+    float veinX=(.20+k*.045)*sin(t*5.+phi+k*1.8)+.11*sin(t*11.+phi*2.+k);
+    float veinWidth=.090+k*.035+.017*sin(t*9.+phi*2.);
+    float vein=exp(-pow((x-veinX)/veinWidth,2.));
+    vein+=exp(-pow((x+veinX*.60+.30)/.044,2.))*.34;
+    float weight=layer==1?.58:layer==2?.78:1.;
+    stream+=sheet*cap*weight*(.10+fibers*.24*beads+flowing*flowing*.20+vein*(.62+.20*flowing))*.62;
+    stream+=sheet*cap*weight*exp(-t*16.)*.14;
+    density+=sheet*cap*weight*(.035+flowing*.055);
+   }
+  }
+ }
+ return vec4(density,plasma,spark,stream);
+}
+float coarseDust(vec3 p){
+ float radial=length(p.xz),phi=uTime*.3926990817,d=0.;
+ if(radial>6.2||p.y>1.15||p.y<-3.8)return 0.;
+ if(radial>1.20&&abs(p.y)<1.15){
+  float rim=smoothstep(1.20,1.42,radial)*(1.-smoothstep(5.,6.2,radial));
+  vec2 orbit=turn(phi+.19*radial+.20*sin(phi*2.-radial*.6))*p.xz;
+  vec3 q=vec3(orbit.x*2.1,p.y*5.1,orbit.y*2.1)+vec3(2.4,0.,7.1);
+  float n=.66*noise3(q)+.34*noise3(q*2.02+17.3);
+  d=rim*exp(-pow(abs(p.y)/(.035+radial*.009),1.65))*(.018+smoothstep(.25,.74,n)*.32)*exp(-max(radial-2.0,0.)*1.6);
+ }
+ return d;
+}
 float thermalPackets(float angle,float radial){
  float heat=0.;
  for(int j=0;j<9;j++){
   float age=uImpacts[j];
   if(age>=0.&&age<3.8){
-   float life=sin(clamp(age/3.8,0.,1.)*3.14159265);
-   float front=float(j)*1.83-age*2.25;
-   float arc=exp(-(1.-cos(angle-front))*17.);
-   float spread=exp(-abs(radial-(1.37+age*.12))*6.5);
-   heat+=arc*spread*life*.34;
+   float life=sin(age/3.8*3.14159265),front=float(j)*1.83-age*2.25;
+   heat+=exp(-(1.-cos(angle-front))*17.)*exp(-abs(radial-(1.65+age*.4))*2.4)*life*.34;
   }
  }
  return min(heat,1.2);
 }
 
-void main(){
- float unit=uRes.y,aspect=uRes.x/uRes.y;
- vec2 screenUv=(gl_FragCoord.xy*2.-uRes)/unit;
- float framing=min(.62,aspect*.77);
- vec2 uv=(screenUv-vec2(0.,.10))*1.24/framing;
- uv=turn(-.095+sin(uTime*.075)*.007)*uv;
- uv.x+=sin(uTime*.061)*.009;
- float pixel=2.48/max(1.,unit)/framing;
- float r=length(uv),angle=atan(uv.y,uv.x),edge=r-1.24;
- float outside=smoothstep(-pixel,pixel,edge);
- float progress=clamp(uProgress,0.,1.);
- // Every stage raises each radiance channel. White heat appears gradually.
- float power=.19+progress*1.72+progress*progress*.62;
- float breath=1.+smoothstep(.88,1.,progress)*sin(uTime*.63)*.026;
- power*=breath;
- vec3 hot=mix(vec3(1.,.29,.075),vec3(1.46,1.08,.69),progress);
- vec3 warm=mix(vec3(.52,.16,.045),vec3(.90,.36,.13),progress);
- vec3 col=vec3(.00035,.00055,.00085);
+// The apparent bent far-disk image has a shared world-space virtual-image depth.
+// It is composited at that depth DURING integration and is absorbed by near gas.
+vec3 lensImage(vec2 p,float critical,float pixel,float progress,float power,vec3 hot,vec3 copper){
+ float r=length(p),edge=r-critical;
+ if(edge<-.002||edge>1.35)return vec3(0.);
+ float a=atan(p.y,p.x),phi=uTime*.3926990817;
+ vec2 orbit=turn(phi)*vec2(cos(a),sin(a));
+ float n=fbm(vec3(orbit*2.1,max(edge,0.)*13.5));
+ float fine=noise3(vec3(orbit*3.8,max(edge,0.)*57.-sin(phi)*.8));
+ float upper=.30+.70*smoothstep(-.18,.25,p.y);
+ float approaching=.45+1.15*pow(.5-.5*cos(a),1.65);
+ float breadth=.15+.16*progress;
+ float envelope=exp(-max(edge,0.)/breadth)*exp(-edge*edge*2.);
+ float filaments=pow(smoothstep(.28,.75,fine),1.4);
+ float imageDensity=.08+n*.24+fine*.05+filaments*.21;
+ float packet=thermalPackets(a,1.65+max(edge,0.)*1.2);
+ float shoulder=exp(-pow((a-2.26)*3.2,2.));
+ vec3 outerWarm=mix(hot,vec3(1.26,.54,.49),progress*.74*smoothstep(.035,.36,edge));
+ vec3 lensHot=mix(outerWarm,vec3(1.20,1.46,1.76),progress*shoulder*.57);
+ vec3 col=lensHot*envelope*imageDensity*upper*approaching*(power+packet*2.2)*.67;
+ col+=copper*pow(n,2.)*envelope*upper*.12*power;
+ float photon=exp(-abs(edge)/max(.006,pixel*.8));
+ col+=lensHot*photon*(.42+.58*upper)*approaching*(power+packet)*1.3;
+ col+=vec3(.025,.056,.105)*exp(-abs(edge-.025)*65.)*upper*power;
+ return col;
+}
+// A thin-lens map stretches the same distant star field into tangential arcs.
+// The radial and tangential footprints filter subpixel stars as the lens bends them.
+vec3 skyPoints(vec2 source, vec2 radial, vec2 footprint, float cells,
+               float density, float seed, float intensity) {
+ vec2 field = source*cells + vec2(seed*3.9,seed*1.6);
+ vec2 cell = floor(field);
+ if(hash13(vec3(cell,seed))>density)return vec3(0.);
+ vec2 centre = .23 + .54*vec2(hash13(vec3(cell,seed+2.)),hash13(vec3(cell,seed+5.)));
+ vec2 delta = fract(field)-centre;
+ float energy = hash13(vec3(cell,seed+13.));
+ float width = .033+.034*energy*energy;
+ vec2 offsets = vec2(dot(delta,radial),dot(delta,vec2(-radial.y,radial.x)));
+ vec2 beam = cells*footprint*.42;
+ vec2 variance = vec2(width*width)+beam*beam;
+ float radiance = exp(-.5*dot(offsets*offsets,1./variance))*width*width*inversesqrt(variance.x*variance.y);
+ float colour = hash13(vec3(cell,seed+17.));
+ vec3 tint = mix(vec3(.40,.58,1.),vec3(1.,.64,.51),colour);
+ return tint*radiance*(.21+1.50*energy*energy*energy)*intensity;
+}
+vec3 gravitySky(vec2 view,float pixel){
+ float radius = max(length(view),.8);
+ vec2 radial = view/radius;
+ float inverseRadius2 = 1./(radius*radius);
+ float bend = 1.58*inverseRadius2;
+ float twist = inverseRadius2*(.15+.034*sin(uTime*.3926990817-radius));
+ vec2 source = turn(twist)*(view*(1.-bend));
+ vec2 sourceAxis = turn(twist)*radial;
+ vec2 footprint = pixel*vec2(1.+bend,max(.018,abs(1.-bend)));
+ float lane = source.y-.10*source.x-.22*sin(source.x*.8);
+ float haze = exp(-lane*lane*1.5);
+ float clouds = fbm(vec3(source*1.8+3.8,2.1));
+ float veil = haze*smoothstep(.42,.78,clouds);
+ vec3 dustColour=mix(vec3(.014,.025,.050),vec3(.062,.019,.040),clouds);
+ vec3 sky = vec3(.00115,.00146,.00255)+dustColour*veil;
+ sky+=skyPoints(source,sourceAxis,footprint,24.,.105+.16*haze,13.,.46);
+ sky+=skyPoints(source,sourceAxis,footprint,10.7,.092+.095*veil,39.,.73);
+ sky+=skyPoints(source,sourceAxis,footprint,4.5,.062,62.,.90);
+ return sky;
+}
 
- // Sparse distant starlight remains behind the silhouette and absorbing dust.
- vec2 grid=uv*104.;vec2 cell=floor(grid);
- float star=hash13(vec3(cell,7.3));
- float pin=exp(-length(fract(grid)-.5)*20.)*step(.996,star);
- col+=vec3(.42,.52,.70)*pin*.23*outside;
- float background=fbm(vec3(uv*.38,3.1));
- col+=vec3(.0012,.0016,.0024)*pow(background,2.)*outside;
+// Four staggered sheets of nearby dust travel towards the camera. Fading in at
+// the back and out at the near plane lets the camera keep moving through a loop.
+vec3 flightDust(vec2 view,float pixel,float depthLimit){
+ vec3 sum=vec3(0.);
+ float cycle=uTime/16.;
+ float r=length(view);
+ vec2 radial=view/max(r,.001), tangent=vec2(-radial.y,radial.x);
+ for(int layer=0;layer<4;layer++){
+  float k=float(layer),age=fract(cycle+k*.25);
+  float z=mix(1.48,.34,age);
+  if(z>depthLimit)continue;
+  vec2 cellUv=view*(z*2.8)+vec2(k*14.79+7.13,k*18.31+9.77);
+  vec2 cell=floor(cellUv);
+  float seed=hash13(vec3(cell,18.+k));
+  if(seed>.11)continue;
+  vec2 centre=.24+.52*vec2(hash13(vec3(cell,33.+k)),hash13(vec3(cell,65.+k)));
+  vec2 delta=fract(cellUv)-centre;
+  float physical=.011+.010*(seed/.11);
+  float width=max(physical,pixel*z*2.8*.57);
+  float lengthAlong=width*(1.+min(r*.37,1.7)*age);
+  vec2 streak=vec2(dot(delta,radial)/lengthAlong,dot(delta,tangent)/width);
+  float grain=exp(-.5*dot(streak,streak))*physical*physical/(width*lengthAlong);
+  float life=smoothstep(.0,.17,age)*(1.-smoothstep(.81,1.,age));
+  vec3 tint=mix(vec3(.58,.73,1.),vec3(1.,.72,.56),hash13(vec3(cell,79.+k)));
+  sum+=tint*grain*life*(.24+.48*age)*smoothstep(1.,1.65,r);
+ }
+ return sum;
+}
 
- // Inclined accretion plane: the rear is occulted, the near bank crosses low.
- vec2 disk=vec2(uv.x,(uv.y+.36)/.225);
- float dr=length(disk),da=atan(disk.y,disk.x);
- vec2 advected=turn(uTime*.235+.19*dr)*disk;
- float diskNoise=fbm(vec3(advected*3.0,4.4));
- float filament=noise3(vec3(advected*10.2,7.1));
- float diskMask=smoothstep(1.10,1.30,dr)*(1.-smoothstep(2.8,3.75,dr));
- float rear=smoothstep(-.36,-.29,uv.y);
- float diskVisible=mix(1.,outside,rear);
- float heat=thermalPackets(da,dr);
- float beaming=.40+1.45*exp(-length(disk-vec2(-1.65,-.12))*.77);
- float bands=.34+.66*pow(.5+.5*sin(dr*22.+diskNoise*8.),2.);
- float diskBody=pow(max(0.,diskNoise-.12),1.45)*bands;
- float innerBurn=exp(-abs(dr-1.38)*5.1);
- vec2 fastSide=(disk-vec2(-1.20,-.82))*vec2(.94,1.12);
- float blueShift=exp(-dot(fastSide,fastSide)*1.9);
- vec3 diskHot=mix(hot,vec3(1.30,1.52,1.70),progress*blueShift*.78);
- vec3 diskRadiance=diskHot*(.11+diskBody*.60)*innerBurn;
- diskRadiance+=warm*diskBody*.19;
- diskRadiance*=diskMask*diskVisible*beaming*(power+heat*1.8);
- col+=diskRadiance;
- // Thermal spill is broad and asymmetric, with no anamorphic camera cross.
- float diskBloom=exp(-abs(uv.y+.36)*7.4)*exp(-abs(uv.x)*.55);
- col+=warm*diskBloom*.019*power*mix(.18,1.,outside);
-
- // The far side appears as a warped, turbulent lens arc above the black core.
- vec2 lensOrbit=turn(uTime*.15)*vec2(cos(angle),sin(angle));
- float lensNoise=fbm(vec3(lensOrbit*4.4,max(edge,0.)*8.));
- float threads=noise3(vec3(lensOrbit*13.,max(edge,0.)*29.-uTime*.16));
- float upper=smoothstep(-.20,.31,uv.y);
- float doppler=.34+1.18*pow(.5-.5*cos(angle),1.7);
- float arch=exp(-max(edge,0.)*7.)*outside*upper;
- float ribbon=pow(.5+.5*sin(edge*55.+lensNoise*9.+angle*1.2),5.);
- float lensTexture=.075+lensNoise*.21+threads*.065+ribbon*.12;
- float lensHeat=thermalPackets(angle,1.55);
- float shoulder=exp(-pow((angle-2.25)*3.2,2.));
- vec3 lensHot=mix(hot,vec3(1.25,1.44,1.66),progress*shoulder*.70);
- col+=lensHot*arch*lensTexture*doppler*(power+lensHeat*2.3);
- col+=warm*exp(-max(edge,0.)*2.4)*outside*upper*.047*power;
- // A narrow physical photon edge, not repeated decorative concentric rings.
- float photonWidth=max(.0042,pixel*.75);
- float photon=exp(-pow(abs(edge)/photonWidth,1.35));
- float horizon=.32+.68*upper;
- col+=lensHot*photon*horizon*doppler*(power+lensHeat*1.5)*.93;
- col+=hot*exp(-abs(edge)*38.)*outside*horizon*power*.055;
- // Barely separated cool outer light and warm inner light give optical depth.
- float dispersion=exp(-abs(edge-.018)*95.)*outside*upper;
- col+=vec3(.031,.066,.12)*dispersion*power*(.24+.36*smoothstep(-.6,.7,uv.x));
-
- // A long ray through thick orbiting clouds resolves ridges, troughs and shadows.
- vec3 ro=vec3(sin(uTime*.053)*.07,1.38,0.);
- vec3 rd=normalize(vec3(uv.x,uv.y*.64-.035,2.22));
- vec3 lightDir=normalize(vec3(-.75,.57,.25));
- float travel=1.55,transmittance=1.;
+// Rounded cloud heads bound this volume. Inside each bank, three-dimensional
+// turbulence opens gullies between lobes and breaks up the illuminated margins.
+float oceanDensity(vec3 p,vec2 drift) {
+ vec2 q=p.xz*1.65+drift;
+ vec2 warp=vec2(noise3(vec3(q*.55,12.1)),noise3(vec3(q*.53,33.7)))-.5;
+ q+=warp*.80;
+ float bank=noise3(vec3(q*.67,4.2));
+ // Advance the wrapped relief towards the camera. Exactly one full texture
+ // period per lap gives the foreground real parallax without reversing.
+ vec2 travel=vec2(0.,-uTime/16.);
+ float heads=texture2D(uNoise,q*.148+vec2(.13,.62)+travel).b;
+ float folds=texture2D(uNoise,turn(.72)*q*.363+heads*.032+vec2(.41,.27)+travel).b;
+ // Tall low-frequency billows break the oblique bank into individual rising heads.
+ float towers=smoothstep(.27,.79,bank);
+ float ceiling=-4.02+1.02*towers+1.10*heads+.36*folds;
+ float below=ceiling-p.y;
+ if(below<-.43)return 0.;
+ vec3 detail=vec3(q.x,p.y*2.25,q.y);
+ float n=.55*noise3(detail*2.33)+.29*noise3(detail*4.91+16.7)+.16*noise3(detail*10.21+6.1);
+ return clamp(below*1.18+(n-.50)*1.07,0.,1.9);
+}
+vec4 cloudOcean(vec3 ro,vec3 rd,float stopDepth,float progress,float power,vec3 sky,out vec4 nearT,out vec4 farT,out vec2 sampledDepths) {
+ nearT=vec4(0.);farT=vec4(0.);sampledDepths=vec2(0.);
+ if(rd.y>=-.001)return vec4(0.,0.,0.,-1.);
+ float phi=uTime*.3926990817;
+ vec2 drift=vec2(.070*cos(phi),.082*sin(phi));
+ float first=(-1.50-ro.y)/rd.y;
+ float last=min(stopDepth,min((-5.4-ro.y)/rd.y,16.0));
+ if(last<=first)return vec4(0.,0.,0.,-1.);
+ sampledDepths=vec2(first,last);
+ float stepSize=(last-first)/40.;
+ float transmission=1.,surface=-1.;
  vec3 scatter=vec3(0.);
- for(int i=0;i<44;i++){
-  vec3 p=ro+rd*travel;
-  float stepSize=.23+travel*.028;
-  if(p.y>=1.6&&rd.y>=0.)break;
-  if(p.y<1.6){
-   float density=dust(p);
-   if(density>.006){
-    float toward=dust(p+lightDir*.38);
-    float rim=clamp((density-toward)*5.5,0.,1.);
-    float shade=exp(-toward*3.1);
-    float radial=length(p.xz-vec2(0.,10.));
-    float irradiance=exp(-abs(radial-4.4)*.58)*(.25+.75*smoothstep(3.,8.,travel));
-    float approach=.12+1.45*exp(-abs(p.x+travel*.39)*.42);
-    float backscatter=.0025+pow(rim,1.65)*shade*approach*.22;
-    // Unlit troughs remain cool; illuminated fibers become copper then ivory.
-    vec3 cloud=vec3(.0018,.0029,.0055)*exp(-travel*.033)*(1.-rim*.5);
-    cloud+=warm*backscatter*irradiance*(.18+power*.52+heat*1.8);
-    cloud+=hot*pow(rim,3.)*shade*irradiance*.039*(power+heat*2.1);
-    float alpha=1.-exp(-density*stepSize*5.25);
-    scatter+=transmittance*cloud*alpha;
+ vec3 sun=normalize(vec3(.62,.65,-.44));
+ vec3 rose=mix(vec3(.45,.12,.085),vec3(1.,.49,.39),progress);
+ vec3 ivory=mix(vec3(.84,.45,.31),vec3(1.26,1.04,.92),progress);
+ for(int i=0;i<40;i++){
+  // Keep eight transmittance samples so filaments fade into the soft cloud
+  // boundary at their own depth, rather than stopping at an opaque cutout.
+  if(i==5)nearT.x=transmission;else if(i==10)nearT.y=transmission;
+  else if(i==15)nearT.z=transmission;else if(i==20)nearT.w=transmission;
+  else if(i==25)farT.x=transmission;else if(i==30)farT.y=transmission;
+  else if(i==35)farT.z=transmission;
+  float depth=first+(float(i)+.5)*stepSize;
+  vec3 p=ro+rd*depth;
+  float density=oceanDensity(p,drift)*(1.-smoothstep(11.1,16.,depth));
+  if(density<.005)continue;
+  float alpha=1.-exp(-5.8*density*stepSize);
+  float dx=density-oceanDensity(p+vec3(.095,0.,0.),drift);
+  float dy=density-oceanDensity(p+vec3(0.,.095,0.),drift);
+  float dz=density-oceanDensity(p+vec3(0.,0.,.095),drift);
+  vec3 normal=normalize(vec3(dx,dy,dz)+vec3(0.,.012,0.));
+  float slopeLight=clamp(dot(normal,sun),0.,1.);
+  float closeShadow=oceanDensity(p+sun*.34,drift);
+  float distantShadow=oceanDensity(p+sun*.93,drift);
+  float sunlit=exp(-6.1*closeShadow-3.45*distantShadow);
+  float rim=clamp((density-closeShadow)*2.35,0.,1.);
+  float height=smoothstep(-3.55,-2.14,p.y);
+  vec3 smoke=mix(vec3(.0034,.0041,.0083),vec3(.027,.013,.023),height*.77+.10);
+  vec3 light=smoke*(.45+.57*power);
+  light+=rose*(.033+.48*rim)*sunlit*(.17+.57*power);
+  light+=ivory*(.11*sunlit*sunlit+.41*rim*rim*sunlit)*(.035+power*.54);
+  // Localized diffusion where the gas stream meets the cloud tops.
+  float feedDistance=length((p-vec3(-.20,-2.82,1.85))*vec3(.85,.78,.90));
+  float root=exp(-feedDistance*2.55);
+  light*=(.075+.62*exp(-.62*feedDistance))*(.18+.91*slopeLight);
+  light+=mix(rose,ivory,.67)*root*(.045+.55*sunlit+.17*rim)*power*.58*(.28+.72*slopeLight);
+  // Fine condensate at the sunward edge gives the crown a broken silver lining.
+  float lining=pow(slopeLight,3.)*sunlit*smoothstep(.30,.75,noise3(p*12.7));
+  light+=ivory*lining*(.01+.050*root)*power;
+  scatter+=transmission*light*alpha;
+  transmission*=1.-alpha;
+  if(transmission<.014){surface=depth;break;}
+ }
+ farT.w=transmission;
+ if(surface<0.&&transmission<.999)surface=last;
+ return vec4(scatter+transmission*sky,surface);
+}
+void main(){
+ float aspect=uRes.x/uRes.y,phi=uTime*.3926990817;
+ vec2 screenUv=(gl_FragCoord.xy*2.-uRes)/uRes.y;
+ float framing=min(.38,aspect*.44);
+ vec2 view=(screenUv-vec2(-.06*aspect,.24))/framing;
+ view=turn(.49+sin(phi)*.004)*view;
+ vec3 ro=vec3(0.,.80,8.4);
+ float cameraDistance=length(ro),focal=sqrt(cameraDistance*cameraDistance-1.);
+ vec3 forward=-ro/cameraDistance,right=vec3(1.,0.,0.),up=normalize(cross(right,forward));
+ vec3 rd=normalize(forward*focal+right*view.x+up*view.y);
+ vec2 core=sphereSpan(ro,rd,1.);
+ bool hitsCore=core.x>0.&&core.y>core.x;
+ vec2 bounds=sphereSpan(ro,rd,7.0);
+ float entry=max(0.,bounds.x),exitDepth=bounds.y;
+ if(hitsCore)exitDepth=min(exitDepth,core.x);
+ float progress=clamp(uProgress,0.,1.);
+ float power=(.19+progress*1.92+progress*progress*.70)*(1.+smoothstep(.88,1.,progress)*sin(phi*2.)*.025);
+ vec3 hot=mix(vec3(1.,.28,.15),vec3(1.52,1.13,.96),progress);
+ vec3 copper=mix(vec3(.55,.13,.075),vec3(.94,.32,.255),progress);
+ float pixel=2./max(1.,uRes.y)/framing;
+ vec3 sky=vec3(0.);
+ if(!hitsCore)sky=gravitySky(view,pixel);
+ vec4 nearT,farT;vec2 sampledDepths;
+ vec4 ocean=cloudOcean(ro,rd,hitsCore?core.x:1e4,progress,power,sky,nearT,farT,sampledDepths);
+ if(ocean.w>0.){sky=ocean.rgb;exitDepth=min(exitDepth,ocean.w);}
+ float foregroundLimit=min(hitsCore?core.x:1e4,ocean.w>0.?ocean.w:1e4);
+ if(bounds.y>max(0.,bounds.x))foregroundLimit=min(foregroundLimit,max(0.,bounds.x));
+
+ float planeDepth=-dot(ro,forward)/dot(rd,forward);
+ vec3 planePoint=ro+rd*planeDepth;
+ vec2 projected=vec2(dot(planePoint,right),dot(planePoint,up));
+ float critical=cameraDistance/focal;
+ vec3 farImage=vec3(0.);
+ if(planeDepth>=entry&&planeDepth<exitDepth)
+  farImage=lensImage(projected,critical,pixel,progress,power,hot,copper);
+ float equatorDepth=abs(rd.y)>.0001?-ro.y/rd.y:-1.;
+ vec3 equator=ro+rd*max(0.,equatorDepth);
+ float packet=equatorDepth>0.?thermalPackets(atan(equator.z,equator.x),length(equator.xz)):0.;
+ float transmittance=1.;vec3 light=vec3(0.);
+ bool imageDone=false;
+ if(exitDepth>entry){
+  float stepSize=(exitDepth-entry)/72.;
+  float jitter=.5;
+  for(int i=0;i<72;i++){
+   float segmentStart=entry+float(i)*stepSize;
+   float depth=segmentStart+stepSize*jitter;
+   if(!imageDone&&depth>=planeDepth&&planeDepth<exitDepth){
+    light+=transmittance*farImage;imageDone=true;
+   }
+   vec3 p=ro+rd*depth;
+   vec4 field=matter(p);
+   if(field.x>.003||field.y>.002||field.z>.001||field.w>.001){
+    float radial=length(p.xz);
+    vec3 inward=normalize(-p+vec3(-.25,.10,.10));
+    float toward=coarseDust(p+inward*.21);
+    float rim=clamp((field.x-toward)*3.8,0.,1.),shade=exp(-toward*2.5);
+    float approach=clamp(.5-.5*p.x/max(radial,.1),0.,1.);
+    float beaming=.35+1.40*pow(approach,1.6);
+    float innerLight=exp(-max(0.,length(p)-1.55)*.42);
+    float impact=exp(-length((p-vec3(-.20,-2.20,1.85))*vec3(1.,1.25,1.))*1.55);
+    float glowWidth=.15+radial*.04;
+    float openLight=mix(exp(-abs(p.y)/glowWidth),exp(-abs(p.y)/(glowWidth*1.7)),progress);
+    if(p.y< -1.45)openLight=.42+impact*.58;
+    vec3 localHot=mix(hot,vec3(1.30,1.50,1.70),progress*pow(approach,7.)*.42);
+    vec3 cloud=vec3(.0013,.0020,.0040)*(1.+progress*.40)*(1.-rim*.4);
+    cloud+=copper*(.003+pow(rim,1.5)*shade*.20)*(innerLight*.55+impact*.85)*beaming*(.20+power*.53+packet*1.2)*openLight;
+    cloud+=localHot*pow(rim,3.)*shade*.037*(innerLight+impact*.8)*(power+packet);
+    float alpha=1.-exp(-field.x*stepSize*2.6);
+    vec3 emission=localHot*field.y*beaming*(power+packet*2.4)*2.3;
+    emission+=localHot*field.z*(power+packet)*2.4;
+    vec3 curtainHot=mix(copper*vec3(.90,.69,.77),hot,.15+.85*smoothstep(.13,.85,field.w));
+    emission+=curtainHot*field.w*(power+packet*1.8)*1.57*(1.+clamp(uSuccess,0.,1.)*impact*.045);
+    if(ocean.w>0.&&depth>sampledDepths.x){
+     float bin=clamp(8.*(depth-sampledDepths.x)/(sampledDepths.y-sampledDepths.x),0.,8.);
+     float visible=max(0.,1.-bin)+dot(nearT,max(vec4(0.),1.-abs(bin-vec4(1.,2.,3.,4.))))
+                +dot(farT,max(vec4(0.),1.-abs(bin-vec4(5.,6.,7.,8.))));
+     emission*=visible;
+     alpha*=visible;
+    }
+    light+=transmittance*(cloud*alpha+emission*stepSize);
     transmittance*=1.-alpha;
-    if(transmittance<.018)break;
+    if(transmittance<.009)break;
    }
   }
-  travel+=stepSize;
-  if(travel>30.)break;
  }
- col=col*transmittance+scatter;
- // The near emitting disk lies in front of much of the absorbing cloud column.
- // Its broken ridges remain readable across the lower third of the silhouette;
- // thin nearer wisps still attenuate them instead of erasing the whole disk.
- float nearDisk=1.-smoothstep(-.40,-.30,uv.y);
- float veil=.58+.42*noise3(vec3(uv*7.5,uTime*.11));
- float diskTransmission=nearDisk*(.38+.34*smoothstep(.15,.64,diskNoise))*veil;
- col+=diskRadiance*max(0.,diskTransmission-transmittance);
- // Local scattered backlight survives the near cloud bank, preserving depth.
- float leftGlow=length((uv-vec2(-1.23,-.30))*vec2(.9,1.2));
- col+=hot*exp(-leftGlow*7.5)*.022*power;
- // A final settling warmth stays localized to the disk rather than flashing white.
- col+=warm*diskBloom*.008*clamp(uSuccess,0.,1.);
- // Keep inactive failure visibly restrained; progress remains the confirmed count.
+ vec3 col=light+sky*transmittance;
+ // All these near grains are closer than the scene's conservative near bound.
+ col+=flightDust(view,pixel,foregroundLimit);
  col*=1.-uFailed*.055;
- float vignette=1.-smoothstep(.55,1.9,length(screenUv*vec2(1./max(aspect,.4),.77)))*.24;
- col=aces(col*vignette*1.28);
+ float vignette=1.-smoothstep(.75,2.05,length(screenUv*vec2(1./max(aspect,.4),.78)))*.16;
+ col=aces(col*vignette*1.35);
  col=pow(col,vec3(.4545));
- float grain=(hash13(vec3(gl_FragCoord.xy,fract(uTime)*31.))-.5)/510.;
+ float grain=(hash13(vec3(gl_FragCoord.xy,4.1))-.5)/510.;
  gl_FragColor=vec4(max(vec3(0.),col+grain),1.);
 }
 `;
@@ -229,6 +466,11 @@ void main(){
       }});
     }
     if (!gl) return compatibility('unavailable');
+    // Some WebViews expose a CPU-based WebGL implementation. Keep its initial
+    // volume pass small enough to respond to input before frame adaptation starts.
+    const info = gl.getExtension('WEBGL_debug_renderer_info');
+    const software = info && /swiftshader|llvmpipe|softpipe|software rasterizer/i.test(gl.getParameter(info.UNMASKED_RENDERER_WEBGL));
+    const pixelBudget = software ? 100000 : 520000;
     let program, buffer, texture, shaders=[], uniforms={};
     let destroyed=false, contextLost=false, fallback=null, frame=0, intersecting=true;
     let width=0, height=0, quality=1, lastPaint=-Infinity, lastTick=null, slowFrames=0;
@@ -253,14 +495,8 @@ void main(){
       uniforms={};
       for(const name of ['uRes','uTime','uNoise','uSuccess','uProgress','uFailed','uImpacts[0]']) uniforms[name]=gl.getUniformLocation(program,name);
       // Repeatable 3D value noise, packed into two channels for a single lookup.
-      let seed=13211;const values=new Uint8Array(128*128);
-      for(let i=0;i<values.length;i++){seed=(seed*16807)%2147483647;values[i]=Math.floor(seed/2147483647*256);}
-      const pixels=new Uint8Array(128*128*4);
-      for(let y=0;y<128;y++)for(let x=0;x<128;x++){
-        const i=(y*128+x)*4;pixels[i]=values[y*128+x];pixels[i+1]=values[((y+17)%128)*128+(x+37)%128];pixels[i+2]=pixels[i];pixels[i+3]=255;
-      }
       texture=gl.createTexture();gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,texture);
-      gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,128,128,0,gl.RGBA,gl.UNSIGNED_BYTE,pixels);
+      gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,128,128,0,gl.RGBA,gl.UNSIGNED_BYTE,getNoisePixels());
       gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.LINEAR);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.LINEAR);
       gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S,gl.REPEAT);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.REPEAT);gl.uniform1i(uniforms.uNoise,0);
       host.dataset.renderer='webgl';delete host.dataset.rendererReason;
@@ -280,13 +516,14 @@ void main(){
     function stop(){if(frame)cancelAnimationFrame(frame);frame=0;lastTick=null;}
     function reconcile(){
       if(!visible()){stop();return;}
+      if(motion.matches)stop();
       paint(performance.now());
-      if(motion.matches)stop();else if(!frame)frame=requestAnimationFrame(tick);
+      if(!motion.matches&&!frame)frame=requestAnimationFrame(tick);
     }
     function resize(){
       if(destroyed)return;
       const rect=host.getBoundingClientRect();width=rect.width;height=rect.height;
-      const scale=Math.min(window.devicePixelRatio||1,1.5,Math.sqrt(520000/Math.max(1,width*height)))*quality;
+      const scale=Math.min(window.devicePixelRatio||1,1.5,Math.sqrt(pixelBudget/Math.max(1,width*height)))*quality;
       const w=Math.max(2,Math.round(width*scale)),h=Math.max(2,Math.round(height*scale));
       if(canvas.width!==w||canvas.height!==h){canvas.width=w;canvas.height=h;}
       if(!contextLost)gl.viewport(0,0,w,h);
@@ -295,7 +532,8 @@ void main(){
     function paint(time){
       if(destroyed||contextLost||!program||!width||!height)return;
       lastPaint=time;
-      const t=motion.matches?3:(time-epoch)/1000;
+      // Only camera and orbital motion loop. Confirmation ages use wall time.
+      const t=motion.matches?3:((time-epoch)/1000)%16;
       // Each confirmation warms its share of the disk. Overlapping responses
       // finish their own ramps even if another poll arrives in the meantime.
       let light=state.completed;
@@ -322,7 +560,7 @@ void main(){
       if(slowFrames>=12&&quality>.52){quality=Math.max(.5,quality*.8);slowFrames=0;resize();}
       // Spend the extra frames on a travelling heat front; the steady orbit
       // can run at half that cadence and leave the mobile GPU breathing room.
-      const interval=time<heatWaveUntil && quality>=.8?15:30;
+      const interval=time<heatWaveUntil && quality>=.8 && !software?15:30;
       if(time-lastPaint>=interval)paint(time);
       if(!frame)frame=requestAnimationFrame(tick);
     }
@@ -394,10 +632,10 @@ void main(){
     let seed = 12873;
     const random = () => { seed = (seed * 16807) % 2147483647; return (seed - 1) / 2147483646; };
     const values = Float32Array.from({ length: 4096 }, random);
-    const stars = Array.from({ length: 116 }, () => ({ x: random(), y: random(),
-      radius: .25 + random() * .65, alpha: .06 + random() * .25 }));
+    const stars = Array.from({ length: 680 }, () => ({ x: random(), y: random(),
+      radius: .30 + random() * .55, alpha: .045 + random() * .22, hue: random(), phase: random() * TAU }));
     const trails = Array.from({ length: 46 }, () => ({ phase: random() * TAU,
-      radius: .40 + random() * .56, speed: .72 + random() * .5, span: .018 + random() * .055 }));
+      radius: .04 + random() * .94, speed: .72 + random() * .5, span: .06 + random() * .18, lift: (random() - .5) * .15 }));
     const clamp = value => Math.max(0, Math.min(1, value));
     const smooth = value => { const p = clamp(value); return p * p * (3 - 2 * p); };
     function noise(x, y) {
@@ -416,25 +654,56 @@ void main(){
       const data = painter.createImageData(384, 384);
       for (let y = 0; y < 384; y += 1) for (let x = 0; x < 384; x += 1) {
         const px = (x + .5) / 192 - 1, py = (y + .5) / 192 - 1, r = Math.hypot(px, py);
-        if (r > 1 || r < .17) continue;
-        const angle = Math.atan2(py, px) + 1.35 * Math.log(r + .12);
+        if (r > 1 || r < .40) continue;
+        const angle = Math.atan2(py, px) + 1.8 * Math.log(r + .12);
         const sx = Math.cos(angle) * r, sy = Math.sin(angle) * r;
         const body = fbm(sx * 8.3 + 23, sy * 8.3 + 11);
         const creases = noise(sx * 36 + body * 3, sy * 36 + body * 3);
         const band = Math.exp(-Math.pow((r - .58) / .23, 2)) + .40 * Math.exp(-Math.pow((r - .84) / .10, 2));
-        const edge = smooth((r - .17) / .12) * smooth((1 - r) / .13);
+        const edge = smooth((r - .40) / .055) * smooth((1 - r) / .13);
         const density = clamp((body - .25) * 2.25) * band * edge;
-        const ridge = clamp((body - .27) * 1.7 + (creases - .5) * .15);
+        const filament = Math.pow(.5 + .5 * Math.sin(r * 68 - Math.atan2(py, px) * 3 + body * 4), 9);
+        const ridge = clamp((body - .27) * 1.7 + (creases - .5) * .15 + filament * .11);
         const offset = (y * 384 + x) * 4;
-        data.data[offset] = hot ? 175 + ridge * 80 : 48 + ridge * 110;
-        data.data[offset + 1] = hot ? 105 + ridge * 137 : 27 + ridge * 78;
-        data.data[offset + 2] = hot ? 42 + ridge * 171 : 15 + ridge * 42;
+        data.data[offset] = hot ? 190 + ridge * 65 : 43 + ridge * 104;
+        data.data[offset + 1] = hot ? 123 + ridge * 119 : 29 + ridge * 76;
+        data.data[offset + 2] = hot ? 103 + ridge * 121 : 27 + ridge * 63;
         data.data[offset + 3] = clamp(density * (hot ? .78 : .87)) * 255;
       }
       painter.putImageData(data, 0, 0); return map;
     }
     const copperCloud = cloudMap(false), hotCloud = cloudMap(true);
-    const frontCanvas = document.createElement('canvas'), frontCtx = frontCanvas.getContext('2d');
+    const streams = Array.from({ length: 84 }, (_, i) => ({ near: i % 4 !== 0,
+      angle: i % 4 !== 0 ? .27 + random() * 2.35 : Math.PI + .27 + random() * 2.35,
+      phase: random(), spread: random(), lift: (random() - .5) * .12, strength: .45 + random() * .55 }));
+    const foregroundDust = Array.from({ length: 110 }, (_, i) => ({ layer: i % 2, phase: random(), angle: random() * TAU, spread: random(), size: random() }));
+    const clouds = Array.from({ length: 38 }, (_, i) => {
+      const row = Math.floor(i / 10), x = -.10 + random() * 1.24;
+      return { row, x, y: .71 + row * .105 - x * .16 + (random() - .5) * .105,
+        radius: .13 + row * .024 + random() * .075, aspect: .61 + random() * .46,
+        phase: random() * TAU, highlight: random(), texture: i % 3 };
+    });
+    function puffMap(hot, variant) {
+      const map = document.createElement('canvas'); map.width = map.height = 128;
+      const painter = map.getContext('2d'); if (!painter) return map;
+      const data = painter.createImageData(128, 128);
+      for (let y = 0; y < 128; y += 1) for (let x = 0; x < 128; x += 1) {
+        const px = (x + .5) / 64 - 1, py = (y + .5) / 64 - 1, r = Math.hypot(px, py);
+        if (r > 1) continue;
+        const n = fbm(px * 5.7 + 11 + variant * 13, py * 5.7 + 28 + variant * 9), grain = noise(px * 19.3 + 3, py * 19.3 + 5);
+        const alpha = smooth((1 - r) * 3.7) * clamp(.87 + (n - .5) * .72);
+        const height = Math.sqrt(Math.max(0, 1 - r * r));
+        const light = clamp(.32 - px * .23 - py * .39 + height * .34 + (n - .5) * .24 + (grain - .5) * .045);
+        const crest = smooth((light - .43) / .43), white = smooth((light - .45) / .28);
+        const j = (y * 128 + x) * 4;
+        data.data[j] = hot ? 235 + white * 20 : 8 + light * 75;
+        data.data[j + 1] = hot ? 139 + white * 108 : 8 + light * 48;
+        data.data[j + 2] = hot ? 121 + white * 113 : 14 + light * 44;
+        data.data[j + 3] = alpha * (hot ? crest : 1) * 245;
+      }
+      painter.putImageData(data, 0, 0); return map;
+    }
+    const shadowPuffs = [0, 1, 2].map(i => puffMap(false, i)), lightPuffs = [0, 1, 2].map(i => puffMap(true, i));
 
     function visible() {
       if (destroyed || !ctx || document.hidden || !intersecting || !host.isConnected || !width || !height) return false;
@@ -461,7 +730,6 @@ void main(){
       dpr = Math.min(window.devicePixelRatio || 1, 1.5, Math.sqrt(800000 / Math.max(1, width * height)));
       const w = Math.max(1, Math.round(width * dpr)), h = Math.max(1, Math.round(height * dpr));
       if (canvas.width !== w || canvas.height !== h) { canvas.width = w; canvas.height = h; }
-      if (frontCanvas.width !== w || frontCanvas.height !== h) { frontCanvas.width = w; frontCanvas.height = h; }
       reconcile();
     }
     function progress(time) {
@@ -477,106 +745,248 @@ void main(){
     function stroke(colour, lineWidth, draw, painter = ctx) {
       painter.strokeStyle = colour; painter.lineWidth = lineWidth; painter.beginPath(); draw(painter); painter.stroke();
     }
-    function cloudLayer(map, rx, ry, angle, alpha, composite, painter) {
-      painter.save(); painter.globalCompositeOperation = composite; painter.globalAlpha = alpha;
-      painter.scale(rx, ry); painter.rotate(angle); painter.drawImage(map, -1, -1, 2, 2); painter.restore();
+    const TILT = -.49, FLATNESS = .21;
+    function cloudLayer(map, outer, angle, alpha, composite, near, lift = 0) {
+      ctx.save(); ctx.translate(0, lift); ctx.scale(outer, outer * FLATNESS);
+      // Split in the actual orbital plane before projection or texture rotation.
+      // Upper/lower thickness slices retain the same near/far classification.
+      ctx.beginPath(); ctx.rect(-1, near ? 0 : -1, 2, 1); ctx.clip();
+      ctx.globalCompositeOperation = composite; ctx.globalAlpha = alpha;
+      ctx.rotate(angle); ctx.drawImage(map, -1, -1, 2, 2); ctx.restore();
     }
-    function orbitalBank(radius, t, energy, foreground, painter = ctx) {
-      painter.save(); painter.rotate(-.055); painter.translate(0, radius * .36);
-      const turn = t * .17;
-      cloudLayer(copperCloud, radius * 2.65, radius * .56, turn, .46, 'source-over', painter);
-      cloudLayer(hotCloud, radius * 2.65, radius * .56, turn, .08 + energy * .46, 'screen', painter);
-      cloudLayer(copperCloud, radius * 2.16, radius * .40, turn * 1.3 + 2.8, .21, 'source-over', painter);
-      cloudLayer(hotCloud, radius * 2.16, radius * .40, turn * 1.3 + 2.8, .035 + energy * .33, 'screen', painter);
-      if (foreground) {
-        // Nearer clouds spread in perspective; the differential rotation remains coherent.
-        cloudLayer(copperCloud, radius * 3.75, radius * 1.62, turn * .68 + 1.9, .42, 'source-over', painter);
-        cloudLayer(hotCloud, radius * 3.75, radius * 1.62, turn * .68 + 1.9, .045 + energy * .30, 'screen', painter);
-        cloudLayer(hotCloud, radius * 3.1, radius * 1.04, turn * .91 + .7, .02 + energy * .17, 'screen', painter);
-      }
-      // Tangential streamlines share the cloud bank's orbital motion.
-      painter.globalCompositeOperation = 'screen';
-      for (let i = 0; i < trails.length; i += 1) {
-        const trail = trails[i], a = trail.phase + turn * trail.speed;
-        const rx = radius * (1.05 + trail.radius * 1.4), ry = rx * .21;
-        const brightSide = .36 + .64 * Math.pow(.5 + .5 * Math.cos(a + .5), 2);
-        stroke('rgba(255,213,153,' + (.035 + energy * .27) * brightSide + ')', .45 + energy * .35,
-          pen => pen.ellipse(0, 0, rx, ry, 0, a, a + trail.span), painter);
-      }
-      painter.restore();
+    function orbitPoint(radius, angle, lift = 0) {
+      return { x: Math.cos(angle) * radius, y: Math.sin(angle) * radius * FLATNESS + lift };
     }
-    function foregroundBank(radius, t, energy, cx, cy) {
-      if (!frontCtx) return;
-      frontCtx.setTransform(1, 0, 0, 1, 0, 0); frontCtx.clearRect(0, 0, frontCanvas.width, frontCanvas.height);
-      frontCtx.setTransform(dpr, 0, 0, dpr, cx * dpr, cy * dpr); frontCtx.globalAlpha = 1;
-      frontCtx.globalCompositeOperation = 'source-over'; orbitalBank(radius, t, energy, true, frontCtx);
-      // A soft optical depth boundary avoids a straight clipped seam through the core.
-      frontCtx.save(); frontCtx.rotate(-.055); frontCtx.globalCompositeOperation = 'destination-in';
-      const mask = frontCtx.createLinearGradient(0, radius * .12, 0, radius * .52);
-      mask.addColorStop(0, 'rgba(0,0,0,0)'); mask.addColorStop(.40, 'rgba(0,0,0,.08)'); mask.addColorStop(1, '#000');
-      frontCtx.fillStyle = mask; frontCtx.fillRect(-width * 2, -height * 2, width * 4, height * 4); frontCtx.restore();
-      ctx.drawImage(frontCanvas, -cx, -cy, width, height);
+    function orbitStroke(radius, angle, span, lift, near, colour, thickness) {
+      ctx.strokeStyle = colour; ctx.lineWidth = thickness; ctx.beginPath();
+      let drawing = false;
+      for (let i = 0; i <= 12; i += 1) {
+        const a = angle + span * i / 12, correctHalf = Math.sin(a) >= 0;
+        if (correctHalf !== near) { drawing = false; continue; }
+        const p = orbitPoint(radius, a, lift);
+        if (drawing) ctx.lineTo(p.x, p.y); else ctx.moveTo(p.x, p.y);
+        drawing = true;
+      }
+      ctx.stroke();
+    }
+    function diskHalf(radius, time, energy, near) {
+      ctx.save(); ctx.rotate(TILT);
+      const phase = time * TAU / 16;
+      // A dense lower surface, luminous upper surface and wispy outer bank.
+      for (const layer of [
+        { r: 3.35, lift: .08, speed: 1, offset: 1.9, opacity: .50 },
+        { r: 3.20, lift: 0, speed: 2, offset: 0, opacity: .68 },
+        { r: 3.22, lift: -.075, speed: 2, offset: 0, opacity: .34 },
+      ]) {
+        const r = radius * layer.r, turn = phase * layer.speed + layer.offset;
+        cloudLayer(copperCloud, r, turn, layer.opacity, 'source-over', near, radius * layer.lift);
+        cloudLayer(hotCloud, r, turn, (.035 + energy * .43) * layer.opacity, 'screen', near, radius * layer.lift);
+      }
+      cloudLayer(copperCloud, radius * 5.1, phase + 2.1, .20, 'source-over', near, 0);
+      cloudLayer(hotCloud, radius * (5.1 + energy * .45), phase + 2.1, .018 + energy * .15, 'screen', near, 0);
+      ctx.globalCompositeOperation = 'screen';
+      for (const trail of trails) {
+        const a = trail.phase + phase * (trail.radius > .5 ? 1 : 2);
+        const orbit = radius * (1.29 + trail.radius * 2.1), lift = radius * trail.lift;
+        const alpha = (.025 + energy * .21) * (.48 + .52 * Math.cos(a + .5) ** 2);
+        orbitStroke(orbit, a, trail.span, lift, near, 'rgba(255,221,196,' + alpha + ')', .4 + energy * .45);
+        if ((Math.sin(a) >= 0) === near) {
+          const p = orbitPoint(orbit, a, lift);
+          ctx.fillStyle = 'rgba(255,228,207,' + alpha * 1.7 + ')';
+          ctx.beginPath(); ctx.arc(p.x, p.y, .38 + trail.radius * .48, 0, TAU); ctx.fill();
+        }
+      }
+      for (let i = 0; i < 14; i += 1) {
+        const r = radius * (1.30 + i * .038);
+        const a = phase * (1 + i % 3) + i * .61;
+        orbitStroke(r, a, 1.0 + i % 3 * .24, radius * Math.sin(i * 1.7) * .035, near,
+          'rgba(255,227,204,' + (.045 + energy * .23) * (1 - i / 20) + ')', i < 3 ? .9 : .5);
+      }
+      ctx.restore();
+    }
+    function lensArc(radius, time, energy) {
+      radial(0, 0, radius * .91, radius * (1.38 + energy * .12),
+        [[0, 'rgba(232,167,139,0)'], [.17, 'rgba(255,215,182,' + (.045 + energy * .19) + ')'], [.40, 'rgba(154,122,139,' + (.012 + energy * .06) + ')'], [1, 'rgba(35,54,69,0)']]);
+      ctx.save(); ctx.rotate(TILT); ctx.globalCompositeOperation = 'screen';
+      for (let layer = 12; layer >= 0; layer -= 1) {
+        const r = radius * (1.012 + layer * .009);
+        const alpha = (.055 + energy * .66) * (1 - layer / 15);
+        ctx.strokeStyle = 'rgba(255,' + Math.round(186 + energy * 62) + ',' + Math.round(160 + energy * 77) + ',' + alpha + ')';
+        ctx.lineWidth = layer < 3 ? radius * .012 : radius * .018;
+        ctx.beginPath();
+        for (let i = 0; i <= 64; i += 1) {
+          const a = Math.PI + i / 64 * Math.PI;
+          const rr = r + radius * (.0028 * Math.sin(a * 9 + time * TAU / 16 + layer) + .0015 * Math.sin(a * 19 - time * TAU / 8));
+          const x = Math.cos(a) * rr, y = Math.sin(a) * rr;
+          if (i) ctx.lineTo(x, y); else ctx.moveTo(x, y);
+        }
+        ctx.stroke();
+      }
+      stroke('rgba(215,178,169,' + (.04 + energy * .13) + ')', radius * .035,
+        () => ctx.arc(0, 0, radius * 1.03, .03, Math.PI - .03));
+      ctx.restore();
+    }
+    function bezier(a, b, c, d, p) {
+      const q = 1 - p;
+      return { x: a.x * q ** 3 + 3 * b.x * q * q * p + 3 * c.x * q * p * p + d.x * p ** 3,
+        y: a.y * q ** 3 + 3 * b.y * q * q * p + 3 * c.y * q * p * p + d.y * p ** 3 };
+    }
+    function streamVolume(radius, cx, cy, time, energy, near) {
+      const a = { x: width * .78, y: height * .69 };
+      const d = { x: cx + radius * .128, y: cy + radius * .241 };
+      const b = { x: a.x - width * .13, y: a.y - height * .022 };
+      const c = { x: d.x + width * .12, y: d.y + height * .23 };
+      ctx.save(); ctx.globalCompositeOperation = 'screen';
+      for (let band = 12; band >= 1; band -= 1) {
+        const edge = [];
+        for (let i = 0; i <= 36; i += 1) {
+          const p = i / 36, at = bezier(a, b, c, d, p);
+          const ahead = bezier(a, b, c, d, Math.min(1, p + .008));
+          const behind = bezier(a, b, c, d, Math.max(0, p - .008));
+          const tx = ahead.x - behind.x, ty = ahead.y - behind.y, length = Math.max(1, Math.hypot(tx, ty));
+          const taper = Math.sin(Math.PI * p) ** .38;
+          const size = radius * (.39 - p * .19) * (band / 6) * taper * (1 + .035 * Math.sin(p * 9 + time * TAU / 16));
+          edge.push({ x: at.x, y: at.y, nx: -ty / length * size, ny: tx / length * size });
+        }
+        const strength = (.012 + energy * energy) * (.014 + (12 - band) * .002) * (near ? 1 : .45);
+        const colour = ctx.createLinearGradient(a.x, a.y, d.x, d.y);
+        colour.addColorStop(0, 'rgba(255,243,219,0)');
+        colour.addColorStop(.12, 'rgba(255,220,195,' + strength * 1.5 + ')');
+        colour.addColorStop(.45, 'rgba(229,142,124,' + strength + ')');
+        colour.addColorStop(.88, 'rgba(255,234,205,' + strength * 1.4 + ')');
+        colour.addColorStop(1, 'rgba(255,234,205,0)');
+        ctx.fillStyle = colour; ctx.beginPath();
+        edge.forEach((point, i) => { if (i) ctx.lineTo(point.x + point.nx, point.y + point.ny); else ctx.moveTo(point.x + point.nx, point.y + point.ny); });
+        for (let i = edge.length - 1; i >= 0; i -= 1) ctx.lineTo(edge[i].x - edge[i].nx, edge[i].y - edge[i].ny);
+        ctx.closePath(); ctx.fill();
+      }
+      ctx.restore();
+    }
+    function infall(radius, cx, cy, time, energy, near) {
+      ctx.save(); ctx.globalCompositeOperation = 'screen';
+      const turn = Math.cos(TILT), slope = Math.sin(TILT);
+      for (const thread of streams) {
+        if (thread.near !== near) continue;
+        const a = thread.angle, point = orbitPoint(radius * (1.27 + thread.spread * .17), a, radius * thread.lift);
+        const end = { x: cx + point.x * turn - point.y * slope, y: cy + point.x * slope + point.y * turn };
+        const start = { x: width * .78 + (thread.spread - .5) * radius * .85, y: height * .69 + thread.lift * radius };
+        const c1 = { x: start.x - width * .13, y: start.y - height * .022 };
+        const c2 = { x: end.x + width * .12 + thread.spread * radius * .12, y: end.y + height * .23 };
+        const baseAlpha = (.001 + energy * .013) * thread.strength;
+        stroke('rgba(242,184,153,' + baseAlpha + ')', .7 + thread.spread * .9, pen => {
+          pen.moveTo(start.x, start.y); pen.bezierCurveTo(c1.x, c1.y, c2.x, c2.y, end.x, end.y);
+        });
+        const travel = (thread.phase + time / 16 * (thread.spread > .6 ? 5 : 4)) % 1;
+        const tail = .09 + thread.spread * .12;
+        ctx.lineWidth = .48 + thread.spread * .95;
+        const tailPoint = bezier(start, c1, c2, end, Math.max(0, travel - tail));
+        const headPoint = bezier(start, c1, c2, end, travel);
+        const glow = (.025 + energy * .95) * Math.sin(travel * Math.PI) * thread.strength;
+        const colour = ctx.createLinearGradient(tailPoint.x, tailPoint.y, headPoint.x, headPoint.y);
+        colour.addColorStop(0, 'rgba(225,133,115,0)');
+        colour.addColorStop(.6, 'rgba(251,200,174,' + glow * .5 + ')');
+        colour.addColorStop(1, 'rgba(255,243,224,' + glow + ')');
+        ctx.strokeStyle = colour;
+        ctx.beginPath();
+        for (let j = 0; j <= 10; j += 1) {
+          const p = Math.max(0, travel - tail + tail * j / 10), point = bezier(start, c1, c2, end, p);
+          point.x += Math.sin(p * 13 + time * TAU / 16 * 2 + thread.phase * TAU) * Math.sin(p * Math.PI) * radius * .018;
+          if (j) ctx.lineTo(point.x, point.y); else ctx.moveTo(point.x, point.y);
+        }
+        ctx.stroke();
+      }
+      ctx.restore();
+    }
+    function cloudSea(time, energy, foreground) {
+      ctx.save();
+      for (const cloud of clouds) {
+        if ((cloud.row >= 3) !== foreground) continue;
+        const x = width * (cloud.x + Math.sin(time * TAU / 16 + cloud.phase) * .012);
+        const y = height * (cloud.y + Math.cos(time * TAU / 16 + cloud.phase) * .004);
+        const r = Math.min(width, height * .95) * cloud.radius;
+        ctx.globalCompositeOperation = 'source-over'; ctx.globalAlpha = .74 + cloud.row * .055;
+        ctx.drawImage(shadowPuffs[cloud.texture], x - r, y - r * cloud.aspect, r * 2, r * cloud.aspect * 2);
+        const sourceDistance = Math.hypot((cloud.x - .77) * 1.4, (cloud.y - .68) * 2.1);
+        const illumination = (.12 + .88 * Math.exp(-sourceDistance * 2.4)) * (.7 + cloud.highlight * .3);
+        ctx.globalCompositeOperation = 'screen'; ctx.globalAlpha = (.008 + energy * .98) * illumination;
+        ctx.drawImage(lightPuffs[cloud.texture], x - r, y - r * cloud.aspect, r * 2, r * cloud.aspect * 2);
+      }
+      ctx.restore();
+    }
+    function forwardDust(radius, cx, cy, time, energy) {
+      ctx.save(); ctx.globalCompositeOperation = 'screen';
+      for (const mote of foregroundDust) {
+        const p = (mote.phase + time / 16 * (mote.layer + 1)) % 1;
+        const distance = radius * (1.22 + mote.spread * .85) / (1 - p * .91);
+        const x = cx + Math.cos(mote.angle) * distance, y = cy + Math.sin(mote.angle) * distance;
+        if (x < -8 || x > width + 8 || y < -8 || y > height + 8) continue;
+        const fade = Math.sin(Math.PI * p) ** 2;
+        const size = .30 + mote.size * .32 + p * (mote.layer ? .90 : .45);
+        const streak = (1.0 + p * 3.1) * (mote.layer ? 1.4 : 1);
+        ctx.lineWidth = size; ctx.strokeStyle = 'rgba(' + (mote.layer ? '241,204,179' : '168,194,218') + ',' + fade * (.08 + energy * .18) + ')';
+        ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x - Math.cos(mote.angle) * streak, y - Math.sin(mote.angle) * streak); ctx.stroke();
+      }
+      ctx.restore();
     }
     function paint(time) {
       if (!ctx || !width || !height || destroyed) return;
-      if (!motion.matches && lastMotionTime) orbitTime += Math.min(.1, Math.max(0, (time - lastMotionTime) / 1000));
+      if (!motion.matches && lastMotionTime) orbitTime += Math.max(0, (time - lastMotionTime) / 1000);
       lastMotionTime = time; lastPaint = time;
-      const t = motion.matches ? 3.5 : orbitTime, energy = progress(time);
-      const radius = Math.min(height * .31, width * .385), cx = width * .5, cy = height * .45;
+      const t = motion.matches ? 3.5 : orbitTime % 16, theta = t * TAU / 16, energy = progress(time);
+      const radius = Math.min(height * .19, width * .22) * (1 + .009 * Math.sin(theta)), cx = width * (.47 + .004 * Math.cos(theta)), cy = height * (.38 + .004 * Math.sin(theta));
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over';
-      ctx.fillStyle = '#030407'; ctx.fillRect(0, 0, width, height);
+      ctx.fillStyle = '#04060b'; ctx.fillRect(0, 0, width, height);
       for (const star of stars) {
-        const x = star.x * width, y = star.y * height;
-        if (Math.hypot(x - cx, y - cy) < radius * 1.04) continue;
-        ctx.fillStyle = 'rgba(199,201,212,' + star.alpha + ')';
-        ctx.beginPath(); ctx.arc(x, y, star.radius, 0, TAU); ctx.fill();
+        let x = star.x * width, y = star.y * height;
+        const dx = x - cx, dy = y - cy, distance = Math.hypot(dx, dy);
+        if (distance < radius * 1.02) continue;
+        const bend = Math.exp(-Math.max(0, distance / radius - 1) * 1.6);
+        const angle = Math.atan2(dy, dx) + bend * .07, r = distance + radius * bend * .065;
+        x = cx + Math.cos(angle) * r; y = cy + Math.sin(angle) * r;
+        const tint = star.hue < .23 ? '213,174,164' : star.hue > .73 ? '153,187,225' : '210,211,215';
+        ctx.strokeStyle = 'rgba(' + tint + ',' + star.alpha * (.92 + .08 * Math.sin(theta + star.phase)) + ')'; ctx.lineWidth = star.radius;
+        ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x - Math.sin(angle) * (star.radius + bend * 3.1), y + Math.cos(angle) * (star.radius + bend * 3.1)); ctx.stroke();
       }
+      cloudSea(t, energy, false);
+      radial(width * .78, height * .685, 0, Math.min(width * .38, height * .27),
+        [[0, 'rgba(255,227,198,' + (.008 + energy * .42) + ')'], [.28, 'rgba(211,145,111,' + (.004 + energy * .16) + ')'], [1, 'rgba(100,59,45,0)']]);
+      streamVolume(radius, cx, cy, t, energy, false);
+      infall(radius, cx, cy, t, energy, false);
       ctx.save(); ctx.translate(cx, cy);
-      radial(-radius * .68, -radius * .18, radius * .64, radius * 2.5,
-        [[0, 'rgba(117,70,29,' + (.035 + energy * .055) + ')'], [.45, 'rgba(89,52,25,' + (.018 + energy * .028) + ')'], [1, 'rgba(0,0,0,0)']]);
-      orbitalBank(radius, t, energy, false);
-      // The upper lensed arc gains heat in nine true increments, while the core stays black.
-      radial(0, 0, radius * .94, radius * 1.35,
-        [[0, 'rgba(236,158,66,0)'], [.13, 'rgba(255,199,117,' + (.12 + energy * .31) + ')'], [.27, 'rgba(223,140,54,' + (.025 + energy * .12) + ')'], [1, 'rgba(116,66,24,0)']]);
+      diskHalf(radius, t, energy, false);
+      lensArc(radius, t, energy);
+      // Every far-side layer is now behind this fully opaque silhouette.
       ctx.fillStyle = '#010204'; ctx.beginPath(); ctx.arc(0, 0, radius, 0, TAU); ctx.fill();
-      const rim = ctx.createLinearGradient(-radius, -radius, radius, radius);
-      rim.addColorStop(0, 'rgba(255,234,189,' + (.40 + energy * .57) + ')');
-      rim.addColorStop(.46, 'rgba(247,188,98,' + (.26 + energy * .52) + ')');
-      rim.addColorStop(1, 'rgba(141,79,31,' + (.10 + energy * .28) + ')');
-      stroke(rim, .65 + energy * .7, () => ctx.arc(0, 0, radius * 1.006, Math.PI * .98, Math.PI * 2.07));
-      stroke('rgba(220,144,64,' + (.055 + energy * .10) + ')', .6, () => ctx.arc(0, 0, radius * 1.007, .12, Math.PI * .98));
-      foregroundBank(radius, t, energy, cx, cy);
-      // A warm inner arc is partially hidden by the near clouds, never divided into nodes.
-      ctx.save(); ctx.rotate(-.055); ctx.globalCompositeOperation = 'screen';
-      const inner = ctx.createLinearGradient(-radius * 1.9, 0, radius * 1.9, 0);
-      inner.addColorStop(0, 'rgba(181,101,32,0)'); inner.addColorStop(.22, 'rgba(255,184,84,' + (.10 + energy * .32) + ')');
-      inner.addColorStop(.44, 'rgba(255,240,207,' + (.17 + energy * .61) + ')'); inner.addColorStop(.73, 'rgba(221,137,51,' + (.06 + energy * .22) + ')'); inner.addColorStop(1, 'rgba(181,101,32,0)');
-      stroke(inner, .8 + energy * .65, () => ctx.ellipse(0, radius * .36, radius * 1.88, radius * .30, 0, .02, Math.PI - .02));
-      for (let i = 1; i <= 4; i += 1) stroke('rgba(255,200,123,' + (.015 + energy * .038) / i + ')', 1.1 + i * 1.1,
-        () => ctx.ellipse(0, radius * .36, radius * (1.88 + i * .012), radius * (.30 + i * .007), 0, .08, Math.PI - .08));
+      diskHalf(radius, t, energy, true);
+      ctx.restore();
+      streamVolume(radius, cx, cy, t, energy, true);
+      infall(radius, cx, cy, t, energy, true);
+      radial(cx + radius * .128, cy + radius * .241, 0, radius * .22, [[0, 'rgba(255,247,223,' + energy * .40 + ')'], [.28, 'rgba(247,181,144,' + energy * .14 + ')'], [1, 'rgba(130,70,50,0)']]);
+      radial(width * .78, height * .69, 0, width * .145, [[0, 'rgba(255,247,225,' + energy * .48 + ')'], [.24, 'rgba(255,208,169,' + energy * .19 + ')'], [1, 'rgba(147,78,52,0)']]);
+      cloudSea(t, energy, true);
+      forwardDust(radius, cx, cy, t, energy);
       if (!motion.matches && confirmationAt !== null && state.status !== 'failed') {
         const age = (time - confirmationAt) / 1050;
         if (age >= 0 && age < 1) {
-          const a = .12 + age * 2.55, alpha = Math.sin(Math.PI * age) * confirmationPower;
-          stroke('rgba(255,231,180,' + alpha * .67 + ')', 1.2 + energy * .6,
-            () => ctx.ellipse(0, radius * .36, radius * 1.88, radius * .30, 0, a, a + .34));
-          stroke('rgba(255,185,92,' + alpha * .075 + ')', radius * .045,
-            () => ctx.ellipse(0, radius * .36, radius * 1.88, radius * .30, 0, a - .1, a + .44));
+          ctx.save(); ctx.translate(cx, cy); ctx.rotate(TILT); ctx.globalCompositeOperation = 'screen';
+          const alpha = Math.sin(Math.PI * age) * confirmationPower;
+          orbitStroke(radius * 1.42, .06 + age * 2.5, .44, 0, true,
+            'rgba(255,239,215,' + alpha * .75 + ')', 1.1 + energy * .8);
+          ctx.restore();
         }
       }
       if (!motion.matches && successAt !== null && state.completed === 9) {
         const age = (time - successAt) / 1800;
         if (age >= 0 && age < 1) {
-          const spread = radius * (1.7 + age * 1.2);
-          stroke('rgba(255,219,157,' + Math.sin(Math.PI * age) * (1 - age) * .14 + ')', 1.1,
-            () => ctx.ellipse(0, radius * .36, spread, spread * .23, 0, .04, Math.PI - .04));
+          ctx.save(); ctx.translate(cx, cy); ctx.rotate(TILT); ctx.globalCompositeOperation = 'screen';
+          orbitStroke(radius * (1.65 + age * 1.1), .06, Math.PI - .12, 0, true,
+            'rgba(255,219,190,' + Math.sin(Math.PI * age) * (1 - age) * .14 + ')', 1.1);
+          ctx.restore();
         }
       }
-      ctx.restore(); ctx.restore();
-      // Leave the bottom edge calm for the existing count and status controls.
-      const fade = ctx.createLinearGradient(0, height * .83, 0, height);
-      fade.addColorStop(0, 'rgba(3,4,7,0)'); fade.addColorStop(1, 'rgba(3,4,7,.64)');
-      ctx.globalCompositeOperation = 'source-over'; ctx.fillStyle = fade; ctx.fillRect(0, height * .83, width, height * .17);
+      const fade = ctx.createLinearGradient(0, height * .84, 0, height);
+      fade.addColorStop(0, 'rgba(4,6,11,0)'); fade.addColorStop(1, 'rgba(4,6,11,.75)');
+      ctx.globalCompositeOperation = 'source-over'; ctx.fillStyle = fade; ctx.fillRect(0, height * .84, width, height * .16);
     }
     function update(next = {}) {
       if (destroyed) return;
@@ -599,7 +1009,8 @@ void main(){
       resizeObserver?.disconnect(); intersectionObserver?.disconnect(); mutationObserver?.disconnect();
       window.removeEventListener('resize', resize); document.removeEventListener('visibilitychange', reconcile);
       if (motion.removeEventListener) motion.removeEventListener('change', reconcile); else motion.removeListener(reconcile);
-      canvas.remove(); copperCloud.width = copperCloud.height = hotCloud.width = hotCloud.height = frontCanvas.width = frontCanvas.height = 0;
+      canvas.remove();
+      for (const texture of [copperCloud, hotCloud, ...shadowPuffs, ...lightPuffs]) texture.width = texture.height = 0;
       if (!hadClass) host.classList.remove('lights-universe');
       delete host.dataset.phase; delete host.dataset.completed;
     }

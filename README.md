@@ -47,12 +47,19 @@ v62 说明兼容：仅为对应默认短名称下的空说明或原“点「编�
 Each confirmed circuit raises the luminosity of the same accretion disk by one
 level. A travelling heat front follows the orbit as the new light reaches the
 lensed arc and rotating dust. The ninth confirmation brings the disk to full
-intensity around the central shadow. Reduced-motion mode shows the settled
-level immediately. A Canvas 2D renderer supports devices without WebGL.
+intensity around the central shadow. An opaque central sphere clips rays through
+the far half of the rotating disk. Dust on the near side crosses its silhouette.
+Rose-gold gas rises from a lower cloud bank towards the disk. Background stars
+bend around the shadow, while nearby dust moves past the camera in a 16-second
+loop. Lamp confirmations run on a separate clock. Reduced-motion mode shows
+the settled level immediately. A Canvas 2D renderer supports devices without WebGL.
 The [interactive preview](smart-home/lights-preview.html) simulates all nine
-confirmations and supports scrubbing to an individual level.
+confirmations and supports scrubbing to an individual level. Open it with
+`#loop` to start at full brightness. The [16-second film](smart-home/blackhole-loop.mp4)
+is a 30 fps portrait render of that state.
 
 The frontend and local bridge share the renderer. The bridge embeds the script
 at startup and needs a restart to pick up visual changes. The service worker
-cache is `lw5-home-v71-blackhole-ignition`. The nine-star version is available
+cache is `lw5-home-v72-blackhole-depth`. The first nine-level disk is available
+at `b9f7bae`. The nine-star version is available
 at `45641ab`, and the earlier black-hole scene at `46e317f`.
