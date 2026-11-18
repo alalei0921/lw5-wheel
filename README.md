@@ -58,7 +58,7 @@ job snapshot confirms a different count. Video timing never changes progress;
 level 9 remains “确认中” until the job separately reports success.
 
 Ordinary portrait hosts (width/height 0.40–0.75) fill their viewport using a
-centered cover crop. Wider or unusually tall hosts contain the full composition,
+a cover crop positioned at 27% horizontally. Wider or unusually tall hosts contain the full composition,
 with a dim blurred poster behind it. Reduced motion uses the matching still.
 Missing video falls back to that still; loss of both restores the existing
 WebGL/2D renderer with the same snapshot. Add `?sceneRenderer=webgl` to explicitly
@@ -70,9 +70,11 @@ The bridge keeps matching files under `assets/lights-film/v1/` and serves only
 those files plus `credits.html` at `/lights-film/v1/`, with GET/HEAD and byte-range
 support. Control APIs and submission rules are unchanged. Shared film JS/CSS
 and the manifest are copied beside `lights-on-http.js` for embedding at startup.
-The service worker cache is `lw5-home-v77-orbital-dust-player2`. The player streams
-films directly. Media URLs include the scene revision so cached immutable files
-stay separate across artwork revisions.
+The home page and bulb dialog link to the [one-light-per-second preview](smart-home/lights-demo.html).
+It plays a single 16-second film, with the counter driven by the displayed video frames.
+The `lw5-home-v78-offline-lights-demo` service worker caches this page and its 3.4 MB film
+so they can play offline after installation. The live controller continues to stream the ten
+scene-revisioned films for confirmed lighting levels.
 
 Run the player tests with a local QA H.264 fixture (outside production assets):
 `LW5_FILM_TEST_VIDEO=/absolute/path/to/16-second-fixture.mp4 node --test tests/lights-film-browser.cjs`.

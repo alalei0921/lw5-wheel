@@ -48,8 +48,10 @@ test('offline manifest covers every module and shared asset without eager heavy 
     assert(fs.existsSync(path.join(root,rel)),`Missing offline asset: ${rel}`);
   }
   for(const file of ['shared/supplements-v1.js','shared/supplements-store-v1.js','shared/supplements-v1.css','conflict/index.html','stock/bg.jpg','smart-home/panel-mute.html','shared/app-ui-v1.js','shared/local-control-v1.js','shared/elevator-v1.js','shared/elevator-ascent-v1.js','shared/particle-light-v1.js','shared/scene-depth-v1.js','shared/elevator-v1.css','shared/elevator-config-v1.js'])assert(s.installed.includes(scope+file));
-  assert(!s.installed.some(url=>url.includes('.m4a')||url.includes('.mp4')||url.includes('/lights-film/')||url.includes('room-data')));
-  for(const file of ['shared/lights-on-v1.js','shared/lights-on-v1.css','shared/lights-on-universe.js','shared/lights-on-universe.css','shared/lights-on-film.js?player=77.2','shared/lights-on-film.css?scene=77','shared/lights-on-film-manifest.js?scene=77'])assert(s.installed.includes(scope+file));
+  assert(s.installed.includes(scope+'smart-home/lights-demo.html'));
+  const media=s.installed.filter(url=>url.includes('.m4a')||url.includes('.mp4')||url.includes('/lights-film/')||url.includes('room-data'));
+  assert.deepEqual(media,[scope+'assets/lights-film/demo-v1.mp4',scope+'assets/lights-film/v1/credits.html']);
+  for(const file of ['shared/lights-on-v1.js?ui=78','shared/lights-on-v1.css?ui=78','shared/lights-on-universe.js','shared/lights-on-universe.css','shared/lights-on-film.js?player=77.2','shared/lights-on-film.css?scene=77','shared/lights-on-film-manifest.js?scene=77'])assert(s.installed.includes(scope+file));
 });
 
 test('activation only removes older LW5 caches, not unrelated apps',async()=>{
@@ -79,6 +81,61 @@ test('assets are cached; APIs, writes, ranges and other origins never intercepte
   await s.event('fetch',req);await s.event('fetch',req);assert.equal(s.calls,1);
   for(const req of [s.request('assets/lights-film/v1/level-09.mp4'),s.request('api/status'),s.request('x',{method:'POST'}),s.request('x',{headers:new Headers({range:'bytes=0-1'})}),s.request('https://other.test/x'),s.request('../other/index.html')])assert.equal(await s.event('fetch',req),undefined);
   assert.equal(s.calls,1);
+});
+
+test('the demo remains playable offline with full, partial and suffix byte reads',async()=>{
+  const s=setup();
+  const demo='assets/lights-film/demo-v1.mp4';
+  const bytes=Uint8Array.from([18,31,45,252,17,9,4,99]);
+  const cache=await s.caches.open(s.name);
+  await cache.put(scope+demo,new Response(bytes,{headers:{'Content-Type':'video/mp4'}}));
+  s.setNetwork(async()=>{throw new Error('offline');});
+  async function read(range){
+    const headers=new Headers();
+    if(range)headers.set('Range',range);
+    return s.event('fetch',s.request(demo,{mode:'no-cors',headers}));
+  }
+  const full=await read();
+  assert.equal(full.status,200);
+  assert.deepEqual(new Uint8Array(await full.arrayBuffer()),bytes);
+  for(const [range,start,end] of [['bytes=0-1',0,1],['bytes=3-6',3,6],['bytes=5-',5,7],['bytes=-3',5,7],['bytes=2-99',2,7],['bytes=-99',0,7]]){
+    const response=await read(range);
+    assert.equal(response.status,206,range);
+    assert.equal(response.headers.get('Content-Range'),`bytes ${start}-${end}/8`);
+    assert.equal(response.headers.get('Content-Length'),String(end-start+1));
+    assert.equal(response.headers.get('Accept-Ranges'),'bytes');
+    assert.equal(response.headers.get('Content-Type'),'video/mp4');
+    assert.deepEqual(new Uint8Array(await response.arrayBuffer()),bytes.slice(start,end+1));
+  }
+  for(const range of ['bytes=8-','bytes=5-4','bytes=-0']){
+    const response=await read(range);
+    assert.equal(response.status,416,range);
+    assert.equal(response.headers.get('Content-Range'),'bytes */8');
+  }
+  assert.equal(s.calls,0);
+});
+
+test('partial network responses never replace the complete offline copy of the demo',async()=>{
+  const s=setup();
+  const demo='assets/lights-film/demo-v1.mp4';
+  s.setNetwork(async req=>response(req.headers.has('Range')?'xy':'abcdef',req.headers.has('Range')?206:200));
+  const part=await s.event('fetch',s.request(demo,{mode:'no-cors',headers:new Headers({Range:'bytes=1-2'})}));
+  assert.equal(part.status,206);
+  assert(!s.stores.get(s.name).has(scope+demo));
+  const full=await s.event('fetch',s.request(demo,{mode:'no-cors'}));
+  assert.equal(await full.text(),'abcdef');
+  s.setNetwork(async()=>{throw new Error('offline');});
+  const ending=await s.event('fetch',s.request(demo,{mode:'no-cors',headers:new Headers({Range:'bytes=-2'})}));
+  assert.equal(await ending.text(),'ef');
+  assert.equal(s.calls,2);
+});
+
+test('offline demo navigation reuses the precached page for presentation query parameters',async()=>{
+  const s=setup(),cache=await s.caches.open(s.name);
+  await cache.put(scope+'smart-home/lights-demo.html',response('offline scene'));
+  s.setNetwork(async()=>{throw new Error('offline');});
+  const page=await s.event('fetch',s.request('smart-home/lights-demo.html?ui=78'));
+  assert.equal(await page.text(),'offline scene');
 });
 
 test('uncached offline navigation offers retry and home instead of a blank page',async()=>{

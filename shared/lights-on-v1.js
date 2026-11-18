@@ -36,7 +36,9 @@
     detail.textContent = description;
     progress.hidden = !connecting;
     dialog.classList.toggle('is-connecting', connecting);
-    try { universe?.update({ status: connecting ? 'connecting' : 'failed', completed: 0, total: 9 }); } catch {}
+    // This launcher has no confirmed lights. Its idle animation can keep moving
+    // while the connection message and manual links stay on screen.
+    try { universe?.update({ status: connecting ? 'connecting' : 'idle', completed: 0, total: 9 }); } catch {}
   }
   function expire(value) {
     if (attempt !== value || !dialog.open) return;
@@ -134,6 +136,11 @@
     }, 180);
   }
   launch.addEventListener('click', begin);
+  document.getElementById('lightsOnPreview')?.addEventListener('click', () => {
+    pendingOff();
+    clearTimeout(expiryTimer);
+    dialog.close();
+  });
   close.addEventListener('click', () => { pendingOff(); dialog.close(); });
   dialog.addEventListener('cancel', () => pendingOff());
   dialog.addEventListener('close', () => {

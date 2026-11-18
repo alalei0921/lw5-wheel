@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#030407">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; media-src 'self'; img-src data:; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'">
+  <link rel="icon" href="data:,">
+  <title>开灯预览 · LW5</title>
+  <style>
+    :root { color-scheme: dark; font: 14px/1.4 -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif; background: #030407; color: #eee6da; }
+    * { box-sizing: border-box; }
+    body { margin: 0; overscroll-behavior: none; }
+    main { position: fixed; inset: 0; overflow: hidden; isolation: isolate; }
+    video { width: 100%; height: 100%; display: block; object-fit: contain; }
+    @media (min-aspect-ratio: 2/5) and (max-aspect-ratio: 3/4) {
+      video { object-fit: cover; object-position: 27% 50%; }
+    }
+    main::after { content: ""; position: absolute; inset: 0; z-index: 1; pointer-events: none; background: linear-gradient(to bottom, #03040775, transparent 17%, transparent 82%, #030407a1); }
+    header, footer { position: absolute; z-index: 2; display: flex; align-items: center; }
+    header { top: max(10px, env(safe-area-inset-top)); left: max(18px, env(safe-area-inset-left)); right: max(18px, env(safe-area-inset-right)); justify-content: space-between; }
+    h1 { margin: 0; font-size: 13px; font-weight: 500; letter-spacing: .14em; }
+    a, button { color: inherit; font: inherit; touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
+    a { display: inline-flex; align-items: center; min-height: 44px; text-decoration: none; }
+    .back { gap: 5px; font-size: 13px; }
+    svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+    footer { bottom: max(20px, calc(env(safe-area-inset-bottom) + 10px)); left: 50%; transform: translateX(-50%); gap: 16px; }
+    .count { white-space: nowrap; font-size: 16px; font-variant-numeric: tabular-nums; text-shadow: 0 2px 12px #000; }
+    .count small { font-size: 11px; color: #b8ad9f; }
+    button { min-height: 44px; min-width: 96px; padding: 0 16px; display: inline-flex; align-items: center; justify-content: center; gap: 8px; border: 1px solid #ceb69267; border-radius: 24px; background: #17130fc9; cursor: pointer; }
+    button:active { background: #372b22; }
+    .credits { justify-content: center; width: 44px; color: #c1b8ac; }
+    .credits svg { width: 18px; height: 18px; }
+    a:focus-visible, button:focus-visible { outline: 2px solid #e2bd90; outline-offset: 3px; }
+    #error { position: absolute; z-index: 2; inset: 42% 12px auto; margin: 0; text-align: center; }
+    @media (max-height: 500px) { footer { bottom: max(6px, env(safe-area-inset-bottom)); } }
+  </style>
+</head>
+<body>
+  <main>
+    <video id="film" src="../assets/lights-film/demo-v1.mp4" muted playsinline webkit-playsinline preload="auto" aria-hidden="true"></video>
+    <header>
+      <a class="back" href="../index.html" aria-label="返回小程序"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="m12 4-6 6 6 6"/></svg>返回</a>
+      <h1>开灯预览</h1>
+    </header>
+    <p id="error" role="alert" hidden>视频暂时无法播放</p>
+    <footer>
+      <div id="progress" role="progressbar" aria-label="预览点亮进度" aria-valuemin="0" aria-valuemax="9" aria-valuenow="0" aria-valuetext="0 / 9 盏">
+        <span class="count" aria-hidden="true"><span id="count">00</span><small> / 09</small></span>
+      </div>
+      <button id="play" type="button"><svg viewBox="0 0 20 20" aria-hidden="true"><path id="icon" d="m6 3 10 7-10 7z"/></svg><span id="label">播放</span></button>
+      <a class="credits" href="../assets/lights-film/v1/credits.html" aria-label="制作署名" title="制作署名"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 11v5m0-8v.3"/></svg></a>
+    </footer>
+  </main>
+  <script>
+    (() => {
+      'use strict';
+      const film = document.getElementById('film');
+      const progress = document.getElementById('progress');
+      const count = document.getElementById('count');
+      const button = document.getElementById('play');
+      const label = document.getElementById('label');
+      const icon = document.getElementById('icon');
+      const error = document.getElementById('error');
+      const motion = matchMedia('(prefers-reduced-motion: reduce)');
+      let completed = 0;
+      let frameId = null;
+
+      function showTime(seconds) {
+        const next = Math.max(0, Math.min(9, Math.floor(seconds + 0.00001)));
+        if (next === completed) return;
+        completed = next;
+        count.textContent = String(next).padStart(2, '0');
+        progress.setAttribute('aria-valuenow', String(next));
+        progress.setAttribute('aria-valuetext', next + ' / 9 盏');
+      }
+
+      function syncButton() {
+        const playing = !film.paused && !film.ended && !film.error;
+        label.textContent = film.error ? '重试' : film.ended ? '重播' : playing ? '暂停' : film.currentTime > 0 ? '继续' : '播放';
+        icon.setAttribute('d', film.ended || film.error ? 'M4 7a7 7 0 1 1-1 5m1-9v4h4' : playing ? 'M7 4v12m6-12v12' : 'm6 3 10 7-10 7z');
+        error.hidden = !film.error;
+      }
+
+      function onFrame(_now, metadata) {
+        frameId = null;
+        showTime(metadata.mediaTime);
+        watchFrames();
+      }
+
+      function watchFrames() {
+        if (frameId === null && film.requestVideoFrameCallback && !film.paused && !film.ended) {
+          frameId = film.requestVideoFrameCallback(onFrame);
+        }
+      }
+
+      function stopFrames() {
+        if (frameId !== null) film.cancelVideoFrameCallback(frameId);
+        frameId = null;
+      }
+
+      function start() {
+        if (document.hidden) return;
+        if (film.error) film.load();
+        if (film.ended) {
+          film.currentTime = 0;
+          showTime(0);
+        }
+        // A browser that requires a tap leaves the play control available.
+        film.play().catch(syncButton);
+      }
+
+      button.addEventListener('click', () => {
+        if (film.paused || film.ended || film.error) start();
+        else film.pause();
+      });
+      film.addEventListener('play', syncButton);
+      film.addEventListener('playing', watchFrames);
+      film.addEventListener('pause', () => { stopFrames(); syncButton(); });
+      film.addEventListener('ended', () => { stopFrames(); showTime(film.duration); syncButton(); });
+      film.addEventListener('error', () => { stopFrames(); syncButton(); });
+      film.addEventListener('loadeddata', syncButton);
+      film.addEventListener('seeked', () => showTime(film.currentTime));
+      if (!film.requestVideoFrameCallback) film.addEventListener('timeupdate', () => showTime(film.currentTime));
+      document.addEventListener('visibilitychange', () => { if (document.hidden) film.pause(); });
+      window.addEventListener('pagehide', () => film.pause());
+      motion.addEventListener('change', () => { if (motion.matches) film.pause(); });
+      if (!motion.matches) start();
+    })();
+  </script>
+</body>
+</html>

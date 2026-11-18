@@ -10,6 +10,9 @@ body:has(.lights-on-dialog[open])::before{transform:none}
 .lights-on-dialog [hidden]{display:none!important}
 .lights-on-top{position:absolute;z-index:3;top:max(16px,env(safe-area-inset-top));left:max(22px,env(safe-area-inset-left));right:max(22px,env(safe-area-inset-right));display:flex;align-items:center;justify-content:space-between;gap:12px;flex-shrink:0}
 .lights-on-top>span{font-size:11px;letter-spacing:.26em;font-weight:500;color:#bba67b}
+.lights-on-preview-link{margin-left:auto;display:inline-flex;align-items:center;min-height:44px;padding:0 12px;color:#ead8bd;font-size:13px;text-decoration:underline;text-underline-offset:4px;text-shadow:0 1px 6px #000}
+.lights-demo-entry{display:inline-flex;align-items:center;justify-content:center;min-height:44px;padding:0 16px;margin:-9px 0;color:#624b3d;text-decoration:underline;text-underline-offset:4px}
+.lights-demo-entry:focus-visible{outline:2px solid currentColor;outline-offset:1px;border-radius:8px}
 .lights-on-close{width:44px;height:44px;flex-shrink:0;border:1px solid #d2be952e;border-radius:50%;background:#08090e33;color:#c7baa2;font-family:inherit;font-size:25px;font-weight:300;line-height:1;cursor:pointer;touch-action:manipulation;backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)}
 .lights-on-scene{position:relative;display:flex;flex:1;flex-direction:column;align-items:center;justify-content:flex-end;width:100%;min-height:100%;box-sizing:border-box;padding:120px max(24px,env(safe-area-inset-right)) max(4svh,calc(env(safe-area-inset-bottom) + 20px)) max(24px,env(safe-area-inset-left))}
 .lights-on-scene::after{content:"";position:fixed;z-index:1;inset:85% 0 0;background:linear-gradient(transparent,#05060991 72%,#050609dc);pointer-events:none}

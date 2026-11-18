@@ -890,13 +890,13 @@
   <link rel="stylesheet" href="./shared/supplements-v1.css" />
   <script defer src="./shared/supplements-store-v1.js"></script>
   <script defer src="./shared/supplements-v1.js"></script>
-  <link rel="stylesheet" href="./shared/lights-on-v1.css" />
+  <link rel="stylesheet" href="./shared/lights-on-v1.css?ui=78" />
   <link rel="stylesheet" href="./shared/lights-on-universe.css" />
   <script defer src="./shared/lights-on-universe.js"></script>
   <link rel="stylesheet" href="./shared/lights-on-film.css?scene=77" />
   <script defer src="./shared/lights-on-film-manifest.js?scene=77"></script>
   <script defer src="./shared/lights-on-film.js?player=77.2"></script>
-  <script defer src="./shared/lights-on-v1.js"></script>
+  <script defer src="./shared/lights-on-v1.js?ui=78"></script>
   <link rel="stylesheet" href="./shared/elevator-v1.css" />
   <script defer src="./shared/elevator-config-v1.js"></script>
   <script defer src="./shared/elevator-v1.js"></script>
@@ -934,7 +934,11 @@
   <button class="supplement-launch" id="supplementLaunch" type="button" aria-label="打开每日补剂打卡" aria-haspopup="dialog" aria-controls="supplementDialog" title="每日补剂打卡"><span aria-hidden="true">💊</span></button>
   <button class="lights-on-launch" id="lightsOnLaunch" type="button" aria-label="一键开灯" aria-haspopup="dialog" aria-controls="lightsOnDialog" title="一键开灯"><span aria-hidden="true">💡</span></button>
   <dialog class="lights-on-dialog" id="lightsOnDialog" aria-labelledby="lightsOnTitle" aria-describedby="lightsOnDetail">
-    <div class="lights-on-top"><span>LW5</span><button class="lights-on-close" id="lightsOnClose" type="button" aria-label="关闭开灯窗口" autofocus>×</button></div>
+    <div class="lights-on-top">
+      <span>LW5</span>
+      <a class="lights-on-preview-link" id="lightsOnPreview" href="./smart-home/lights-demo.html">动画预览</a>
+      <button class="lights-on-close" id="lightsOnClose" type="button" aria-label="关闭开灯窗口" autofocus>×</button>
+    </div>
     <div class="lights-on-scene">
       <div class="lights-universe" id="lightsOnUniverse" aria-hidden="true"></div>
       <div class="lights-on-copy" role="status" aria-live="polite" aria-atomic="true"><h2 id="lightsOnTitle">连接中</h2><p id="lightsOnDetail">正在连接中控</p></div>
@@ -1023,7 +1027,7 @@
       </a>
     </section>
 
-    <div class="foot">后续新工具会继续加在这里</div>
+    <div class="foot"><a class="lights-demo-entry" href="./smart-home/lights-demo.html">开灯动画预览</a></div>
   </main>
 
   <div class="tool-overlay" id="toolOverlay" aria-hidden="true">

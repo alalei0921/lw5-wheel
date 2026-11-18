@@ -1,5 +1,6 @@
-// Keep app code consistent per release; cache large media only when it is used.
-const CACHE = 'lw5-home-v77-orbital-dust-player2';
+const CACHE = 'lw5-home-v78-offline-lights-demo';
+const DEMO_PAGE = './smart-home/lights-demo.html';
+const DEMO_VIDEO = './assets/lights-film/demo-v1.mp4';
 const ASSETS = [
   './',
   './index.html',
@@ -12,8 +13,8 @@ const ASSETS = [
   './shared/app-ui-v1.css',
   './shared/app-ui-v1.js',
   './shared/local-control-v1.js',
-  './shared/lights-on-v1.js',
-  './shared/lights-on-v1.css',
+  './shared/lights-on-v1.js?ui=78',
+  './shared/lights-on-v1.css?ui=78',
   './shared/lights-on-universe.js',
   './shared/lights-on-universe.css',
   './shared/lights-on-film-manifest.js?scene=77',
@@ -94,6 +95,9 @@ const ASSETS = [
   './smart-home/aurora.html',
   './smart-home/chione.html',
   './smart-home/panel-mute.html',
+  DEMO_PAGE,
+  DEMO_VIDEO,
+  './assets/lights-film/v1/credits.html',
   './smart-home/hyperion-bg.jpg',
   './smart-home/aurora-bg.jpg',
   './smart-home/chione-bg.jpg',
@@ -114,16 +118,55 @@ self.addEventListener('activate', (event) => {
   );
 });
 
+// Mobile video players seek with byte ranges, including a two-byte probe in Safari.
+// Keep a single complete copy and slice it locally when the device is offline.
+async function serveDemoVideo(request, cacheKey) {
+  const cache = await caches.open(CACHE);
+  const full = await cache.match(cacheKey);
+  if (!full) {
+    const response = await fetch(request);
+    if (response.status === 200) await cache.put(cacheKey, response.clone()).catch(() => {});
+    return response;
+  }
+  const range = request.headers.get('Range');
+  if (!range) return full;
+  const limits = /^bytes=(\d*)-(\d*)$/i.exec(range.trim());
+  if (!limits || (!limits[1] && !limits[2])) return full;
+  const blob = await full.blob();
+  const size = blob.size;
+  const start = limits[1] ? Number(limits[1]) : Math.max(0, size - Number(limits[2]));
+  const end = limits[1] && limits[2] ? Math.min(Number(limits[2]), size - 1) : size - 1;
+  if (start > end) {
+    return new Response(null, { status: 416, headers: { 'Content-Range': 'bytes */' + size, 'Accept-Ranges': 'bytes' } });
+  }
+  return new Response(blob.slice(start, end + 1), {
+    status: 206,
+    headers: {
+      'Content-Type': 'video/mp4',
+      'Content-Length': String(end - start + 1),
+      'Content-Range': 'bytes ' + start + '-' + end + '/' + size,
+      'Accept-Ranges': 'bytes'
+    }
+  });
+}
+
 self.addEventListener('fetch', (event) => {
   const req = event.request;
   const url = new URL(req.url);
 
   const scope = new URL(self.registration.scope);
-  if (req.method !== 'GET' || url.origin !== scope.origin || !url.pathname.startsWith(scope.pathname) || url.pathname.includes('/api/') || url.pathname.endsWith('.mp4') || req.headers.has('range')) return;
+  if (req.method !== 'GET' || url.origin !== scope.origin || !url.pathname.startsWith(scope.pathname) || url.pathname.includes('/api/')) return;
+  const demo = new URL(DEMO_VIDEO, scope);
+  if (url.pathname === demo.pathname) {
+    event.respondWith(serveDemoVideo(req, demo.href));
+    return;
+  }
+  if (url.pathname.endsWith('.mp4') || req.headers.has('range')) return;
   // Old links used timestamps to reload HTML. Keep one offline copy per page.
   const key = new URL(url);
   key.searchParams.delete('v');
   key.searchParams.delete('ts');
+  if (key.pathname === new URL(DEMO_PAGE, scope).pathname) key.search = '';
   const navigation = req.mode === 'navigate' || url.pathname.endsWith('/') || url.pathname.endsWith('.html');
   event.respondWith((async () => {
     const cache = await caches.open(CACHE);

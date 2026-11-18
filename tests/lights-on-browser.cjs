@@ -62,6 +62,26 @@ async function waitFor(predicate) {
 }
 function clean(s) { assert.deepEqual(s.forbidden,[]); assert.deepEqual(s.errors,[]); }
 
+test('the home preview opens without device discovery and cancels an outstanding bulb handoff', async () => {
+  const s = await setup({hold:true});
+  try {
+    await s.page.goto(s.base+'/?visual-test=1');
+    await s.page.getByRole('link', {name:'开灯动画预览', exact:true}).click();
+    await s.page.waitForURL(s.base+'/smart-home/lights-demo.html');
+    assert.equal(s.pings.length,0);
+    assert.equal(s.navigations.length,0);
+
+    await s.page.goto(s.base+'/?visual-test=1');
+    await s.page.locator('#lightsOnLaunch').click();
+    await waitFor(()=>s.pings.length===3);
+    await s.page.locator('#lightsOnPreview').click();
+    await s.page.waitForURL(s.base+'/smart-home/lights-demo.html');
+    await s.release();
+    assert.equal(s.navigations.length,0);
+    clean(s);
+  } finally { await s.context.close(); }
+});
+
 test('only a real bulb click creates one fresh ID, discovers with GET, then navigates to local progress',async()=>{
   const s=await setup({hold:true});
   try {
@@ -118,6 +138,7 @@ test('offline clicks create no request or ID; a network drop cancels the pending
     await s.context.setOffline(true);
     await s.page.locator('#lightsOnLaunch').click();
     assert.match(await s.page.locator('#lightsOnDetail').innerText(),/尚未发送开灯请求/);
+    assert(await s.page.getByRole('link', {name:'动画预览', exact:true}).isVisible());
     assert.equal(await s.page.evaluate(()=>window.__lightsUUIDs.length),0);
     assert.equal(s.pings.length,0);assert.equal(s.navigations.length,0);
     await s.page.locator('#lightsOnClose').click();
@@ -190,7 +211,7 @@ test('bulb stays aligned above the pill, avoids other launchers, and modal is us
       const geometry=await s.page.evaluate(()=>{
         const scroll=document.documentElement.scrollWidth;
         const added=[document.getElementById('lightsOnLaunch'),document.getElementById('lightsOnDialog')];
-        const sheet=document.querySelector('link[href="./shared/lights-on-v1.css"]').sheet;
+        const sheet=document.querySelector('link[href="./shared/lights-on-v1.css?ui=78"]').sheet;
         added.forEach(el=>{el.style.display='none';});sheet.disabled=true;
         const baseline=document.documentElement.scrollWidth;
         sheet.disabled=false;added.forEach(el=>{el.style.removeProperty('display');});
