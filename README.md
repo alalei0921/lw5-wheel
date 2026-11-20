@@ -30,7 +30,7 @@
 - 私有清单格式：`{"format":"lw5-supplements","version":1,"items":[{"name":"自定义名称","description":"自己的用量或提醒"}, ...]}`，必须恰好四项；名称最多 60 字、说明最多 240 字、文件小于 16 KB。
 - 保存仅对当前浏览器、当前站点生效。普通浏览器和桌面 PWA 不假定共享存储。没有本地清单时，一键更新后直接显示四个通用名称与获准公开的默认说明，无需导入；自定义说明不会跨存储环境同步。清除网站数据会移除这些设置和记录。一键更新仅刷新应用缓存，会保留本地记录。
 
-发布沿用原 GitHub Pages 的 `main` 根目录；更改前需获准发布。Service Worker 发布缓存名为 `lw5-home-v63-island-button`，三个新静态资源已加入离线清单。
+发布沿用原 GitHub Pages 的 `main` 根目录；更改前需获准发布。Service Worker 发布缓存名为 `lw5-home-v79-drawdown-shortcut`，三个新静态资源已加入离线清单。
 
 
 私人清单可通过 `supplements/setup.html#s=…` 一次带入：fragment 内为 UTF-8 JSON 的 base64url，结构与私有 JSON 相同，仅包含名称和说明。独立页最先移除 fragment，仅运行内联代码；CSP 禁止网络连接与外部资源，没有分析脚本。新浏览器自动写入本地配置，再进入 `#supplements` 面板；相同配置重复打开不会改动记录；已有不同配置时先保留，需要明确点击才能替换。私人链接不进仓库、公开文档或通用审查包，也不能当普通站点链接转发。它不加密，持有链接的人可以读清单；浏览器扩展和分享该链接的渠道不属于页面能控制的范围。
@@ -107,3 +107,8 @@ at startup and needs a restart to pick up visual changes. The service worker
 cache for that release was `lw5-home-v74-smooth-rim`. The first nine-level disk is available
 at `b9f7bae`. The nine-star version is available
 at `45641ab`, and the earlier black-hole scene at `46e317f`.
+
+
+## 回撤观察台入口
+
+主页左下角海岛上方的 📈 直接以顶层原生链接打开 `https://drawdown-observatory.alalei.chatgpt.site`，使用 `no-referrer`，不嵌入页面或附加参数。入口不读取持仓、调用交易接口，也不改变目标站点原有的仅所有者访问限制。

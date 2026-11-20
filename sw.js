@@ -1,4 +1,4 @@
-const CACHE = 'lw5-home-v78-offline-lights-demo';
+const CACHE = 'lw5-home-v79-drawdown-shortcut';
 const DEMO_PAGE = './smart-home/lights-demo.html';
 const DEMO_VIDEO = './assets/lights-film/demo-v1.mp4';
 const ASSETS = [
