@@ -1,4 +1,4 @@
-const CACHE = 'lw5-home-v80-dog-calendar';
+const CACHE = 'lw5-home-v81-happy-calendar-banner';
 const DEMO_PAGE = './smart-home/lights-demo.html';
 const DEMO_VIDEO = './assets/lights-film/demo-v1.mp4';
 const ASSETS = [

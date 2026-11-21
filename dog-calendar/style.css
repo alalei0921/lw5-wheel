@@ -24,7 +24,7 @@ svg{display:block;width:1em;height:1em;flex-shrink:0}
 .settings-btn:hover,.calendar-nav button:hover,.undo-btn:hover,.demo-note:hover{background-color:#f0f0df}
 .workspace{padding:27px 0 44px}
 .hero{position:relative;isolation:isolate;display:flex;align-items:center;min-height:clamp(225px,23.5vw,292px);background:#f9e8be;overflow:hidden;border-radius:22px;border:1.5px solid #d9c9a2;box-shadow:0 4px 0 #d4c9a04a}
-.hero-art{position:absolute;inset:0;z-index:-1;background-image:url('assets/picnic.webp');background-size:cover;background-position:center 54%;background-repeat:no-repeat}
+.hero-art{position:absolute;inset:0;z-index:-1;background-image:url('assets/picnic.webp?v=81');background-size:cover;background-position:center 54%;background-repeat:no-repeat}
 .hero-copy{margin:-7px 0 0;padding-left:5.6%;width:57%;position:relative}
 .hero-date{display:inline-flex;gap:7px;font-size:.86rem;color:#665c3c;font-weight:650;letter-spacing:.025em;padding:5px 10px;border:1px solid #bbab7d89;border-radius:7px;background:#fff6dba6;transform:rotate(-1deg)}
 .hero-date svg{height:16px;width:16px}
@@ -122,7 +122,7 @@ svg{display:block;width:1em;height:1em;flex-shrink:0}
 .lock-mast{display:flex;align-items:center;justify-content:flex-start;width:min(1136px,calc(100% - 60px));min-height:65px;margin:0 auto}
 .lock-home{color:inherit;text-decoration:none}
 .lock-card{width:min(464px,calc(100% - 34px));margin:clamp(18px,7vh,80px) auto 0;overflow:hidden}
-.lock-cover{display:flex;width:100%;min-height:150px;aspect-ratio:2.7;align-items:center;background:#f4e6bf url('assets/picnic.webp') center center /cover no-repeat;border-bottom:1px solid #e5dbc0}
+.lock-cover{display:flex;width:100%;min-height:150px;aspect-ratio:2.7;align-items:center;background:#f4e6bf url('assets/picnic.webp?v=81') center center /cover no-repeat;border-bottom:1px solid #e5dbc0}
 .lock-cover h1{font:740 clamp(1.8rem,5vw,2.5rem)/1.2 var(--round);color:#4f4026;letter-spacing:.025em;margin:0;padding-left:7%}
 .lock-form{display:grid;gap:12px;padding:24px 26px 26px}
 .lock-form>label:first-child{font-size:.96rem;color:var(--ink);font-weight:650}
