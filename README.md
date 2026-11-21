@@ -30,7 +30,7 @@
 - 私有清单格式：`{"format":"lw5-supplements","version":1,"items":[{"name":"自定义名称","description":"自己的用量或提醒"}, ...]}`，必须恰好四项；名称最多 60 字、说明最多 240 字、文件小于 16 KB。
 - 保存仅对当前浏览器、当前站点生效。普通浏览器和桌面 PWA 不假定共享存储。没有本地清单时，一键更新后直接显示四个通用名称与获准公开的默认说明，无需导入；自定义说明不会跨存储环境同步。清除网站数据会移除这些设置和记录。一键更新仅刷新应用缓存，会保留本地记录。
 
-发布沿用原 GitHub Pages 的 `main` 根目录；更改前需获准发布。Service Worker 发布缓存名为 `lw5-home-v82-single-calendar-start`，补剂静态资源已加入离线清单。
+发布沿用原 GitHub Pages 的 `main` 根目录；更改前需获准发布。Service Worker 发布缓存名为 `lw5-home-v83-dog-home-shortcut`，补剂静态资源已加入离线清单。
 
 
 私人清单可通过 `supplements/setup.html#s=…` 一次带入：fragment 内为 UTF-8 JSON 的 base64url，结构与私有 JSON 相同，仅包含名称和说明。独立页最先移除 fragment，仅运行内联代码；CSP 禁止网络连接与外部资源，没有分析脚本。新浏览器自动写入本地配置，再进入 `#supplements` 面板；相同配置重复打开不会改动记录；已有不同配置时先保留，需要明确点击才能替换。私人链接不进仓库、公开文档或通用审查包，也不能当普通站点链接转发。它不加密，持有链接的人可以读清单；浏览器扩展和分享该链接的渠道不属于页面能控制的范围。
@@ -70,7 +70,7 @@ The bridge keeps matching files under `assets/lights-film/v1/` and serves only
 those files plus `credits.html` at `/lights-film/v1/`, with GET/HEAD and byte-range
 support. Control APIs and submission rules are unchanged. Shared film JS/CSS
 and the manifest are copied beside `lights-on-http.js` for embedding at startup.
-The home page and bulb dialog link to the [one-light-per-second preview](smart-home/lights-demo.html).
+The bulb dialog links to the [one-light-per-second preview](smart-home/lights-demo.html).
 It plays a single 16-second film, with the counter driven by the displayed video frames.
 The `lw5-home-v78-offline-lights-demo` service worker caches this page and its 3.4 MB film
 so they can play offline after installation. The live controller continues to stream the ten
@@ -115,7 +115,7 @@ at `45641ab`, and the earlier black-hole scene at `46e317f`.
 
 ## 狗狗日历 v80
 
-主页“中控静音”下方的入口打开本站 `dog-calendar/`。无需 GPT 登录；专属日历口令经既有云端服务核验后才能读写同一份日历。可选在当前设备记住口令；日历记录以云端为准，保存、手动同步和返回前台时刷新。冲突保存会取回最新记录并要求重新确认，不覆盖另一台设备的新修改。
+主页右侧灯泡上方的狗狗入口打开本站 `dog-calendar/`。无需 GPT 登录；专属日历口令经既有云端服务核验后才能读写同一份日历。可选在当前设备记住口令；日历记录以云端为准，保存、手动同步和返回前台时刷新。冲突保存会取回最新记录并要求重新确认，不覆盖另一台设备的新修改。
 
 日历需要联网；首页 Service Worker 不缓存日历路由或云端请求。一键更新只刷新应用缓存，保留已有补剂、海岛及其他本地数据。公开源码仅含公开项目标识与 publishable key，没有真实口令或记录。`dog-calendar/backend/index.ts` 是含摘要占位符的审查源码，不能直接用于重新部署；本次仅发布静态前端，保留已经部署和验证的同步后端。
 
@@ -123,3 +123,8 @@ at `45641ab`, and the earlier black-hole scene at `46e317f`.
 ## 当前开始日 v82
 
 日历只使用 `anchor` 这一个当前开始日来显示标记和计算配色；周期设置、设置/更正开始日及“月经来了”都替换它，包括改到更早日期。`starts` 保留旧版历史，不再用于显示多个开始日。读取不自动写回；旧数据优先使用有效 `anchor`，否则取 `starts` 中最晚的有效日期，没有有效项则为空。`startSelectionVersion:1` 配合空 `anchor` 表示主动清除，历史不会因此重新变成当前日期。新保存保留原历史、手动状态及其他扩展字段，撤销只恢复之前的唯一当前日期；版本冲突或过期撤销不会覆盖另一台设备的新状态。旧客户端写回的多日列表在新客户端仍只显示一个当前日期；不修改后端，不能禁止旧客户端自身的旧显示和写入方式，建议两端都更新。
+
+
+## 主页狗狗入口 v83
+
+中栏日历入口移到右侧灯泡上方，移除主页“开灯动画预览”链接；灯泡与原预览页面保留。入口复用日历的四张公开狗狗图片及本地日期、手动状态优先的判定。只有日历已验证且勾选记住口令时，才在当前标签页的 sessionStorage 保留当天图标摘要（日期、状态标识、口令的隔离摘要绑定）；没有新增云端请求或登录控件，也不保存日历记录。主页只显示同标签页当天最后一次验证的状态，回日历同步后更新。新标签页、未验证、无状态、示例预估、未记住口令、锁定、凭据变化、跨日或摘要不可读时显示通用狗图标。锁定清除摘要，异步摘要结果不能在锁定后复活；图片加载失败也回退通用图标。同步失败清除摘要，后台恢复和午夜会重新核对日期。

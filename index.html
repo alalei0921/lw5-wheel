@@ -884,17 +884,22 @@
     .wheel-fullscreen .tool-title{color:#c8e9ec;font-size:14px;font-weight:600;}
     .wheel-fullscreen .cute-close{padding:6px 12px;background:#142339;color:#d4eaf0;border-color:#739ca433;box-shadow:none;}
     .wheel-fullscreen .tool-iframe{display:block;flex:1;min-height:0;height:auto;background:#070e24;padding-bottom:env(safe-area-inset-bottom,0px);}
-    /* Reserve room for both left shortcuts below the card on short phones. */
+    /* Keep the three right shortcuts clear of the card on short phones. */
     @media(max-width:480px) and (max-height:740px){
-      body.home-page{padding-bottom:calc(172px + env(safe-area-inset-bottom))}
-      #drawdownOpen,#islandsOpen{position:absolute}
+      body.home-page{padding-bottom:calc(240px + env(safe-area-inset-bottom))}
+      #drawdownOpen,#islandsOpen,#dogCalendarLaunch,#lightsOnLaunch,#supplementLaunch{position:absolute}
     }
+    #dogCalendarLaunch{bottom:calc(max(20px,env(safe-area-inset-bottom)) + 136px);text-decoration:none}
+    #dogCalendarLaunch img{width:44px;height:44px;object-fit:cover;border-radius:50%;border:2px solid #fffaf4;box-sizing:border-box}
+    #dogCalendarLaunch [hidden]{display:none!important}
+    body:has(dialog[open]) #dogCalendarLaunch{visibility:hidden}
   </style>
   <link rel="stylesheet" href="./shared/app-ui-v1.css" />
   <script defer src="./shared/app-ui-v1.js"></script>
   <link rel="stylesheet" href="./shared/supplements-v1.css" />
   <script defer src="./shared/supplements-store-v1.js"></script>
   <script defer src="./shared/supplements-v1.js"></script>
+  <script defer src="./shared/dog-status-v1.js?v=83"></script>
   <link rel="stylesheet" href="./shared/lights-on-v1.css?ui=78" />
   <link rel="stylesheet" href="./shared/lights-on-universe.css" />
   <script defer src="./shared/lights-on-universe.js"></script>
@@ -938,6 +943,7 @@
   <a class="supplement-launch" id="drawdownOpen" href="https://drawdown-observatory.alalei.chatgpt.site" target="_top" rel="noreferrer" referrerpolicy="no-referrer" aria-label="回撤观察台" title="回撤观察台" style="left:max(20px,env(safe-area-inset-left));right:auto;bottom:calc(max(24px,env(safe-area-inset-bottom)) + 68px);z-index:20;text-decoration:none"><span aria-hidden="true">📈</span></a>
   <a class="supplement-launch" id="islandsOpen" data-tool="islands" href="./islands/" aria-label="打开海岛测评" title="海岛手记" style="left:max(20px,env(safe-area-inset-left));right:auto;bottom:max(24px,env(safe-area-inset-bottom));z-index:20;text-decoration:none"><span aria-hidden="true">🏝️</span></a>
   <button class="supplement-launch" id="supplementLaunch" type="button" aria-label="打开每日补剂打卡" aria-haspopup="dialog" aria-controls="supplementDialog" title="每日补剂打卡"><span aria-hidden="true">💊</span></button>
+  <a class="supplement-launch" id="dogCalendarLaunch" href="./dog-calendar/?v=83" aria-label="打开狗狗日历" title="狗狗日历"><span aria-hidden="true">🐶</span><img alt="" aria-hidden="true" hidden></a>
   <button class="lights-on-launch" id="lightsOnLaunch" type="button" aria-label="一键开灯" aria-haspopup="dialog" aria-controls="lightsOnDialog" title="一键开灯"><span aria-hidden="true">💡</span></button>
   <dialog class="lights-on-dialog" id="lightsOnDialog" aria-labelledby="lightsOnTitle" aria-describedby="lightsOnDetail">
     <div class="lights-on-top">
@@ -1031,12 +1037,8 @@
       <a class="tool-btn wide" href="./smart-home/panel-mute.html" aria-label="打开中控静音设置" style="background:linear-gradient(135deg,rgba(242,234,255,.66),rgba(225,238,255,.58))">
         <span>中控静音</span><span class="emoji" aria-hidden="true">🌙🔕</span>
       </a>
-      <a class="tool-btn wide" href="./dog-calendar/?v=82" aria-label="打开狗狗日历" style="background:linear-gradient(135deg,rgba(255,229,227,.66),rgba(255,243,208,.58))">
-        <span>狗狗日历</span><span class="emoji" aria-hidden="true">🐾</span>
-      </a>
     </section>
 
-    <div class="foot"><a class="lights-demo-entry" href="./smart-home/lights-demo.html">开灯动画预览</a></div>
   </main>
 
   <div class="tool-overlay" id="toolOverlay" aria-hidden="true">

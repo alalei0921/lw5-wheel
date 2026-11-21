@@ -62,16 +62,14 @@ async function waitFor(predicate) {
 }
 function clean(s) { assert.deepEqual(s.forbidden,[]); assert.deepEqual(s.errors,[]); }
 
-test('the home preview opens without device discovery and cancels an outstanding bulb handoff', async () => {
+test('home removes the preview shortcut while the bulb dialog preview cancels its outstanding handoff', async () => {
   const s = await setup({hold:true});
   try {
     await s.page.goto(s.base+'/?visual-test=1');
-    await s.page.getByRole('link', {name:'开灯动画预览', exact:true}).click();
-    await s.page.waitForURL(s.base+'/smart-home/lights-demo.html');
+    assert.equal(await s.page.getByRole('link', {name:'开灯动画预览', exact:true}).count(),0);
+    assert.equal(await s.page.locator('#lightsOnPreview').isVisible(),false);
     assert.equal(s.pings.length,0);
     assert.equal(s.navigations.length,0);
-
-    await s.page.goto(s.base+'/?visual-test=1');
     await s.page.locator('#lightsOnLaunch').click();
     await waitFor(()=>s.pings.length===3);
     await s.page.locator('#lightsOnPreview').click();

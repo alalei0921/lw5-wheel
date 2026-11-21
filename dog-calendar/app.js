@@ -25,6 +25,7 @@
   const DEFAULT_SPANS = autoSpans(28, 5);
   const ORDER = MOODS.map(mood => mood.id);
   const todayKey = () => {
+    if (window.LW5DogStatus) return window.LW5DogStatus.localDay();
     const now = new Date();
     return [now.getFullYear(), pad(now.getMonth() + 1), pad(now.getDate())].join('-');
   };
@@ -126,6 +127,7 @@
     else announce(message);
   }
   function lockCalendar(message = '', forget = true) {
+    window.LW5DogStatus?.clear();
     epoch++; readSerial++;
     for (const controller of controllers) controller.abort();
     writing = false; accessKey = ''; revision = -1; model = initial();
@@ -148,6 +150,7 @@
   async function unlock(key, persistent) {
     key = key.trim();
     if (!key) { setText('login-error','请输入专属日历口令。'); return; }
+    window.LW5DogStatus?.clear();
     const mine = ++epoch;
     id('login-submit').disabled=true; setText('login-error','正在打开日历…');
     try {
@@ -160,6 +163,7 @@
       if (!model.configured) openSettings();
     } catch (error) {
       if (mine!==epoch) return;
+      window.LW5DogStatus?.clear();
       if (error.denied) remember('');
       setText('login-error',error.denied ? error.message : '暂时无法打开云端日历，请稍后再试。');
     } finally { if (mine===epoch) id('login-submit').disabled=false; }
@@ -176,6 +180,7 @@
     } catch (error) {
       if (mine!==epoch || read!==readSerial || writing) return;
       if (error.denied) return lockCalendar(error.message);
+      window.LW5DogStatus?.clear();
       syncLabel('暂未同步，请重试');
       if (manual) announce('同步失败，请检查网络后重试。');
     }
@@ -198,6 +203,7 @@
       syncLabel('云端已同步');return true;
     } catch (error) {
       if (mine!==epoch) return false;
+      window.LW5DogStatus?.clear();
       if (error.denied) lockCalendar(error.message);
       else reportEditFailure('未能确认保存。请同步后核对，再决定是否重试。');
       return false;
@@ -243,8 +249,16 @@
     if (info.kind === 'logged') return '已记 · ' + info.mood.name;
     return (info.kind === 'demo' ? '示例预计' : '预计') + ' · ' + PHASES[ORDER.indexOf(info.mood.id)];
   }
+  function updateHomeIcon() {
+    const bridge = window.LW5DogStatus;
+    if (!bridge) return;
+    const today = todayKey(), info = accessKey ? status(today, today) : null;
+    if (!accessKey || remembered() !== accessKey || !info || info.kind === 'demo') { bridge.clear(); return; }
+    bridge.publish(today, info.mood.id, accessKey);
+  }
   function render() {
     if (!accessKey) return;
+    updateHomeIcon();
     const today = todayKey();
     const [year, month] = monthKey.split('-').map(Number);
     setText('hero-date', titleDate(today) + ' · ' + weekday(today));
