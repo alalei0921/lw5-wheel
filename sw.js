@@ -1,4 +1,4 @@
-const CACHE = 'lw5-home-v83-dog-home-shortcut';
+const CACHE = 'lw5-home-v84-auto-dog-status';
 const DEMO_PAGE = './smart-home/lights-demo.html';
 const DEMO_VIDEO = './assets/lights-film/demo-v1.mp4';
 const ASSETS = [
@@ -10,7 +10,8 @@ const ASSETS = [
   './shared/supplements-v1.css',
   './shared/supplements-store-v1.js',
   './shared/supplements-v1.js',
-  './shared/dog-status-v1.js?v=83',
+  './shared/dog-calendar-core-v1.js?v=84',
+  './shared/dog-status-v1.js?v=84',
   './shared/app-ui-v1.css',
   './shared/app-ui-v1.js',
   './shared/local-control-v1.js',

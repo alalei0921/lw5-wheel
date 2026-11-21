@@ -891,6 +891,7 @@
     }
     #dogCalendarLaunch{bottom:calc(max(20px,env(safe-area-inset-bottom)) + 136px);text-decoration:none}
     #dogCalendarLaunch img{width:44px;height:44px;object-fit:cover;border-radius:50%;border:2px solid #fffaf4;box-sizing:border-box}
+    #dogCalendarLaunch .dog-refresh-badge{position:absolute;right:-2px;top:-3px;min-width:20px;height:20px;padding:0 3px;border-radius:10px;background:#fffaf4;color:#79563f;border:1px solid #ead7c7;box-shadow:0 2px 5px #61442e22;font-size:16px;line-height:12px;pointer-events:none;box-sizing:border-box}
     #dogCalendarLaunch [hidden]{display:none!important}
     body:has(dialog[open]) #dogCalendarLaunch{visibility:hidden}
   </style>
@@ -899,7 +900,8 @@
   <link rel="stylesheet" href="./shared/supplements-v1.css" />
   <script defer src="./shared/supplements-store-v1.js"></script>
   <script defer src="./shared/supplements-v1.js"></script>
-  <script defer src="./shared/dog-status-v1.js?v=83"></script>
+  <script defer src="./shared/dog-calendar-core-v1.js?v=84"></script>
+  <script defer src="./shared/dog-status-v1.js?v=84"></script>
   <link rel="stylesheet" href="./shared/lights-on-v1.css?ui=78" />
   <link rel="stylesheet" href="./shared/lights-on-universe.css" />
   <script defer src="./shared/lights-on-universe.js"></script>
@@ -943,7 +945,7 @@
   <a class="supplement-launch" id="drawdownOpen" href="https://drawdown-observatory.alalei.chatgpt.site" target="_top" rel="noreferrer" referrerpolicy="no-referrer" aria-label="回撤观察台" title="回撤观察台" style="left:max(20px,env(safe-area-inset-left));right:auto;bottom:calc(max(24px,env(safe-area-inset-bottom)) + 68px);z-index:20;text-decoration:none"><span aria-hidden="true">📈</span></a>
   <a class="supplement-launch" id="islandsOpen" data-tool="islands" href="./islands/" aria-label="打开海岛测评" title="海岛手记" style="left:max(20px,env(safe-area-inset-left));right:auto;bottom:max(24px,env(safe-area-inset-bottom));z-index:20;text-decoration:none"><span aria-hidden="true">🏝️</span></a>
   <button class="supplement-launch" id="supplementLaunch" type="button" aria-label="打开每日补剂打卡" aria-haspopup="dialog" aria-controls="supplementDialog" title="每日补剂打卡"><span aria-hidden="true">💊</span></button>
-  <a class="supplement-launch" id="dogCalendarLaunch" href="./dog-calendar/?v=83" aria-label="打开狗狗日历" title="狗狗日历"><span aria-hidden="true">🐶</span><img alt="" aria-hidden="true" hidden></a>
+  <a class="supplement-launch" id="dogCalendarLaunch" href="./dog-calendar/?v=84" aria-label="打开狗狗日历" title="狗狗日历"><span aria-hidden="true">🐶</span><img alt="" aria-hidden="true" hidden><span class="dog-refresh-badge" aria-hidden="true" hidden>…</span></a>
   <button class="lights-on-launch" id="lightsOnLaunch" type="button" aria-label="一键开灯" aria-haspopup="dialog" aria-controls="lightsOnDialog" title="一键开灯"><span aria-hidden="true">💡</span></button>
   <dialog class="lights-on-dialog" id="lightsOnDialog" aria-labelledby="lightsOnTitle" aria-describedby="lightsOnDetail">
     <div class="lights-on-top">

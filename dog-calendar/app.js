@@ -1,77 +1,13 @@
 (() => {
   'use strict';
 
-  const DAY = 86400000;
   const REMEMBER_KEY = 'lw5.calendar.private-access.v1';
-  const RPC_URL = 'https://lrtglriomkxjxmxpzivj.supabase.co/functions/v1/lw5-dog-calendar/';
-  const PUBLIC_KEY = 'sb_publishable_0Lah9n6HEd-KYcJS1D5F1Q_jJsoQBEJ';
-  const MOODS = [
-    { id: 'tired', name: '疲劳', color: '#c98b0a', wash: '#fff0a6' },
-    { id: 'good', name: '好', color: '#5a8948', wash: '#dcebc9' },
-    { id: 'best', name: '最好', color: '#bd5e86', wash: '#fbd6e4' },
-    { id: 'grumpy', name: '暴躁', color: '#ca6655', wash: '#ffd0c5' }
-  ];
-  const PHASES = ['经期段', '经后段', '周期中段', '周期后段'];
-  const COLOR_NAMES = ['黄', '绿', '粉', '红'];
-  function autoSpans(interval, bleed) {
-    if (!Number.isInteger(interval) || interval < 4 || interval > 120 ||
-        !Number.isInteger(bleed) || bleed < 1 || bleed > interval - 3) return null;
-    const middleDays = Math.min(3, interval - bleed - 2);
-    const halfway = Math.floor((interval + 1) / 2);
-    const middleStart = Math.max(bleed + 2, Math.min(interval - middleDays, halfway - Math.floor(middleDays / 2)));
-    const afterBleed = middleStart - bleed - 1;
-    return [bleed, afterBleed, middleDays, interval - bleed - afterBleed - middleDays];
-  }
-  const DEFAULT_SPANS = autoSpans(28, 5);
-  const ORDER = MOODS.map(mood => mood.id);
-  const todayKey = () => {
-    if (window.LW5DogStatus) return window.LW5DogStatus.localDay();
-    const now = new Date();
-    return [now.getFullYear(), pad(now.getMonth() + 1), pad(now.getDate())].join('-');
-  };
-  function pad(value) { return String(value).padStart(2, '0'); }
-  function dayKey(date) { return date.toISOString().slice(0, 10); }
-  function keyDate(key) { return new Date(key + 'T00:00:00Z'); }
-  function dayAfter(key, offset) { return dayKey(new Date(keyDate(key).getTime() + offset * DAY)); }
-  function apart(a, b) { return (keyDate(a) - keyDate(b)) / DAY; }
-  function dateAt(year, month, day) { return new Date(Date.UTC(year, month - 1, day)); }
-  function validKey(key) {
-    if (typeof key !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(key) || key < '1900-01-01') return false;
-    const date = keyDate(key);
-    return Number.isFinite(date.getTime()) && dayKey(date) === key;
-  }
+  const {DAY,MOODS,PHASES,COLOR_NAMES,ORDER,DEFAULT_SPANS,autoSpans,pad,dayKey,keyDate,dayAfter,apart,dateAt,validKey,initial,validSpans,parseCloudState,localDay} = window.LW5CalendarCore;
+  const todayKey = localDay;
   function weekday(key) { return '星期' + '日一二三四五六'[keyDate(key).getUTCDay()]; }
   function titleDate(key) {
     const date = keyDate(key);
     return (date.getUTCMonth() + 1) + '月' + date.getUTCDate() + '日';
-  }
-  function initial() {
-    return { version: 2, personal: false, configured: false, customSpans: false, anchor: '', starts: [], startSelectionVersion: 1, spans: [...DEFAULT_SPANS], moods: {} };
-  }
-  function validSpans(spans) {
-    return Array.isArray(spans) && spans.length === 4 &&
-      spans.every(n => Number.isInteger(n) && n >= 1 && n <= 120) &&
-      spans.reduce((sum, n) => sum + n, 0) <= 120;
-  }
-  function parseCloudState(data) {
-    if (data === null) return initial();
-    if (!data || data.version !== 2 || !validSpans(data.spans) || !Array.isArray(data.starts) ||
-        !data.moods || Array.isArray(data.moods) || typeof data.moods !== 'object') {
-      throw new Error('云端数据格式异常，已停止写入。');
-    }
-    // Retain unrelated fields (for example notes) and the original history.
-    const result = { ...data, ...initial() };
-    result.personal = data.personal === true;
-    // starts remains historical data, never the set of active calendar markers.
-    result.starts = data.starts.slice();
-    const latestHistorical = data.starts.filter(validKey).sort().at(-1) || '';
-    result.anchor = validKey(data.anchor) ? data.anchor :
-      data.startSelectionVersion === 1 && data.anchor === '' ? '' : latestHistorical;
-    result.configured = data.configured === true;
-    result.customSpans = data.customSpans === true;
-    result.spans = data.spans.slice();
-    result.moods = { ...data.moods };
-    return result;
   }
   // The server is the authority for calendar entries. Only a remembered key is stored locally.
   let model = initial();
@@ -98,20 +34,7 @@
     const timer = setTimeout(() => controller.abort(), 14000);
     controllers.add(controller);
     try {
-      const response = await fetch(RPC_URL + name, {
-        method:'POST', headers:{'Content-Type':'application/json', 'apikey':PUBLIC_KEY},
-        body: JSON.stringify(payload), cache:'no-store', referrerPolicy:'no-referrer', signal:controller.signal
-      });
-      const body = await response.json().catch(() => null);
-      if (!response.ok) {
-        const denied = (response.status === 401 || response.status === 403) && body?.code === '42501';
-        const error = new Error(denied ? '口令无效，请核对后再试。' : '云端暂时没有响应，请稍后重试。');
-        error.denied = denied;
-        throw error;
-      }
-      if (!body || !Number.isSafeInteger(body.revision) || body.revision < 0 || !Object.hasOwn(body, 'state'))
-        throw new Error('云端返回异常，请重新同步。');
-      return body;
+      return await window.LW5CalendarCore.rpc(name, payload, controller.signal);
     } finally { clearTimeout(timer); controllers.delete(controller); }
   }
   function applySnapshot(result) {
@@ -209,56 +132,14 @@
       return false;
     } finally { if (mine===epoch) writing=false; }
   }
-  function mix(a, b, fraction) {
-    const av = parseInt(a.slice(1), 16), bv = parseInt(b.slice(1), 16);
-    const channels = [16, 8, 0].map(shift => {
-      const left = av >> shift & 255, right = bv >> shift & 255;
-      return Math.round(left + (right - left) * fraction);
-    });
-    return 'rgb(' + channels.join(',') + ')';
-  }
-  function status(key, today) {
-    if (ORDER.includes(model.moods[key])) {
-      const mood = M(model.moods[key]);
-      return { mood, kind: 'logged', wash: mood.wash };
-    }
-    const demo = !model.personal;
-    const distance = apart(key, today);
-    if (distance > 30 || (!demo && distance < 0) || (demo && key < today.slice(0, 7) + '-01')) return null;
-    const anchor = demo ? dayAfter(today, -9) : model.anchor;
-    if (!anchor || (!demo && key < anchor)) return null;
-    const spans = demo ? DEFAULT_SPANS : model.spans;
-    const length = spans.reduce((a, b) => a + b);
-    let index = ((apart(key, anchor) % length) + length) % length;
-    for (let i = 0; i < MOODS.length; i++) {
-      const duration = spans[i];
-      if (index < duration) {
-        const mood = MOODS[i];
-        const next = MOODS[(i + 1) % 4], previous = MOODS[(i + 3) % 4];
-        let wash = mood.wash;
-        if (index === duration - 1) wash = mix(mood.wash, next.wash, 0.32);
-        else if (index === 0) wash = mix(mood.wash, previous.wash, 0.32);
-        return { mood, kind: demo ? 'demo' : 'forecast', wash };
-      }
-      index -= duration;
-    }
-    return null;
-  }
+  const status = (key, today) => window.LW5CalendarCore.status(model, key, today);
   function statusLabel(info) {
     if (!info) return '';
     if (info.kind === 'logged') return '已记 · ' + info.mood.name;
     return (info.kind === 'demo' ? '示例预计' : '预计') + ' · ' + PHASES[ORDER.indexOf(info.mood.id)];
   }
-  function updateHomeIcon() {
-    const bridge = window.LW5DogStatus;
-    if (!bridge) return;
-    const today = todayKey(), info = accessKey ? status(today, today) : null;
-    if (!accessKey || remembered() !== accessKey || !info || info.kind === 'demo') { bridge.clear(); return; }
-    bridge.publish(today, info.mood.id, accessKey);
-  }
   function render() {
     if (!accessKey) return;
-    updateHomeIcon();
     const today = todayKey();
     const [year, month] = monthKey.split('-').map(Number);
     setText('hero-date', titleDate(today) + ' · ' + weekday(today));

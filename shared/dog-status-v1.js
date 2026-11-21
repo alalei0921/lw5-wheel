@@ -1,70 +1,74 @@
 (() => {
   'use strict';
-  const SLOT = 'lw5.calendar.today-icon.v1';
+  const core = window.LW5CalendarCore;
   const REMEMBER = 'lw5.calendar.private-access.v1';
-  const moods = new Set(['tired', 'good', 'best', 'grumpy']);
-  let generation = 0;
-  function localDay() {
-    const now = new Date();
-    return [now.getFullYear(), String(now.getMonth()+1).padStart(2,'0'), String(now.getDate()).padStart(2,'0')].join('-');
-  }
   function remembered() { try { return localStorage.getItem(REMEMBER) || ''; } catch { return ''; } }
   function clear() {
-    generation++;
-    try { sessionStorage.removeItem(SLOT); } catch {}
-    window.dispatchEvent(new Event('lw5-dog-icon'));
+    // Retire v83's tab summary. v84 never persists a status or a calendar response.
+    try { sessionStorage.removeItem('lw5.calendar.today-icon.v1'); } catch {}
+    window.dispatchEvent(new Event('lw5-dog-clear'));
   }
-  async function binding(key) {
-    const bytes = new TextEncoder().encode('lw5-home-icon-v1:' + key);
-    const result = await crypto.subtle.digest('SHA-256', bytes);
-    return Array.from(new Uint8Array(result), x=>x.toString(16).padStart(2,'0')).join('');
-  }
-  async function publish(day, mood, key) {
-    const mine = ++generation;
-    if (day !== localDay() || !moods.has(mood) || !key || remembered() !== key) { clear(); return; }
-    try {
-      const tag = await binding(key);
-      if (mine !== generation || day !== localDay() || remembered() !== key) return;
-      // Same-tab, same-day summary only; never store a record or duplicate the passphrase.
-      sessionStorage.setItem(SLOT, JSON.stringify({version:1,day,mood,binding:tag}));
-      window.dispatchEvent(new Event('lw5-dog-icon'));
-    } catch { if (mine === generation) clear(); }
-  }
-  async function read() {
-    try {
-      const raw = sessionStorage.getItem(SLOT), key = remembered();
-      if (!raw || !key) return null;
-      const item = JSON.parse(raw);
-      if (item.version !== 1 || item.day !== localDay() || !moods.has(item.mood)) return null;
-      const tag = await binding(key);
-      if (remembered() !== key || sessionStorage.getItem(SLOT) !== raw || item.day !== localDay() || tag !== item.binding) return null;
-      return item.mood;
-    } catch { return null; }
-  }
-  window.LW5DogStatus = Object.freeze({localDay,publish,clear,read});
-  window.addEventListener('storage', event => { if (event.key === REMEMBER || event.key === null) clear(); });
-
+  window.LW5DogStatus = Object.freeze({localDay:core.localDay,clear});
+  clear();
   const launch = document.getElementById('dogCalendarLaunch');
   if (!launch) return;
   const picture = launch.querySelector('img'), fallback = launch.querySelector('span');
-  let renderId = 0;
+  const badge = launch.querySelector('.dog-refresh-badge');
+  let flight = null;
+  function busy(value) { badge.hidden = !value; launch.setAttribute('aria-busy', String(value)); }
   function generic() { picture.hidden = true; picture.removeAttribute('src'); fallback.hidden = false; }
-  async function refresh() {
-    const mine = ++renderId;
-    generic();
-    if (document.hidden) return;
-    const mood = await read();
-    if (mine !== renderId || document.hidden || !mood) return;
-    picture.src = './dog-calendar/assets/' + mood + '.webp';
-    picture.hidden = false; fallback.hidden = true;
+  function cancel() {
+    const old = flight; flight = null;
+    if (old) { clearTimeout(old.timer); old.controller.abort(); }
+    generic(); busy(false);
   }
-  picture.addEventListener('error', generic);
-  for (const name of ['pageshow','focus','lw5-dog-icon']) window.addEventListener(name, refresh);
-  window.addEventListener('pagehide', ()=>{renderId++;generic();});
-  document.addEventListener('visibilitychange', refresh);
+  function current(task) {
+    return flight === task && !document.hidden && task.key === remembered() && task.day === core.localDay();
+  }
+  async function refresh() {
+    const key = remembered(), day = core.localDay();
+    if (document.hidden || !key) { cancel(); return; }
+    // pageshow/focus/visibilitychange often arrive together; share the pending read.
+    if (flight?.key === key && flight.day === day) return;
+    cancel();
+    const task = {key,day,controller:new AbortController()}; flight = task; busy(true);
+    task.timer = setTimeout(()=>task.controller.abort(),14000);
+    try {
+      const response = await core.rpc('lw5_dog_read',{p_key:key},task.controller.signal);
+      if (!current(task) || task.controller.signal.aborted) return;
+      const model = core.parseCloudState(response.state);
+      const info = core.status(model,day,day);
+      if (info && info.kind !== 'demo') {
+        picture.src = './dog-calendar/assets/' + info.mood.id + '.webp';
+        picture.hidden = false; fallback.hidden = true;
+      }
+    } catch (error) {
+      if (!current(task)) return;
+      generic();
+      if (error.denied) { try { localStorage.removeItem(REMEMBER); } catch {} }
+    } finally {
+      clearTimeout(task.timer);
+      if (flight === task) {
+        flight = null; busy(false);
+        // A clock/date change can overtake a response before the midnight event.
+        if (!document.hidden && remembered() && (day !== core.localDay() || key !== remembered())) refresh();
+      }
+    }
+  }
+  picture.addEventListener('error',generic);
+  window.addEventListener('lw5-dog-clear',cancel);
+  window.addEventListener('storage', event => {
+    if (event.key === REMEMBER || event.key === null) { cancel(); refresh(); }
+  });
+  window.addEventListener('pageshow',refresh);
+  window.addEventListener('focus',refresh);
+  window.addEventListener('pagehide',cancel);
+  document.addEventListener('visibilitychange',()=>document.hidden ? cancel() : refresh());
   function midnight() {
     const next = new Date(); next.setHours(24,0,1,0);
     setTimeout(()=>{refresh();midnight();},Math.max(1000,next.getTime()-Date.now()));
   }
-  midnight(); refresh();
+  midnight();
+  // Defer the first read to pageshow so initial load events share one request.
+  if (document.readyState === 'complete') refresh();
 })();
