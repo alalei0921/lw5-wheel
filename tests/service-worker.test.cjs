@@ -83,6 +83,16 @@ test('assets are cached; APIs, writes, ranges and other origins never intercepte
   assert.equal(s.calls,1);
 });
 
+test('shared calendar routes and callback URLs bypass the offline cache',async()=>{
+  const s=setup();
+  await s.event('install');
+  assert(!s.installed.some(url=>url.includes('/dog-calendar')));
+  for(const url of ['dog-calendar','dog-calendar/','dog-calendar/?code=example','dog-calendar/records']) {
+    assert.equal(await s.event('fetch',s.request(url)),undefined);
+  }
+  assert.equal(s.calls,0);
+});
+
 test('the demo remains playable offline with full, partial and suffix byte reads',async()=>{
   const s=setup();
   const demo='assets/lights-film/demo-v1.mp4';

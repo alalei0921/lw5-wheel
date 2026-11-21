@@ -1,4 +1,4 @@
-const CACHE = 'lw5-home-v79-drawdown-shortcut';
+const CACHE = 'lw5-home-v80-dog-calendar';
 const DEMO_PAGE = './smart-home/lights-demo.html';
 const DEMO_VIDEO = './assets/lights-film/demo-v1.mp4';
 const ASSETS = [
@@ -156,6 +156,10 @@ self.addEventListener('fetch', (event) => {
 
   const scope = new URL(self.registration.scope);
   if (req.method !== 'GET' || url.origin !== scope.origin || !url.pathname.startsWith(scope.pathname) || url.pathname.includes('/api/')) return;
+  // The shared calendar handles its own authenticated reads and refreshes.
+  // Keep this whole route out of the home worker's offline cache.
+  const calendar = new URL('dog-calendar/', scope).pathname;
+  if (url.pathname === calendar.slice(0, -1) || url.pathname.startsWith(calendar)) return;
   const demo = new URL(DEMO_VIDEO, scope);
   if (url.pathname === demo.pathname) {
     event.respondWith(serveDemoVideo(req, demo.href));

@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="referrer" content="no-referrer">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src https://lrtglriomkxjxmxpzivj.supabase.co; form-action 'none'; base-uri 'none'; object-src 'none'">
+  <meta name="theme-color" content="#fbf8ee">
+  <title>狗狗日历 · LW &amp; 5</title>
+  <link rel="stylesheet" href="style.css">
+  <script src="app.js" defer></script>
+</head>
+<body>
+  <svg class="icon-library" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><defs>
+    <symbol id="i-paw" viewBox="0 0 32 32"><g fill="currentColor"><ellipse cx="5.9" cy="14" rx="3.25" ry="4.55" transform="rotate(-27 5.9 14)"/><ellipse cx="12" cy="7.6" rx="3.2" ry="4.7" transform="rotate(-11 12 7.6)"/><ellipse cx="20.1" cy="7.9" rx="3.2" ry="4.6" transform="rotate(12 20.1 7.9)"/><ellipse cx="26.3" cy="14.2" rx="3.1" ry="4.45" transform="rotate(27 26.3 14.2)"/><path d="M8.3 21.1c2.2-2.3 3.5-7 7.8-7 4.2 0 5.7 4.6 7.9 7 1.9 2.1 2.2 5.1.3 6.8-2.6 2.2-5.2-.2-8.2-.2s-5.7 2.4-8.1.3c-2-1.7-1.7-4.9.3-6.9Z"/></g></symbol>
+    <symbol id="i-gear" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="m9.4 3-.6 2.1-1.5.9-2.1-.5-2.4 4.2 1.5 1.5v1.7l-1.5 1.6 2.4 4.1 2-.5 1.6.9.6 2.1h4.9l.6-2.1 1.5-.9 2.1.5 2.4-4.1-1.5-1.6v-1.7l1.5-1.5-2.4-4.2-2.1.5-1.5-.9-.6-2.1z"/><circle cx="11.9" cy="12" r="3.2"/></g></symbol>
+    <symbol id="i-calendar" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="3.2" y="5.3" width="17.6" height="15.7" rx="3"/><path d="M7.5 3v4.4M16.5 3v4.4M3.7 10.3h16.6M8.1 14.8h2.4M8.1 17.8h.9"/></g></symbol>
+    <symbol id="i-left" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="m14.6 6.4-5.5 5.6 5.5 5.6"/></symbol>
+    <symbol id="i-right" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="m9.4 6.4 5.5 5.6-5.5 5.6"/></symbol>
+    <symbol id="i-down" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="m6.6 9.5 5.4 5.4 5.4-5.4"/></symbol>
+    <symbol id="i-drop" viewBox="0 0 24 24"><path d="M12 2.8s-6.4 7.8-6.4 12.1a6.4 6.4 0 1 0 12.8 0C18.4 10.6 12 2.8 12 2.8Z" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linejoin="round"/><path d="M9.1 15a3 3 0 0 0 2.9 3.1" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></symbol>
+  </defs></svg>
+  <main id="calendar-lock" class="lock-screen" aria-labelledby="lock-title">
+    <header class="lock-mast"><a href="../" class="brand lock-home" aria-label="返回 LW 和 5 首页"><span class="brand-mark"><svg aria-hidden="true"><use href="#i-paw"/></svg></span><span class="brand-name">LW <span>&amp;</span> 5</span></a></header>
+    <div class="lock-card paper">
+      <div class="lock-cover"><h1 id="lock-title">狗狗日历</h1></div>
+      <form id="login-form" class="lock-form" method="post" autocomplete="off">
+        <label for="login-key">专属日历口令</label>
+        <input id="login-key" type="password" required autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false" placeholder="粘贴你的日历口令">
+        <label class="lock-remember"><input id="remember-key" type="checkbox">在这台设备记住口令</label>
+        <p id="login-error" class="lock-feedback" role="status" aria-live="polite"></p>
+        <button id="login-submit" class="unlock-btn" type="submit"><svg aria-hidden="true"><use href="#i-paw"/></svg>打开日历</button>
+      </form>
+    </div>
+  </main>
+  <div id="calendar-app" hidden>
+  <header class="masthead">
+    <div class="masthead-inner">
+      <a href="../" class="brand lock-home" aria-label="返回 LW 和 5 首页"><span class="brand-mark"><svg aria-hidden="true"><use href="#i-paw"/></svg></span><span class="brand-name">LW <span>&amp;</span> 5</span><span class="brand-divider"></span><span class="brand-book">狗狗手帐</span></a>
+      <div class="header-actions">
+        <button id="period-btn" class="period-btn" type="button"><svg aria-hidden="true"><use href="#i-drop"/></svg><span id="period-text">设置我的周期</span></button>
+        <button type="button" id="settings-btn" class="settings-btn" aria-label="周期设置" title="周期设置"><svg aria-hidden="true"><use href="#i-gear"/></svg><span>周期设置</span></button>
+      </div>
+    </div>
+  </header>
+  <main class="workspace">
+    <section class="hero" aria-labelledby="page-title">
+      <div class="hero-art" aria-hidden="true"></div>
+      <div class="hero-copy">
+        <div class="hero-date"><svg aria-hidden="true"><use href="#i-calendar"/></svg><span id="hero-date"></span></div>
+        <h1 id="page-title">狗狗日历</h1>
+      </div>
+    </section>
+    <div class="journal-layout">
+      <section class="paper calendar-panel" aria-label="狗狗月历">
+        <div class="calendar-toolbar">
+          <div class="month-title"><button type="button" id="month-label" aria-label="选择年份和月份">月历</button><svg aria-hidden="true"><use href="#i-down"/></svg></div>
+          <div class="calendar-nav" aria-label="切换月份">
+            <button type="button" id="prev-month" aria-label="上个月" title="上个月"><svg aria-hidden="true"><use href="#i-left"/></svg></button>
+            <button type="button" id="today-btn">今天</button>
+            <button type="button" id="next-month" aria-label="下个月" title="下个月"><svg aria-hidden="true"><use href="#i-right"/></svg></button>
+          </div>
+        </div>
+        <div id="weekdays" class="weekdays"><span>周一</span><span>周二</span><span>周三</span><span>周四</span><span>周五</span><span>周六</span><span>周日</span></div>
+        <div id="calendar-grid" class="calendar-grid" role="group" aria-label="选择日期"></div>
+        <div class="calendar-footer"><div class="status-legend"><span><i class="legend-ring"></i>预计</span><span><i class="legend-solid"></i>已记</span></div><button type="button" id="demo-note" class="demo-note" hidden>示例预估</button><button type="button" class="demo-note" id="period-history" hidden>补记 / 更正开始日</button></div>
+      </section>
+      <section class="paper mood-panel" aria-labelledby="mood-title">
+        <span class="bookmark" aria-hidden="true"></span>
+        <header class="mood-heading"><svg aria-hidden="true"><use href="#i-paw"/></svg><h2 id="mood-title">当日手帐</h2></header>
+        <div class="day-summary" aria-live="polite">
+          <div class="summary-text"><div class="summary-date"><strong id="selected-date"></strong><span id="selected-weekday"></span></div><span id="selected-status"></span></div>
+          <div class="summary-portrait"><img id="selected-dog" alt="" src="assets/tired.webp" width="64" height="64"></div>
+        </div>
+        <div class="recorder-head"><span class="record-guide">点一只狗，记下状态</span><span class="future-guide">到了这一天，就可以记录状态</span><button type="button" class="undo-btn" id="undo-btn" hidden>清除记录</button></div>
+        <div id="mood-options" class="mood-options" role="group" aria-label="记录当天状态">
+          <button type="button" class="mood-option tired" data-mood="tired" aria-pressed="false"><img src="assets/tired.webp" alt="" width="58" height="58"><span><i></i>疲劳</span></button>
+          <button type="button" class="mood-option good" data-mood="good" aria-pressed="false"><img src="assets/good.webp" alt="" width="58" height="58"><span><i></i>好</span></button>
+          <button type="button" class="mood-option best" data-mood="best" aria-pressed="false"><img src="assets/best.webp" alt="" width="58" height="58"><span><i></i>最好</span></button>
+          <button type="button" class="mood-option grumpy" data-mood="grumpy" aria-pressed="false"><img src="assets/grumpy.webp" alt="" width="58" height="58"><span><i></i>暴躁</span></button>
+        </div>
+      </section>
+    </div>
+    <footer class="cloud-account" aria-label="日历同步与锁定">
+      <span id="sync-label" role="status" aria-live="polite"></span>
+      <button type="button" id="sync-btn">同步</button>
+      <span class="cloud-divider" aria-hidden="true"></span>
+      <button type="button" id="logout-btn">锁定</button>
+    </footer>
+  </main>
+  </div>
+</body>
+</html>
