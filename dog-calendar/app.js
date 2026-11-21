@@ -45,7 +45,7 @@
     return (date.getUTCMonth() + 1) + '月' + date.getUTCDate() + '日';
   }
   function initial() {
-    return { version: 2, personal: false, configured: false, customSpans: false, anchor: '', starts: [], spans: [...DEFAULT_SPANS], moods: {} };
+    return { version: 2, personal: false, configured: false, customSpans: false, anchor: '', starts: [], startSelectionVersion: 1, spans: [...DEFAULT_SPANS], moods: {} };
   }
   function validSpans(spans) {
     return Array.isArray(spans) && spans.length === 4 &&
@@ -58,20 +58,18 @@
         !data.moods || Array.isArray(data.moods) || typeof data.moods !== 'object') {
       throw new Error('云端数据格式异常，已停止写入。');
     }
-    const result = initial();
+    // Retain unrelated fields (for example notes) and the original history.
+    const result = { ...data, ...initial() };
     result.personal = data.personal === true;
-    const starts = Array.isArray(data.starts) ? data.starts.filter(validKey) : [];
-    if (validKey(data.anchor)) starts.push(data.anchor);
-    result.starts = [...new Set(starts)].sort();
-    result.anchor = result.starts.at(-1) || '';
+    // starts remains historical data, never the set of active calendar markers.
+    result.starts = data.starts.slice();
+    const latestHistorical = data.starts.filter(validKey).sort().at(-1) || '';
+    result.anchor = validKey(data.anchor) ? data.anchor :
+      data.startSelectionVersion === 1 && data.anchor === '' ? '' : latestHistorical;
     result.configured = data.configured === true;
     result.customSpans = data.customSpans === true;
     result.spans = data.spans.slice();
-    if (data.moods && typeof data.moods === 'object') {
-      for (const [key, mood] of Object.entries(data.moods)) {
-        if (validKey(key) && ORDER.includes(mood)) result.moods[key] = mood;
-      }
-    }
+    result.moods = { ...data.moods };
     return result;
   }
   // The server is the authority for calendar entries. Only a remembered key is stored locally.
@@ -214,7 +212,7 @@
     return 'rgb(' + channels.join(',') + ')';
   }
   function status(key, today) {
-    if (model.moods[key]) {
+    if (ORDER.includes(model.moods[key])) {
       const mood = M(model.moods[key]);
       return { mood, kind: 'logged', wash: mood.wash };
     }
@@ -254,7 +252,7 @@
     if (id('month-label')) id('month-label').setAttribute('aria-label', year + '年' + month + '月，选择年月');
     if (id('prev-month')) id('prev-month').disabled = monthKey === '1900-01';
     if (id('next-month')) id('next-month').disabled = monthKey === '9999-12';
-    const todayRecorded = model.starts.includes(today);
+    const todayRecorded = model.anchor === today;
     const cta = model.configured ? (todayRecorded ? '今日已记' : '月经来了') : '设置我的周期';
     setText('period-text', cta);
     id('period-btn')?.setAttribute('aria-label', todayRecorded ? '今天的月经开始日已记录' : cta);
@@ -305,7 +303,7 @@
         cell.style.setProperty('--day-color', info.mood.color);
         cell.style.setProperty('--day-wash', info.wash);
       }
-      if (model.starts.includes(key)) cell.classList.add('has-period-start');
+      if (model.anchor === key) cell.classList.add('has-period-start');
       if (key === today) {
         cell.classList.add('is-today');
         cell.setAttribute('aria-current', 'date');
@@ -314,7 +312,7 @@
       cell.setAttribute('aria-pressed', key === selected ? 'true' : 'false');
       cell.setAttribute('aria-label', date.getUTCFullYear() + '年' + titleDate(key) + '，' + weekday(key) +
         (key === today ? '，今天' : '') + (info ? '，' + statusLabel(info) : '') +
-        (model.starts.includes(key) ? '，月经第一天' : ''));
+        (model.anchor === key ? '，月经第一天' : ''));
       fragment.append(cell);
     }
     id('calendar-grid').replaceChildren(fragment);
@@ -322,7 +320,7 @@
     setText('selected-date', titleDate(selected));
     setText('selected-weekday', weekday(selected));
     const infoText = detail ? statusLabel(detail) : selected > today ? '暂无预计' : '未记录';
-    const hasStart = model.starts.includes(selected);
+    const hasStart = model.anchor === selected;
     setText('selected-status', hasStart ? infoText + ' · 月经第一天' : infoText);
     const recordHint = document.querySelector('.recorder-head > span');
     if (recordHint) recordHint.textContent = selected > today ? '未来日期可查看预计' : '点一只狗，记下状态';
@@ -500,75 +498,60 @@
       viewMonth(form.elements.year.valueAsNumber, Number(form.elements.month.value));
     });
   }
-  function replaceStart(data, oldKey, newKey) {
-    const starts = new Set(data.starts);
-    if (oldKey) starts.delete(oldKey);
-    if (newKey) starts.add(newKey);
-    data.starts = [...starts].sort();
-    data.anchor = data.starts.at(-1) || '';
+  function replaceStart(data, newKey) {
+    // Archive dates without deleting previous entries. Only anchor is active.
+    for (const key of [data.anchor, newKey]) {
+      if (validKey(key) && !data.starts.includes(key)) data.starts.push(key);
+    }
+    data.anchor = newKey;
+    data.startSelectionVersion = 1;
   }
 
-  async function saveStart(oldKey, newKey, baseRevision=revision) {
+  async function saveStart(newKey, baseRevision=revision) {
     if (baseRevision !== revision) return '日历已更新，请重新打开后再修改。';
-    const current = load();
-    if (oldKey && !current.starts.includes(oldKey)) return '这条记录已更改，请重新打开。';
-    if (oldKey && newKey && oldKey !== newKey && current.starts.includes(newKey)) return '这一天已有开始日记录。';
-    if (oldKey === newKey || (!oldKey && current.starts.includes(newKey))) {
+    const previous = load().anchor;
+    if (newKey === previous) {
       if (newKey) select(newKey);
       announce('这次开始日已经记好了');
       return '';
     }
-    if (!await change(data => { replaceStart(data, oldKey, newKey); },baseRevision)) return null;
+    if (!await change(data => { replaceStart(data, newKey); }, baseRevision)) return null;
+    const savedRevision = revision;
     if (newKey) select(newKey);
-    const message = newKey ? '已' + (oldKey ? '更正为' : '记下') + titleDate(newKey) + '开始' : '已移除这次开始日';
-    announce(message, async () => {
-      if(!await change(data => {
-        if (newKey && !data.starts.includes(newKey)) return false;
-        if (oldKey && data.starts.includes(oldKey)) return false;
-        replaceStart(data, newKey, oldKey);
-      })) return;
+    announce(newKey ? '已设为' + titleDate(newKey) + '开始' : '已清除当前开始日', async () => {
+      if (!await change(data => {
+        if (data.anchor !== newKey) return false;
+        replaceStart(data, previous);
+      }, savedRevision)) return;
       announce('已撤销这次修改');
     });
     return '';
   }
 
   function primaryPeriod() {
-    const current = load();
-    if (!current.configured) return openSettings();
-    return saveStart('', todayKey());
+    if (!load().configured) return openSettings();
+    return saveStart(todayKey());
   }
 
   function openPeriodHistory() {
     const current = load(), today = todayKey(), baseRevision=revision;
-    const previous = current.starts.slice().reverse();
-    const selectedStart = previous.includes(selected) ? selected : '';
-    const choices = previous.map(key => '<option value="' + key + '">' + key + '</option>').join('');
-    const fields = '<label>选择操作<select name="record"><option value="">补记一个开始日</option>' + choices + '</select></label>' +
-      '<label>月经第一天<input type="date" name="date" min="1900-01-01" max="' + today + '" required></label>' +
-      '<p class="dg-hint">可以补记过去的日期，也可以选择已有日期更正。最近的开始日用于更新日历。</p>' +
-      '<button type="button" class="dg-minor" hidden>移除这次开始日</button>';
-    const el = dialog('补记 / 更正开始日', fields, '保存日期', async (form, fail) => {
+    const fields = '<label>当前开始日<input type="date" name="date" min="1900-01-01" max="' + today +
+      '" value="' + current.anchor + '" required></label>' +
+      '<p class="dg-hint">只使用一个开始日。保存新日期会替换当前日期，也可以更正到更早的一天。</p>' +
+      '<button type="button" class="dg-minor"' + (current.anchor ? '' : ' hidden') + '>清除当前开始日</button>';
+    const el = dialog('设置 / 更正开始日', fields, '保存日期', async (form, fail) => {
       const key = form.elements.date.value;
       if (!validKey(key) || key > todayKey()) return fail('请选择今天或之前的日期。');
-      const error = await saveStart(form.elements.record.value, key, baseRevision);
-      if (error===null) return false;
+      const error = await saveStart(key, baseRevision);
+      if (error === null) return false;
       if (error) return fail(error);
     });
     if (!el) return;
-    const form = el.querySelector('form'), picker = form.elements.record, date = form.elements.date;
-    const remove = form.querySelector('.dg-minor');
-    picker.value = selectedStart;
-    const sync = () => {
-      date.value = picker.value || (selected < today ? selected : today);
-      remove.hidden = !picker.value;
-    };
-    picker.addEventListener('change', sync);
-    sync();
-    remove.addEventListener('click', async () => {
-      const error = await saveStart(picker.value, '',baseRevision);
-      if (error===null) return;
-      if (error) {reportEditFailure(error);return;}
-      if(el.open) el.close();
+    el.querySelector('.dg-minor').addEventListener('click', async () => {
+      const error = await saveStart('', baseRevision);
+      if (error === null) return;
+      if (error) { reportEditFailure(error); return; }
+      if (el.open) el.close();
     });
   }
 
@@ -580,7 +563,7 @@
       '" min="1" max="117" step="1" inputmode="numeric" value="' + spans[i] + '"' +
       (i === 0 || i === 3 ? ' readonly' : '') + '></label>').join('');
     const fields = '<label>最近一次月经哪天开始？<input type="date" name="date" min="1900-01-01" max="' +
-      today + '" value="' + original + '" required></label>' + (original ? '<p class="dg-hint">修改此日期会更正这次记录。</p>' : '') +
+      today + '" value="' + original + '" required></label>' + '<p class="dg-hint">只使用这个开始日，保存会替换原日期。</p>' +
       '<div class="dg-answers"><label>两次开始相隔几天？<input type="number" name="length" min="4" max="120" inputmode="numeric" step="1" required value="' +
       interval + '"></label><label>月经通常持续几天？<input type="number" name="bleed" min="1" max="117" step="1" inputmode="numeric" required value="' + spans[0] + '"></label></div>' +
       '<div class="dg-preview"><span class="dg-preview-label">四段日历配色</span><div class="dg-bar" aria-hidden="true"></div>' +
@@ -598,13 +581,12 @@
         return fail('请为每种颜色至少保留一天，并让总数等于周期间隔。');
       }
       const latest = load();
-      if (date !== original && original && !latest.starts.includes(original)) return fail('开始日已更改，请重新打开设置。');
-      if (date !== original && original && latest.starts.includes(date)) return fail('这一天已记录，请从“补记 / 更正开始日”修改历史。');
+      if (latest.anchor !== original) return fail('开始日已更改，请重新打开设置。');
       if (!await change(data => {
         data.configured = true;
         data.customSpans = custom;
         data.spans = chosen.slice();
-        if (date !== original) replaceStart(data, original, date);
+        replaceStart(data, date);
       }, baseRevision)) return false;
       select(todayKey());
       announce('已保存，以后点「月经来了」就能记录');

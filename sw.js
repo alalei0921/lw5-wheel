@@ -1,4 +1,4 @@
-const CACHE = 'lw5-home-v81-happy-calendar-banner';
+const CACHE = 'lw5-home-v82-single-calendar-start';
 const DEMO_PAGE = './smart-home/lights-demo.html';
 const DEMO_VIDEO = './assets/lights-film/demo-v1.mp4';
 const ASSETS = [
