@@ -118,6 +118,7 @@ async function islandFrame(page, base) {
 }
 async function openShell(page, base) {
   const before = await page.evaluate(() => history.length);
+  await page.locator('#toolboxLaunch').tap();
   await page.locator('#islandsOpen').tap();
   await page.locator('#toolOverlay.show').waitFor(); const frame = await islandFrame(page, base);
   assert.equal(new URL(page.url()).pathname, '/lw5-wheel/'); assert.equal(new URL(page.url()).hash, '#islands');
@@ -207,7 +208,7 @@ async function hostedChecks(page, base) {
 }
 
 async function uiChecks(page, base) {
-  await page.goto(base.href, { waitUntil: 'domcontentloaded' }); await page.locator('#islandsOpen').waitFor();
+  await page.goto(base.href, { waitUntil: 'domcontentloaded' }); await page.locator('#toolboxLaunch').waitFor();
   let frame = await openShell(page, base); await openRecord(frame, 'qa-integrated-a', 'QA 集成酒店甲');
   assert.equal(await frame.locator('#trip-start').inputValue(), '2024-05-01'); assert.equal(await frame.locator('#trip-end').inputValue(), '2024-05-05');
   assert.equal(await frame.locator('#subject-note').inputValue(), 'QA 酒店甲原备注'); assert.equal((await frame.locator('#value-scenery').textContent()).trim(), '2.5');

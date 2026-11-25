@@ -1,4 +1,4 @@
-const CACHE = 'lw5-home-v84-auto-dog-status';
+const CACHE = 'lw5-home-v85-toolbox';
 const DEMO_PAGE = './smart-home/lights-demo.html';
 const DEMO_VIDEO = './assets/lights-film/demo-v1.mp4';
 const ASSETS = [

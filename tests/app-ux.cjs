@@ -58,6 +58,7 @@ test('embedded tool opens despite a stalled cloud SDK; back restores home',async
     if(url.hostname==='cdn.jsdelivr.net'){sdkRoute=route;return true;}return false;
   }});
   await page.goto(origin+'/?visual-test=1',{waitUntil:'domcontentloaded'});
+  await page.locator('#toolboxLaunch').click();
   await page.locator('[data-tool="stock"]').click();
   await page.locator('#toolLoading').waitFor({state:'hidden'});
   assert.equal(await page.locator('#toolPanel').getAttribute('aria-busy'),'false');
@@ -195,6 +196,7 @@ test('nebula and loaded 3D wheel remain nonblank, fitted and interactive on phon
     if(process.env.SCREENSHOT_DIR)await page.screenshot({path:path.join(process.env.SCREENSHOT_DIR,`nebula-${viewport.width}.png`)});
     await page.locator('#nebulaBack').click();
     await page.waitForFunction(()=>window.lw5NebulaControl.mode==='mini');
+    await page.locator('#toolboxLaunch').click();
     await page.locator('[data-tool="wheel"]').click();
     await page.locator('#loadingMark').waitFor({state:'hidden',timeout:60000});
     assert.equal(await page.locator('#scene').getAttribute('data-detailed-assets'),'loaded');

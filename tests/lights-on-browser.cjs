@@ -199,13 +199,13 @@ test('bulb stays aligned above the pill, avoids other launchers, and modal is us
     try {
       await s.page.goto(s.base+'/?visual-test=1');
       await s.page.locator('#lightsOnLaunch').scrollIntoViewIfNeeded();
-      const boxes=await s.page.evaluate(()=>Object.fromEntries(['lightsOnLaunch','supplementLaunch','islandsOpen','elevatorLaunch'].map(id=>{
+      const boxes=await s.page.evaluate(()=>Object.fromEntries(['lightsOnLaunch','supplementLaunch','toolboxLaunch','elevatorLaunch'].map(id=>{
         const r=document.getElementById(id).getBoundingClientRect();return [id,{x:r.x,y:r.y,width:r.width,height:r.height,right:r.right,bottom:r.bottom}];
       })));
       const b=boxes.lightsOnLaunch,p=boxes.supplementLaunch;
       assert.equal(b.width,p.width);assert.equal(b.height,p.height);
       assert(Math.abs(b.x-p.x)<1);assert(Math.abs(p.y-b.bottom-12)<1);
-      for(const other of [p,boxes.islandsOpen,boxes.elevatorLaunch])assert(b.right<=other.x || b.x>=other.right || b.bottom<=other.y || b.y>=other.bottom);
+      for(const other of [p,boxes.toolboxLaunch,boxes.elevatorLaunch])assert(b.right<=other.x || b.x>=other.right || b.bottom<=other.y || b.y>=other.bottom);
       const geometry=await s.page.evaluate(()=>{
         const scroll=document.documentElement.scrollWidth;
         const added=[document.getElementById('lightsOnLaunch'),document.getElementById('lightsOnDialog')];
