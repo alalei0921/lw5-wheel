@@ -2,7 +2,7 @@
   'use strict';
 
   const REMEMBER_KEY = 'lw5.calendar.private-access.v1';
-  const {DAY,MOODS,PHASES,COLOR_NAMES,ORDER,DEFAULT_SPANS,autoSpans,pad,dayKey,keyDate,dayAfter,apart,dateAt,validKey,initial,validSpans,parseCloudState,localDay} = window.LW5CalendarCore;
+  const {DAY,MOODS,PHASES,COLOR_NAMES,ORDER,DEFAULT_SPANS,autoSpans,pad,dayKey,keyDate,dayAfter,apart,dateAt,validKey,validPeriodEnd,periodRecords,historyEstimate,initial,validSpans,parseCloudState,localDay} = window.LW5CalendarCore;
   const todayKey = localDay;
   function weekday(key) { return '星期' + '日一二三四五六'[keyDate(key).getUTCDay()]; }
   function titleDate(key) {
@@ -63,6 +63,7 @@
     id('selected-dog').removeAttribute('src'); id('selected-dog').alt=''; id('selected-dog').hidden=true;
     for(const btn of document.querySelectorAll('#mood-options [data-mood]')) {btn.classList.remove('is-active');btn.setAttribute('aria-pressed','false');}
     id('undo-btn').hidden=true; id('period-history').hidden=true;
+    if (id('period-actions')) id('period-actions').hidden=true;
     delete id('selected-status').dataset.mood;
     setText('month-label','月历');id('month-label').setAttribute('aria-label','选择年份和月份');
     setText('period-text','设置我的周期');id('period-btn').setAttribute('aria-label','设置我的周期');
@@ -152,6 +153,11 @@
     setText('period-text', cta);
     id('period-btn')?.setAttribute('aria-label', todayRecorded ? '今天的月经开始日已记录' : cta);
     if (id('period-history')) id('period-history').hidden = !model.configured;
+    const periods = periodRecords(model, today);
+    const ends = new Set(periods.map(period => period.end));
+    if (id('period-actions')) id('period-actions').hidden = !model.configured;
+    if (id('period-end-btn')) id('period-end-btn').disabled = !model.anchor;
+    setText('period-end-btn', periods.some(period => period.start === model.anchor) ? '更正经期结束日' : '记经期结束日');
     const note = id('demo-note');
     if (note) {
       note.hidden = model.personal;
@@ -199,6 +205,14 @@
         cell.style.setProperty('--day-wash', info.wash);
       }
       if (model.anchor === key) cell.classList.add('has-period-start');
+      if (ends.has(key)) {
+        cell.classList.add('has-period-end');
+        const endMarker = document.createElement('span');
+        endMarker.className = 'period-end-marker';
+        endMarker.textContent = '结束';
+        endMarker.setAttribute('aria-hidden', 'true');
+        cell.append(endMarker);
+      }
       if (key === today) {
         cell.classList.add('is-today');
         cell.setAttribute('aria-current', 'date');
@@ -207,7 +221,7 @@
       cell.setAttribute('aria-pressed', key === selected ? 'true' : 'false');
       cell.setAttribute('aria-label', date.getUTCFullYear() + '年' + titleDate(key) + '，' + weekday(key) +
         (key === today ? '，今天' : '') + (info ? '，' + statusLabel(info) : '') +
-        (model.anchor === key ? '，月经第一天' : ''));
+        (model.anchor === key ? '，月经第一天' : '') + (ends.has(key) ? '，经期结束日' : ''));
       fragment.append(cell);
     }
     id('calendar-grid').replaceChildren(fragment);
@@ -216,7 +230,10 @@
     setText('selected-weekday', weekday(selected));
     const infoText = detail ? statusLabel(detail) : selected > today ? '暂无预计' : '未记录';
     const hasStart = model.anchor === selected;
-    setText('selected-status', hasStart ? infoText + ' · 月经第一天' : infoText);
+    const actualPeriod = periods.find(period => selected >= period.start && selected <= period.end);
+    const periodLabel = ends.has(selected) ? '经期结束日' : actualPeriod ? '已记经期' : '';
+    setText('selected-status', [hasStart ? '月经第一天' : '', periodLabel,
+      actualPeriod && detail?.kind !== 'logged' ? '' : infoText].filter(Boolean).join(' · '));
     const recordHint = document.querySelector('.recorder-head > span');
     if (recordHint) recordHint.textContent = selected > today ? '未来日期可查看预计' : '点一只狗，记下状态';
     const options = [...document.querySelectorAll('#mood-options [data-mood]')];
@@ -432,7 +449,7 @@
     const current = load(), today = todayKey(), baseRevision=revision;
     const fields = '<label>当前开始日<input type="date" name="date" min="1900-01-01" max="' + today +
       '" value="' + current.anchor + '" required></label>' +
-      '<p class="dg-hint">只使用一个开始日。保存新日期会替换当前日期，也可以更正到更早的一天。</p>' +
+      '<p class="dg-hint">只使用一个当前开始日。更改开始日不会移动已有的起止记录；可在「经期记录」里更正结束日或清除该条起止记录。</p>' +
       '<button type="button" class="dg-minor"' + (current.anchor ? '' : ' hidden') + '>清除当前开始日</button>';
     const el = dialog('设置 / 更正开始日', fields, '保存日期', async (form, fail) => {
       const key = form.elements.date.value;
@@ -450,9 +467,68 @@
     });
   }
 
+  function openPeriodEnd(start=load().anchor) {
+    const current = load(), today = todayKey(), baseRevision = revision;
+    if (!validKey(start) || start > today) return;
+    const records = periodRecords(current, today);
+    const existing = records.find(period => period.start === start);
+    if (!existing && current.anchor !== start) return;
+    const next = [...records.map(period => period.start), current.anchor]
+      .filter(key => validKey(key) && key > start).sort()[0];
+    const bounds = [today];
+    if (apart(today, start) > 119) bounds.push(dayAfter(start, 119));
+    if (next) bounds.push(dayAfter(next, -1));
+    const max = bounds.sort()[0];
+    const initialDate = existing?.end || (selected >= start && selected <= max ? selected : max);
+    const fields = '<p class="dg-hint">开始日：' + start + '。请选择最后一天出血的日期，可以补记。自动配色会参考本次记录，手动配色不变。</p>' +
+      '<label>经期结束日<input type="date" name="end" min="' + start + '" max="' +
+      max + '" value="' + initialDate + '" required></label>' +
+      '<button type="button" class="dg-minor"' + (existing ? '' : ' hidden') + '>清除这条结束日</button>';
+    const el = dialog('记经期结束日', fields, '保存结束日', async (form, fail) => {
+      const end = form.elements.end.value;
+      if (!validPeriodEnd(start, end) || end > max || end > todayKey()) return fail('结束日应在开始日当天或之后，且不能是未来日期。');
+      // Each recorded period has one end; do not allow actual periods to overlap.
+      if (records.some(p => p.start !== start && start <= p.end && p.start <= end))
+        return fail('与已有经期记录重叠，请先核对历史日期。');
+      if (existing?.end === end) return;
+      if (!await change(data => { data.periodEnds[start] = end; }, baseRevision)) return false;
+      select(end);
+      announce('已记经期结束日：' + titleDate(end));
+    });
+    if (!el || !existing) return;
+    el.querySelector('.dg-minor').addEventListener('click', async () => {
+      if (!await change(data => { delete data.periodEnds[start]; }, baseRevision)) return;
+      if (el.open) el.close();
+      announce('已清除这条结束日');
+    });
+  }
+
+  function openPeriodRecords() {
+    const today = todayKey(), current = load();
+    const records = periodRecords(current, today), estimate = historyEstimate(current, today);
+    const guidance = estimate
+      ? '近期 ' + estimate.samples + ' 个周期间隔：约 ' + estimate.cycle + ' 天；通常出血约 ' + estimate.bleed +
+        ' 天。可在「周期设置」手动套用。'
+      : '积累至少四次起止完整、间隔可用的记录后，才能生成历史建议。';
+    const entries = records.map(({start,end,days}) => '<li><div>' + start + ' 至 ' + end +
+      '（' + days + ' 天）</div><button type="button" class="dg-auto" data-period-start="' + start +
+      '">更正或清除结束日</button></li>').join('');
+    const el = dialog('经期记录', '<p class="dg-hint">' + guidance +
+      '</p>' + (entries ? '<ul class="dg-period-list">' + entries + '</ul>' : '<p class="dg-hint">还没有完整的起止记录。</p>') +
+      '<p class="dg-hint">日历颜色只是预计，不能用来确定排卵、黄体期或避孕。</p>', '关闭记录', () => {});
+    if (!el) return;
+    el.querySelector('.dg-period-list')?.addEventListener('click', event => {
+      const start = event.target.closest('button[data-period-start]')?.dataset.periodStart;
+      if (!start) return;
+      el.addEventListener('close', () => openPeriodEnd(start), {once:true});
+      el.close();
+    });
+  }
+
   function openSettings() {
     const today = todayKey(), current = load(), original = current.anchor, spans = current.spans, baseRevision=revision;
     const interval = spans.reduce((a,b) => a+b);
+    const guess = historyEstimate(current, today);
     const dayInputs = MOODS.map((mood, i) => '<label><span><i style="--tone:' + mood.color + '"></i>' +
       COLOR_NAMES[i] + '</span><input type="number" aria-label="' + COLOR_NAMES[i] + '色天数" name="' + mood.id +
       '" min="1" max="117" step="1" inputmode="numeric" value="' + spans[i] + '"' +
@@ -461,6 +537,8 @@
       today + '" value="' + original + '" required></label>' + '<p class="dg-hint">只使用这个开始日，保存会替换原日期。</p>' +
       '<div class="dg-answers"><label>两次开始相隔几天？<input type="number" name="length" min="4" max="120" inputmode="numeric" step="1" required value="' +
       interval + '"></label><label>月经通常持续几天？<input type="number" name="bleed" min="1" max="117" step="1" inputmode="numeric" required value="' + spans[0] + '"></label></div>' +
+      (guess ? '<p class="dg-hint">近期记录建议：周期间隔约 ' + guess.cycle + ' 天，出血约 ' + guess.bleed +
+        ' 天。<button type="button" class="dg-auto dg-history-apply">套用历史建议</button></p>' : '') +
       '<div class="dg-preview"><span class="dg-preview-label">四段日历配色</span><div class="dg-bar" aria-hidden="true"></div>' +
       '<div class="dg-summary" aria-live="polite"></div></div>' +
       '<details class="dg-details"><summary>微调配色天数</summary><div class="dg-spans">' + dayInputs +
@@ -535,7 +613,10 @@
     bleed.addEventListener('input', refreshAuto);
     inputs[1].addEventListener('input', adjust);
     inputs[2].addEventListener('input', adjust);
-    form.querySelector('.dg-auto').addEventListener('click', refreshAuto);
+    form.querySelector('.dg-custom-help .dg-auto').addEventListener('click', refreshAuto);
+    form.querySelector('.dg-history-apply')?.addEventListener('click', () => {
+      length.value = guess.cycle; bleed.value = guess.bleed; refreshAuto();
+    });
     preview();
   }
 
@@ -548,6 +629,8 @@
   listen('demo-note', 'click', openSettings);
   listen('period-btn', 'click', primaryPeriod);
   listen('period-history', 'click', openPeriodHistory);
+  listen('period-end-btn', 'click', () => openPeriodEnd());
+  listen('period-records-btn', 'click', openPeriodRecords);
   listen('undo-btn', 'click', clearMood);
   listen('mood-options', 'click', event => {
     const option = event.target.closest('button[data-mood]');

@@ -37,3 +37,112 @@ test('outdated dialog and undo cannot overwrite a newer synced selection',async(
 test('late read and old-client multi-date save cannot reintroduce two visible starts',async()=>scenario(async({page,cloud,delayRead})=>{const p=await page();const old=delayRead();await p.locator('#sync-btn').click();await old.seen;await setDate(p,'2026-11-02');old.release();await p.waitForTimeout(40);await marked(p,'2026-11-02');cloud.revision++;cloud.state={...fixture(),anchor:'2026-11-15'};delete cloud.state.startSelectionVersion;await sync(p);await marked(p,'2026-11-15');await setDate(p,'2026-11-01');assert.equal(cloud.state.anchor,'2026-11-01');assert.deepEqual(cloud.state.starts,fixture().starts);}));
 
 test('first-time settings creates only one current date',async()=>scenario(async({page,cloud})=>{const p=await page();await p.locator('dialog input[name=date]').fill('2026-11-09');await p.locator('dialog .dg-btn').click();await p.locator('dialog').waitFor({state:'detached'});await marked(p,'2026-11-09');assert.equal(cloud.state.anchor,'2026-11-09');assert.deepEqual(cloud.state.starts,['2026-11-09']);await p.locator('#period-btn').click();await marked(p,'2026-11-21');await undo(p);await marked(p,'2026-11-09');},null));
+
+async function setEnd(p, date) {
+  await p.locator('#period-end-btn').click();
+  await p.locator('dialog input[name=end]').fill(date);
+  await p.locator('dialog .dg-btn').click();
+  await p.locator('dialog').waitFor({state:'detached'});
+  await p.locator('[data-date="'+date+'"].has-period-end').waitFor();
+}
+
+test('last bleeding day can be backfilled, corrected, synced and kept after moving the active start',async()=>scenario(async({page,cloud,writes})=>{
+  const old=clone(cloud.state), p=await page(), q=await page();
+  await p.locator('#period-end-btn').click();
+  for (const impossible of ['2026-11-09','2026-11-22']) {
+    await p.locator('dialog input[name=end]').fill(impossible);
+    await p.locator('dialog .dg-btn').click();
+    assert.equal(writes.length,0);
+  }
+  await p.locator('dialog .dg-x').click();
+  await setEnd(p,'2026-11-14');
+  assert.match(await p.locator('#selected-status').innerText(),/经期结束日/);
+  assert(!/预计/.test(await p.locator('#selected-status').innerText()));
+  assert.deepEqual(cloud.state.periodEnds,{'2026-11-10':'2026-11-14'});
+  assert.deepEqual(cloud.state.spans,old.spans);
+  await sync(q);
+  await q.locator('[data-date="2026-11-14"].has-period-end').waitFor();
+  await setEnd(p,'2026-11-15');
+  assert.equal(await p.locator('[data-date="2026-11-14"].has-period-end').count(),0);
+  assert.deepEqual(cloud.state.periodEnds,{'2026-11-10':'2026-11-15'});
+  await p.locator('#period-btn').click();
+  await marked(p,'2026-11-21');
+  await setEnd(p,'2026-11-21');
+  assert.deepEqual(cloud.state.periodEnds,{'2026-11-10':'2026-11-15','2026-11-21':'2026-11-21'});
+  retained(cloud.state,old);
+  await p.reload();
+  await p.locator('#calendar-app').waitFor({state:'visible'});
+  await p.locator('#period-records-btn').click();
+  assert.match(await p.locator('dialog').innerText(),/2026-11-10 至 2026-11-15（6 天）/);
+  await p.locator('dialog [data-period-start="2026-11-10"]').click();
+  await p.locator('dialog .dg-minor').click();
+  await p.locator('dialog').waitFor({state:'detached'});
+  assert.deepEqual(cloud.state.periodEnds,{'2026-11-21':'2026-11-21'});
+  await p.locator('#logout-btn').click();
+  assert.equal(await p.locator('#period-actions').isVisible(),false);
+  assert.equal(await p.locator('.has-period-end').count(),0);
+}));
+
+test('an already saved end is compatible with legacy data and stale writes cannot overwrite the newer date',async()=>scenario(async({page,cloud,writes})=>{
+  const p=await page(),q=await page();
+  await q.locator('#period-end-btn').click();
+  await q.locator('dialog input[name=end]').fill('2026-11-13');
+  await setEnd(p,'2026-11-14');
+  await q.locator('dialog .dg-btn').click();
+  await q.waitForFunction(()=>document.querySelector('.dg-error')?.textContent.includes('另一台设备'));
+  assert.deepEqual(cloud.state.periodEnds,{'2026-11-10':'2026-11-14'});
+  await q.locator('dialog .dg-x').click();
+  await setEnd(q,'2026-11-15');
+  assert.deepEqual(cloud.state.periodEnds,{'2026-11-10':'2026-11-15'});
+  assert.equal(writes.length,3);
+}));
+
+test('history ignores legacy corrections and missing-cycle gaps and only applies after deliberate settings save',async()=>{
+  const f=fixture();
+  f.customSpans=true; f.spans=[5,10,3,10];
+  f.periodEnds={
+    '2026-06-10':'2026-06-13','2026-08-10':'2026-08-13',
+    '2026-09-10':'2026-09-13','2026-10-10':'2026-10-13','2026-11-10':'2026-11-13',
+    '2026-11-25':'2026-11-27','2026-10-30':'invalid'
+  };
+  await scenario(async({page,cloud,writes})=>{
+    const p=await page();
+    await p.locator('#settings-btn').click();
+    assert.match(await p.locator('dialog').innerText(),/周期间隔约 31 天，出血约 4 天/);
+    assert.equal(await p.locator('dialog input[name=length]').inputValue(),'28');
+    await p.locator('dialog .dg-history-apply').click();
+    assert.equal(await p.locator('dialog input[name=length]').inputValue(),'31');
+    assert.equal(await p.locator('dialog input[name=bleed]').inputValue(),'4');
+    assert.equal(writes.length,0);
+    await p.locator('dialog .dg-x').click();
+    await p.locator('#settings-btn').click();
+    assert.equal(await p.locator('dialog input[name=length]').inputValue(),'28');
+    await p.locator('dialog .dg-history-apply').click();
+    await p.locator('dialog .dg-btn').click();
+    await p.locator('dialog').waitFor({state:'detached'});
+    assert.equal(cloud.state.spans.reduce((a,b)=>a+b,0),31);
+    assert.equal(cloud.state.spans[0],4);
+    assert.equal(cloud.state.customSpans,false);
+    assert.deepEqual(cloud.state.periodEnds,f.periodEnds);
+  },f);
+  delete f.periodEnds['2026-08-10'];
+  await scenario(async({page})=>{
+    const p=await page();await p.locator('#settings-btn').click();
+    assert.equal(await p.locator('dialog .dg-history-apply').count(),0);
+  },f);
+});
+
+test('actual end adjusts this cycle automatic colors without changing manual or future defaults',async()=>{
+  for(const custom of [false,true]) {
+    const f=fixture(); f.anchor='2026-11-20'; f.customSpans=custom;
+    await scenario(async({page,cloud})=>{
+      const p=await page();
+      assert.equal(await p.locator('[data-date="2026-11-22"]').getAttribute('data-tone'),'tired');
+      await setEnd(p,'2026-11-21');
+      assert.equal(await p.locator('[data-date="2026-11-22"]').getAttribute('data-tone'),custom?'tired':'good');
+      assert.deepEqual(cloud.state.spans,f.spans);
+      await p.locator('#next-month').click();
+      assert.equal(await p.locator('[data-date="2026-12-18"]').getAttribute('data-tone'),'tired');
+    },f);
+  }
+});

@@ -142,3 +142,11 @@ svg{display:block;width:1em;height:1em;flex-shrink:0}
 .cloud-divider{width:1px;height:13px;background:#d3cfbe;flex:0 0 1px}
 #sync-label{margin-right:auto}
 @media(max-width:480px){.lock-mast{width:calc(100% - 38px);min-height:56px}.lock-card{margin-top:clamp(15px,6vh,55px)}.lock-cover{min-height:128px}.lock-form{padding:20px}.cloud-account{gap:6px}}
+
+.period-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+.period-actions[hidden]{display:none}
+.period-actions button{min-height:42px;padding:7px 13px;border:1px solid #d6b9a8;border-radius:12px;background:#fbede3;color:#704837;font:inherit;font-weight:620;cursor:pointer}
+.period-actions button:disabled{opacity:.56;cursor:default}
+.period-end-marker{position:absolute;right:4px;bottom:4px;color:#844b49;font-size:.58rem;font-weight:700;line-height:1}
+.dog-dialog .dg-period-list{display:grid;gap:8px;list-style:none;padding:0;margin:0}
+.dog-dialog .dg-period-list li{padding:9px 11px;background:#f7ecdf;border-radius:10px}
