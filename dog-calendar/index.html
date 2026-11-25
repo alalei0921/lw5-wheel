@@ -7,10 +7,11 @@
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src https://lrtglriomkxjxmxpzivj.supabase.co; form-action 'none'; base-uri 'none'; object-src 'none'">
   <meta name="theme-color" content="#fbf8ee">
   <title>狗狗日历 · LW &amp; 5</title>
-  <link rel="stylesheet" href="style.css?v=86">
-  <script src="../shared/dog-calendar-core-v2.js?v=86" defer></script>
+  <link rel="stylesheet" href="style.css?v=87">
+  <script src="../shared/dog-calendar-core-v3.js?v=87" defer></script>
   <script src="../shared/dog-status-v1.js?v=84" defer></script>
-  <script src="app.js?v=86" defer></script>
+  <script src="period-sharing.js?v=87" defer></script>
+  <script src="app.js?v=87" defer></script>
 </head>
 <body>
   <svg class="icon-library" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><defs>
@@ -68,6 +69,7 @@
         <div id="period-actions" class="period-actions" hidden>
           <button type="button" id="period-end-btn">记经期结束日</button>
           <button type="button" id="period-records-btn">经期记录</button>
+          <button type="button" id="share-periods-btn">导出日期给银月</button>
         </div>
         <div class="calendar-footer"><div class="status-legend"><span><i class="legend-ring"></i>预计</span><span><i class="legend-solid"></i>已记</span></div><button type="button" id="demo-note" class="demo-note" hidden>示例预估</button><button type="button" class="demo-note" id="period-history" hidden>设置 / 更正开始日</button></div>
       </section>

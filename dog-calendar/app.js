@@ -2,7 +2,7 @@
   'use strict';
 
   const REMEMBER_KEY = 'lw5.calendar.private-access.v1';
-  const {DAY,MOODS,PHASES,COLOR_NAMES,ORDER,DEFAULT_SPANS,autoSpans,pad,dayKey,keyDate,dayAfter,apart,dateAt,validKey,validPeriodEnd,periodRecords,historyEstimate,initial,validSpans,parseCloudState,localDay} = window.LW5CalendarCore;
+  const {DAY,MOODS,PHASES,COLOR_NAMES,ORDER,DEFAULT_SPANS,autoSpans,pad,dayKey,keyDate,dayAfter,apart,dateAt,validKey,validPeriodEnd,periodRecords,normalizeEpisodes,episodeRecords,episodeEditProblem,historyEstimate,initial,validSpans,parseCloudState,localDay} = window.LW5CalendarCore;
   const todayKey = localDay;
   function weekday(key) { return '星期' + '日一二三四五六'[keyDate(key).getUTCDay()]; }
   function titleDate(key) {
@@ -50,6 +50,7 @@
     else announce(message);
   }
   function lockCalendar(message = '', forget = true) {
+    window.LW5Share?.close();
     window.LW5DogStatus?.clear();
     epoch++; readSerial++;
     for (const controller of controllers) controller.abort();
@@ -410,67 +411,92 @@
       viewMonth(form.elements.year.valueAsNumber, Number(form.elements.month.value));
     });
   }
-  function replaceStart(data, newKey) {
-    // Archive dates without deleting previous entries. Only anchor is active.
+  // Old clients use anchor for the one active calendar marker. starts[] is
+  // kept as an audit-compatible legacy field, never as episode evidence.
+  function replaceAnchor(data, newKey) {
     for (const key of [data.anchor, newKey]) {
       if (validKey(key) && !data.starts.includes(key)) data.starts.push(key);
     }
-    data.anchor = newKey;
-    data.startSelectionVersion = 1;
+    data.anchor=newKey; data.startSelectionVersion=1;
+    delete data.episodeUnconfirmedAnchor;
   }
-
-  async function saveStart(newKey, baseRevision=revision) {
-    if (baseRevision !== revision) return '日历已更新，请重新打开后再修改。';
-    const previous = load().anchor;
-    if (newKey === previous) {
-      if (newKey) select(newKey);
-      announce('这次开始日已经记好了');
-      return '';
+  function periodSnapshot(data) {
+    return JSON.parse(JSON.stringify({anchor:data.anchor,periodEpisodes:data.periodEpisodes,periodEnds:data.periodEnds,
+      episodeUnconfirmedAnchor:data.episodeUnconfirmedAnchor}));
+  }
+  function restorePeriods(data, before) {
+    replaceAnchor(data,before.anchor);
+    data.periodEpisodes=before.periodEpisodes; data.periodEnds=before.periodEnds;
+    if (before.episodeUnconfirmedAnchor) data.episodeUnconfirmedAnchor=before.episodeUnconfirmedAnchor;
+  }
+  function modifyStart(data, key, mode, original, today) {
+    const rows=normalizeEpisodes(data), row=rows.find(r=>r.start===original);
+    if (mode==='clear') {
+      if (!original || original !== data.anchor) return '当前开始日已更改，请重新打开。';
+      // A completed record remains visible in history when its current marker is cleared.
+      if (row && !row.end) rows.splice(rows.indexOf(row),1);
+      data.periodEpisodes=rows; replaceAnchor(data,''); return '';
     }
-    if (!await change(data => { replaceStart(data, newKey); }, baseRevision)) return null;
-    const savedRevision = revision;
+    const correcting=mode==='correct' && row;
+    const error=episodeEditProblem(data,correcting ? row.id : '',key,correcting ? row.end : '',today);
+    if (error) return error;
+    if (correcting) {
+      if (row.start !== key && row.end) { delete data.periodEnds[row.start]; data.periodEnds[key]=row.end; }
+      row.start=key;
+    } else {
+      rows.push({id:crypto.randomUUID(),start:key,end:null});
+    }
+    data.periodEpisodes=rows;
+    if ((mode==='correct' && original===data.anchor) || !data.anchor || (mode==='new' && key>data.anchor)) replaceAnchor(data,key);
+    else if (!data.starts.includes(key)) data.starts.push(key);
+    return '';
+  }
+  async function saveStart(newKey, baseRevision=revision, mode='correct', original=load().anchor) {
+    if (baseRevision !== revision) return '日历已更新，请重新打开后再修改。';
+    const before=periodSnapshot(load());
+    if (newKey && newKey===original && original===load().anchor && load().episodeUnconfirmedAnchor!==original) {
+      select(newKey);announce('这次开始日已经记好了');return '';
+    }
+    const draft=JSON.parse(JSON.stringify(load())), error=modifyStart(draft,newKey,mode,original,todayKey());
+    if (error) return error;
+    if (!await change(data=>{Object.assign(data,draft);if(!('episodeUnconfirmedAnchor' in draft))delete data.episodeUnconfirmedAnchor;},baseRevision)) return null;
+    const savedRevision=revision;
     if (newKey) select(newKey);
-    announce(newKey ? '已设为' + titleDate(newKey) + '开始' : '已清除当前开始日', async () => {
-      if (!await change(data => {
-        if (data.anchor !== newKey) return false;
-        replaceStart(data, previous);
-      }, savedRevision)) return;
+    announce(mode==='clear' ? '已清除当前开始日' : (mode==='new' ? '已新增一次经期：' : '已更正本次开始日：') + titleDate(newKey),async()=>{
+      if (!await change(data=>{restorePeriods(data,before);},savedRevision)) return;
       announce('已撤销这次修改');
     });
     return '';
   }
-
-  function primaryPeriod() {
+  async function primaryPeriod() {
     if (!load().configured) return openSettings();
-    return saveStart(todayKey());
+    const error=await saveStart(todayKey(),revision,'new');
+    if (error) announce(error);
   }
-
-  function openPeriodHistory() {
-    const current = load(), today = todayKey(), baseRevision=revision;
-    const fields = '<label>当前开始日<input type="date" name="date" min="1900-01-01" max="' + today +
-      '" value="' + current.anchor + '" required></label>' +
-      '<p class="dg-hint">只使用一个当前开始日。更改开始日不会移动已有的起止记录；可在「经期记录」里更正结束日或清除该条起止记录。</p>' +
-      '<button type="button" class="dg-minor"' + (current.anchor ? '' : ' hidden') + '>清除当前开始日</button>';
-    const el = dialog('设置 / 更正开始日', fields, '保存日期', async (form, fail) => {
-      const key = form.elements.date.value;
-      if (!validKey(key) || key > todayKey()) return fail('请选择今天或之前的日期。');
-      const error = await saveStart(key, baseRevision);
-      if (error === null) return false;
+  function openPeriodHistory(original=load().anchor, mode='correct') {
+    const current=load(),today=todayKey(),baseRevision=revision,adding=mode==='new',active=original===current.anchor;
+    const fields='<label>'+(adding?'另一次开始日':'本次开始日')+'<input type="date" name="date" min="1900-01-01" max="'+today+
+      '" value="'+(adding ? '' : original)+'" required></label>'+
+      '<p class="dg-hint">'+(adding?'每次只记录一个开始日。上一次忘记填结束也没关系，可随时单独补记。':'这是更正同一次经期，不会新增记录；已填的结束日仍属于这一次。')+'</p>'+
+      '<button type="button" class="dg-minor"'+(!adding && active && original ? '' : ' hidden')+'>清除当前开始日</button>';
+    const el=dialog(adding?'补记另一次经期':(original?'更正这次开始日':'设置开始日'),fields,adding?'新增记录':'保存日期',async(form,fail)=>{
+      const error=await saveStart(form.elements.date.value,baseRevision,mode,adding?'':original);
+      if (error===null) return false;
       if (error) return fail(error);
     });
     if (!el) return;
-    el.querySelector('.dg-minor').addEventListener('click', async () => {
-      const error = await saveStart('', baseRevision);
-      if (error === null) return;
-      if (error) { reportEditFailure(error); return; }
-      if (el.open) el.close();
+    el.querySelector('.dg-minor').addEventListener('click',async()=>{
+      const error=await saveStart('',baseRevision,'clear',original);
+      if(error===null) return;
+      if(error) return reportEditFailure(error);
+      if(el.open) el.close();
     });
   }
 
   function openPeriodEnd(start=load().anchor) {
     const current = load(), today = todayKey(), baseRevision = revision;
     if (!validKey(start) || start > today) return;
-    const records = periodRecords(current, today);
+    const records = episodeRecords(current, today);
     const existing = records.find(period => period.start === start);
     if (!existing && current.anchor !== start) return;
     const next = [...records.map(period => period.start), current.anchor]
@@ -483,21 +509,26 @@
     const fields = '<p class="dg-hint">开始日：' + start + '。请选择最后一天出血的日期，可以补记。自动配色会参考本次记录，手动配色不变。</p>' +
       '<label>经期结束日<input type="date" name="end" min="' + start + '" max="' +
       max + '" value="' + initialDate + '" required></label>' +
-      '<button type="button" class="dg-minor"' + (existing ? '' : ' hidden') + '>清除这条结束日</button>';
+      '<button type="button" class="dg-minor"' + (existing?.end ? '' : ' hidden') + '>清除这条结束日</button>';
     const el = dialog('记经期结束日', fields, '保存结束日', async (form, fail) => {
       const end = form.elements.end.value;
       if (!validPeriodEnd(start, end) || end > max || end > todayKey()) return fail('结束日应在开始日当天或之后，且不能是未来日期。');
-      // Each recorded period has one end; do not allow actual periods to overlap.
-      if (records.some(p => p.start !== start && start <= p.end && p.start <= end))
-        return fail('与已有经期记录重叠，请先核对历史日期。');
+      const issue=episodeEditProblem(current,existing?.id || '',start,end,todayKey());
+      if (issue) return fail(issue);
       if (existing?.end === end) return;
-      if (!await change(data => { data.periodEnds[start] = end; }, baseRevision)) return false;
+      if (!await change(data=>{
+        const rows=normalizeEpisodes(data,start===data.episodeUnconfirmedAnchor ? '' : data.anchor);
+        let row=rows.find(r=>r.start===start);
+        if(!row) {row={id:crypto.randomUUID(),start,end:null}; rows.push(row);}
+        if(data.episodeUnconfirmedAnchor===start) delete data.episodeUnconfirmedAnchor;
+        row.end=end; data.periodEnds[start]=end; data.periodEpisodes=rows;
+      },baseRevision)) return false;
       select(end);
       announce('已记经期结束日：' + titleDate(end));
     });
-    if (!el || !existing) return;
+    if (!el || !existing?.end) return;
     el.querySelector('.dg-minor').addEventListener('click', async () => {
-      if (!await change(data => { delete data.periodEnds[start]; }, baseRevision)) return;
+      if (!await change(data => {const rows=normalizeEpisodes(data);const row=rows.find(r=>r.start===start);if(!row) return false;row.end=null;delete data.periodEnds[start];data.periodEpisodes=rows;},baseRevision)) return;
       if (el.open) el.close();
       announce('已清除这条结束日');
     });
@@ -505,23 +536,25 @@
 
   function openPeriodRecords() {
     const today = todayKey(), current = load();
-    const records = periodRecords(current, today), estimate = historyEstimate(current, today);
-    const guidance = estimate
-      ? '近期 ' + estimate.samples + ' 个周期间隔：约 ' + estimate.cycle + ' 天；通常出血约 ' + estimate.bleed +
-        ' 天。可在「周期设置」手动套用。'
-      : '积累至少四次起止完整、间隔可用的记录后，才能生成历史建议。';
-    const entries = records.map(({start,end,days}) => '<li><div>' + start + ' 至 ' + end +
-      '（' + days + ' 天）</div><button type="button" class="dg-auto" data-period-start="' + start +
-      '">更正或清除结束日</button></li>').join('');
-    const el = dialog('经期记录', '<p class="dg-hint">' + guidance +
-      '</p>' + (entries ? '<ul class="dg-period-list">' + entries + '</ul>' : '<p class="dg-hint">还没有完整的起止记录。</p>') +
-      '<p class="dg-hint">日历颜色只是预计，不能用来确定排卵、黄体期或避孕。</p>', '关闭记录', () => {});
+    const records=episodeRecords(current,today), estimate=historyEstimate(current,today);
+    const guidance=estimate
+      ? '近期 '+estimate.samples+' 个周期间隔：约 '+estimate.cycle+' 天；通常出血约 '+estimate.bleed+' 天。可在「周期设置」手动套用。'
+      : '逐次保存实际日期。没有填结束日的会留在这里，不会自动补齐。';
+    const entries=records.map(({start,end,days})=>'<li><div>'+start+(end?' 至 '+end+'（'+days+' 天）':' 开始 · 结束日待补')+
+      '</div><div class="dg-record-actions"><button type="button" class="dg-auto" data-correct-start="'+start+'">更正开始日</button>'+
+      '<button type="button" class="dg-auto" data-period-start="'+start+'">'+(end?'更正或清除结束日':'补记这次结束日')+'</button></div></li>').join('');
+    const el=dialog('经期记录','<p class="dg-hint">'+guidance+'</p>'+
+      (entries?'<ul class="dg-period-list">'+entries+'</ul>':'<p class="dg-hint">还没有经期记录。</p>')+
+      '<button type="button" class="dg-auto dg-add-period">＋ 补记另一次开始</button>'+
+      '<p class="dg-hint">日历颜色只是预计，不能用来确定排卵、黄体期或避孕。</p>','关闭记录',()=>{});
     if (!el) return;
-    el.querySelector('.dg-period-list')?.addEventListener('click', event => {
-      const start = event.target.closest('button[data-period-start]')?.dataset.periodStart;
-      if (!start) return;
-      el.addEventListener('close', () => openPeriodEnd(start), {once:true});
-      el.close();
+    el.addEventListener('click',event=>{
+      const b=event.target.closest('button');if(!b) return;
+      let next;
+      if(b.dataset.periodStart) next=()=>openPeriodEnd(b.dataset.periodStart);
+      else if(b.dataset.correctStart) next=()=>openPeriodHistory(b.dataset.correctStart);
+      else if(b.classList.contains('dg-add-period')) next=()=>openPeriodHistory('','new');
+      if(next) {el.addEventListener('close',()=>{if(accessKey) next();},{once:true});el.close();}
     });
   }
 
@@ -534,7 +567,7 @@
       '" min="1" max="117" step="1" inputmode="numeric" value="' + spans[i] + '"' +
       (i === 0 || i === 3 ? ' readonly' : '') + '></label>').join('');
     const fields = '<label>最近一次月经哪天开始？<input type="date" name="date" min="1900-01-01" max="' +
-      today + '" value="' + original + '" required></label>' + '<p class="dg-hint">只使用这个开始日，保存会替换原日期。</p>' +
+      today + '" value="' + original + '" required></label>' + '<p class="dg-hint">修改日期会更正这次经期；要补记另一次，请去「经期记录」。</p>' +
       '<div class="dg-answers"><label>两次开始相隔几天？<input type="number" name="length" min="4" max="120" inputmode="numeric" step="1" required value="' +
       interval + '"></label><label>月经通常持续几天？<input type="number" name="bleed" min="1" max="117" step="1" inputmode="numeric" required value="' + spans[0] + '"></label></div>' +
       (guess ? '<p class="dg-hint">近期记录建议：周期间隔约 ' + guess.cycle + ' 天，出血约 ' + guess.bleed +
@@ -555,11 +588,14 @@
       }
       const latest = load();
       if (latest.anchor !== original) return fail('开始日已更改，请重新打开设置。');
+      const draft=JSON.parse(JSON.stringify(latest));
+      const issue=modifyStart(draft,date,'correct',original,todayKey());
+      if (issue) return fail(issue);
       if (!await change(data => {
+        Object.assign(data,draft);if(!('episodeUnconfirmedAnchor' in draft))delete data.episodeUnconfirmedAnchor;
         data.configured = true;
         data.customSpans = custom;
         data.spans = chosen.slice();
-        replaceStart(data, date);
       }, baseRevision)) return false;
       select(todayKey());
       announce('已保存，以后点「月经来了」就能记录');
@@ -628,7 +664,8 @@
   listen('settings-btn', 'click', openSettings);
   listen('demo-note', 'click', openSettings);
   listen('period-btn', 'click', primaryPeriod);
-  listen('period-history', 'click', openPeriodHistory);
+  listen('period-history', 'click', () => openPeriodHistory());
+  listen('share-periods-btn','click',()=>{if(!accessKey) return;const today=todayKey(); window.LW5Share?.open({records:episodeRecords(load(),today).map(({start,end})=>({start,end})),today});});
   listen('period-end-btn', 'click', () => openPeriodEnd());
   listen('period-records-btn', 'click', openPeriodRecords);
   listen('undo-btn', 'click', clearMood);

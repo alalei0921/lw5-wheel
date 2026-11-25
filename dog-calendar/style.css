@@ -150,3 +150,5 @@ svg{display:block;width:1em;height:1em;flex-shrink:0}
 .period-end-marker{position:absolute;right:4px;bottom:4px;color:#844b49;font-size:.58rem;font-weight:700;line-height:1}
 .dog-dialog .dg-period-list{display:grid;gap:8px;list-style:none;padding:0;margin:0}
 .dog-dialog .dg-period-list li{padding:9px 11px;background:#f7ecdf;border-radius:10px}
+.dog-dialog .dg-record-actions{display:flex;gap:6px 14px;align-items:center;flex-wrap:wrap;margin-top:3px}
+.dog-dialog .dg-record-actions button,.dog-dialog .dg-add-period{min-height:40px}

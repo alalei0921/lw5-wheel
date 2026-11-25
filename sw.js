@@ -1,4 +1,4 @@
-const CACHE = 'lw5-home-v86-period-end';
+const CACHE = 'lw5-home-v87-cycle-episodes';
 const DEMO_PAGE = './smart-home/lights-demo.html';
 const DEMO_VIDEO = './assets/lights-film/demo-v1.mp4';
 const ASSETS = [
@@ -10,7 +10,7 @@ const ASSETS = [
   './shared/supplements-v1.css',
   './shared/supplements-store-v1.js',
   './shared/supplements-v1.js',
-  './shared/dog-calendar-core-v2.js?v=86',
+  './shared/dog-calendar-core-v3.js?v=87',
   './shared/dog-status-v1.js?v=84',
   './shared/app-ui-v1.css',
   './shared/app-ui-v1.js',

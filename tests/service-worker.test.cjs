@@ -87,7 +87,7 @@ test('shared calendar routes and callback URLs bypass the offline cache',async()
   const s=setup();
   await s.event('install');
   assert(!s.installed.some(url=>new URL(url).pathname.startsWith(new URL('dog-calendar',scope).pathname)));
-  assert(s.installed.some(url=>url.includes('/shared/dog-calendar-core-v2.js')),'only generic shared code is precached');
+  assert(s.installed.some(url=>url.includes('/shared/dog-calendar-core-v3.js')),'only generic shared code is precached');
   for(const url of ['dog-calendar','dog-calendar/','dog-calendar/?code=example','dog-calendar/records']) {
     assert.equal(await s.event('fetch',s.request(url)),undefined);
   }

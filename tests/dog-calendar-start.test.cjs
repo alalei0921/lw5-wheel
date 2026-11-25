@@ -146,3 +146,57 @@ test('actual end adjusts this cycle automatic colors without changing manual or 
     },f);
   }
 });
+
+test('episodes keep an unfinished prior start when the next starts; late end and corrections remain with the same stable ID',async()=>scenario(async({page,cloud,writes})=>{
+  const p=await page(), oracle=()=>cloud.state.periodEpisodes;
+  await p.locator('#period-btn').click();await marked(p,'2026-11-21');
+  assert.deepEqual(oracle().map(r=>[r.start,r.end]),[['2026-11-10',null],['2026-11-21',null]]);
+  const ids=oracle().map(r=>r.id);
+  await p.locator('#period-records-btn').click();
+  assert.equal(await p.locator('dialog li').count(),2);
+  await p.locator('[data-period-start="2026-11-10"]').click();
+  await p.locator('input[name=end]').fill('2026-11-21');await p.locator('dialog .dg-btn').click();
+  assert.equal(writes.length,1);
+  await p.locator('input[name=end]').fill('2026-11-14');await p.locator('dialog .dg-btn').click();
+  await p.locator('dialog').waitFor({state:'detached'});
+  await p.locator('#period-records-btn').click();await p.locator('[data-correct-start="2026-11-10"]').click();
+  await p.locator('input[name=date]').fill('2026-11-15');await p.locator('dialog .dg-btn').click();
+  assert.equal(writes.length,2);assert.match(await p.locator('.dg-error').innerText(),/结束日/);
+  await p.locator('input[name=date]').fill('2026-11-09');await p.locator('dialog .dg-btn').click();
+  await p.locator('dialog').waitFor({state:'detached'});
+  assert.deepEqual(cloud.state.periodEnds,{'2026-11-09':'2026-11-14'});
+  assert.deepEqual(oracle(),[{id:ids[0],start:'2026-11-09',end:'2026-11-14'},{id:ids[1],start:'2026-11-21',end:null}]);
+  assert.equal(cloud.state.anchor,'2026-11-21');await p.reload();await marked(p,'2026-11-21');
+  await p.locator('#period-records-btn').click();await p.locator('.dg-add-period').click();
+  await p.locator('input[name=date]').fill('2026-11-09');await p.locator('dialog .dg-btn').click();
+  assert.equal(writes.length,3);assert.match(await p.locator('.dg-error').innerText(),/记录过/);
+  await p.locator('input[name=date]').fill('2026-10-12');await p.locator('dialog .dg-btn').click();
+  await p.locator('dialog').waitFor({state:'detached'});
+  assert.equal(oracle().find(r=>r.start==='2026-10-12').end,null);
+  assert.equal(cloud.state.anchor,'2026-11-21');await sync(p);await p.locator('#today-btn').click();await marked(p,'2026-11-21');
+}));
+test('actual unlocked export shows only paired or explicitly pending dates; private preview closes on lock, with no save',async()=>{
+  const f=fixture();f.periodEnds={'2026-10-11':'2026-10-15'};
+  await scenario(async({page,writes})=>{
+    const p=await page();await p.locator('#share-periods-btn').click();
+    const preview=p.locator('.period-share textarea');
+    const text=await preview.inputValue();
+    assert.equal(await preview.getAttribute('readonly'),'');
+    assert.match(text,/开始：2026-10-11｜结束：2026-10-15/);
+    assert.match(text,/开始：2026-11-10｜结束：未记录/);
+    assert.doesNotMatch(text,/2026-11-15|2026-11-01|synthetic|口令/);
+    await p.evaluate(()=>window.dispatchEvent(new StorageEvent('storage',{key:'lw5.calendar.private-access.v1',newValue:null})));
+    await p.locator('#calendar-lock').waitFor({state:'visible'});
+    assert.equal(await p.locator('.period-share').count(),0);
+    assert.equal(await p.locator('#share-periods-btn').isVisible(),false);assert.equal(writes.length,0);
+  },f);
+});
+test('ambiguous legacy fallback marker is not an episode; no history invented on export or unrelated sync',async()=>{
+  const f=fixture();delete f.anchor;
+  await scenario(async({page,writes})=>{
+    const p=await page();await marked(p,'2026-11-15');await p.locator('#share-periods-btn').click();
+    assert.equal(await p.locator('.period-share textarea').inputValue(),'');
+    await p.locator('.period-share .dg-x').click();await sync(p);
+    assert.equal(writes.length,0);
+  },f);
+});
