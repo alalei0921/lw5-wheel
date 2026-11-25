@@ -7,11 +7,11 @@
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src https://lrtglriomkxjxmxpzivj.supabase.co; form-action 'none'; base-uri 'none'; object-src 'none'">
   <meta name="theme-color" content="#fbf8ee">
   <title>狗狗日历 · LW &amp; 5</title>
-  <link rel="stylesheet" href="style.css?v=87">
+  <link rel="stylesheet" href="style.css?v=88">
   <script src="../shared/dog-calendar-core-v3.js?v=87" defer></script>
   <script src="../shared/dog-status-v1.js?v=84" defer></script>
-  <script src="period-sharing.js?v=87" defer></script>
-  <script src="app.js?v=87" defer></script>
+  <script src="period-sharing.js?v=88" defer></script>
+  <script src="app.js?v=88" defer></script>
 </head>
 <body>
   <svg class="icon-library" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><defs>
@@ -22,6 +22,8 @@
     <symbol id="i-right" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="m9.4 6.4 5.5 5.6-5.5 5.6"/></symbol>
     <symbol id="i-down" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="m6.6 9.5 5.4 5.4 5.4-5.4"/></symbol>
     <symbol id="i-drop" viewBox="0 0 24 24"><path d="M12 2.8s-6.4 7.8-6.4 12.1a6.4 6.4 0 1 0 12.8 0C18.4 10.6 12 2.8 12 2.8Z" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linejoin="round"/><path d="M9.1 15a3 3 0 0 0 2.9 3.1" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></symbol>
+    <symbol id="i-records" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.65" stroke-linecap="round" stroke-linejoin="round"><rect x="5.5" y="3.2" width="14.2" height="17.6" rx="2.7"/><path d="M8.7 3.7v16.5M11.6 8.4h4.9m-4.9 3.6h4.9m-4.9 3.6h3"/></g></symbol>
+    <symbol id="i-export" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.65" stroke-linecap="round" stroke-linejoin="round"><path d="M8.7 8.7H6.2a2.3 2.3 0 0 0-2.3 2.3v7a2.3 2.3 0 0 0 2.3 2.3h11.6a2.3 2.3 0 0 0 2.3-2.3v-7a2.3 2.3 0 0 0-2.3-2.3h-2.5M12 14V3.2m-3.8 3.7L12 3.1l3.8 3.8"/></g></symbol>
   </defs></svg>
   <main id="calendar-lock" class="lock-screen" aria-labelledby="lock-title">
     <header class="lock-mast"><a href="../" class="brand lock-home" aria-label="返回 LW 和 5 首页"><span class="brand-mark"><svg aria-hidden="true"><use href="#i-paw"/></svg></span><span class="brand-name">LW <span>&amp;</span> 5</span></a></header>
@@ -66,12 +68,13 @@
         </div>
         <div id="weekdays" class="weekdays"><span>周一</span><span>周二</span><span>周三</span><span>周四</span><span>周五</span><span>周六</span><span>周日</span></div>
         <div id="calendar-grid" class="calendar-grid" role="group" aria-label="选择日期"></div>
-        <div id="period-actions" class="period-actions" hidden>
-          <button type="button" id="period-end-btn">记经期结束日</button>
-          <button type="button" id="period-records-btn">经期记录</button>
-          <button type="button" id="share-periods-btn">导出日期给银月</button>
-        </div>
         <div class="calendar-footer"><div class="status-legend"><span><i class="legend-ring"></i>预计</span><span><i class="legend-solid"></i>已记</span></div><button type="button" id="demo-note" class="demo-note" hidden>示例预估</button><button type="button" class="demo-note" id="period-history" hidden>设置 / 更正开始日</button></div>
+        <section id="period-actions" class="period-actions" aria-labelledby="period-actions-title" hidden>
+          <h2 id="period-actions-title">经期管理</h2>
+          <button type="button" id="period-end-btn"><svg aria-hidden="true"><use href="#i-drop"/></svg><span id="period-end-text">记经期结束日</span></button>
+          <button type="button" id="period-records-btn"><svg aria-hidden="true"><use href="#i-records"/></svg><span>经期记录</span></button>
+          <button type="button" class="period-export" id="share-periods-btn"><svg aria-hidden="true"><use href="#i-export"/></svg><span>导出日期给银月</span></button>
+        </section>
       </section>
       <section class="paper mood-panel" aria-labelledby="mood-title">
         <span class="bookmark" aria-hidden="true"></span>

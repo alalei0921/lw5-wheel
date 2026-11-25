@@ -143,12 +143,281 @@ svg{display:block;width:1em;height:1em;flex-shrink:0}
 #sync-label{margin-right:auto}
 @media(max-width:480px){.lock-mast{width:calc(100% - 38px);min-height:56px}.lock-card{margin-top:clamp(15px,6vh,55px)}.lock-cover{min-height:128px}.lock-form{padding:20px}.cloud-account{gap:6px}}
 
-.period-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
-.period-actions[hidden]{display:none}
-.period-actions button{min-height:42px;padding:7px 13px;border:1px solid #d6b9a8;border-radius:12px;background:#fbede3;color:#704837;font:inherit;font-weight:620;cursor:pointer}
-.period-actions button:disabled{opacity:.56;cursor:default}
+/* Journal layout: one inset rhythm across cards, and equal peers in each action row. */
+:root{
+  --panel-inset:clamp(17px,2.6vw,25px);
+  --surface-warm:#f8f3e7;
+  --action-ink:#474f36;
+  --action-fill:#f1f3e7;
+  --action-border:#d7dcc7;
+  --action-main:#4e6245;
+  --control-radius:12px;
+}
+body{background-color:#f8f5eb;background-image:radial-gradient(ellipse at 24% 4%,#f6e5b84d 0,transparent 56%),radial-gradient(#b2aa8b40 .65px,transparent .9px)}
+.paper{border-color:#dfdac7;box-shadow:0 2px 0 #e7dfcd,0 9px 26px #5f4f2a08}
+.calendar-panel,.mood-panel{padding:var(--panel-inset)}
+.calendar-panel,.mood-panel,.hero{border-radius:20px}
+.hero{box-shadow:0 2px 0 #e6d6af,0 9px 24px #6b552d0b}
+.calendar-toolbar,.mood-heading{min-height:42px}
+.calendar-nav{padding:2px}
+.calendar-nav button,.calendar-nav #today-btn{min-height:35px;min-width:35px}
+.calendar-nav #today-btn{min-width:42px}
+.calendar-footer{margin-top:13px;padding-top:4px;min-height:44px}
+.demo-note{padding:8px 10px;min-height:35px}
+.period-actions{
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:8px;
+  margin-top:12px;
+  padding-top:13px;
+  border-top:1px solid #e9e3d3;
+}
+.period-actions h2{
+  grid-column:1/-1;
+  margin:0 0 1px;
+  color:#665d48;
+  font-size:.83rem;
+  font-weight:700;
+  letter-spacing:.035em;
+}
+.period-actions button{
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  text-align:center;
+  gap:7px;
+  min-inline-size:0;
+  min-block-size:46px;
+  padding:8px 7px;
+  border:1px solid #dfc2b1;
+  border-radius:var(--control-radius);
+  background:#faeee4;
+  color:#704b3c;
+  font-size:.89rem;
+  font-weight:690;
+  line-height:1.35;
+  transition:background-color .16s,border-color .16s;
+}
+.period-actions button svg{width:17px;height:17px}
+.period-actions button:hover:not(:disabled){background:#f3e2d5;border-color:#c9a893}
+.period-actions button:disabled{opacity:.58}
+.period-actions .period-export{
+  grid-column:1/-1;
+  color:var(--action-ink);
+  border-color:#dedfcd;
+  background:#f7f7ed;
+  box-shadow:none;
+  min-block-size:44px;
+  font-size:.85rem;
+}
+.period-actions .period-export:hover:not(:disabled){background:#eff2e5;border-color:var(--action-border)}
 .period-end-marker{position:absolute;right:4px;bottom:4px;color:#844b49;font-size:.58rem;font-weight:700;line-height:1}
+.day-summary{border-radius:var(--control-radius)}
+.mood-option{border-radius:var(--control-radius)}
+.mood-options{grid-auto-rows:1fr}
+.cloud-account button{min-height:40px;padding-inline:8px}
+@media(max-width:730px){
+  .calendar-panel,.mood-panel,.hero{border-radius:17px}
+  .mood-heading,.calendar-toolbar{min-height:40px}
+  .header-actions .period-btn,.header-actions .settings-btn{min-height:44px}
+  .header-actions .settings-btn{width:44px}
+}
+@media(max-width:360px){
+  :root{--panel-inset:13px}
+  .period-actions button{gap:5px;font-size:.81rem}
+  .period-actions button svg{width:15px;height:15px}
+  .calendar-nav{gap:1px}
+  .calendar-nav button{min-width:32px}
+}
+
+/* Disregard the native date control's intrinsic width on iOS. All rows share the
+   same shrinkable grid track; visual input, label and submit edges line up. */
+.dog-dialog{
+  --dialog-inset:clamp(16px,5vw,26px);
+  position:fixed;
+  inset:0;
+  margin:auto;
+  inline-size:min(424px,calc(100% - 28px));
+  max-inline-size:calc(100% - 28px);
+  block-size:fit-content;
+  max-block-size:calc(100% - 28px);
+  max-block-size:min(88dvh,calc(100dvh - 28px));
+  min-inline-size:0;
+  overflow:auto;
+  overscroll-behavior:contain;
+  padding:0;
+  border:1px solid #ded7c5;
+  border-radius:23px;
+  background:#fffcf4;
+  color:#41392d;
+  box-shadow:0 20px 64px #2e2a2350;
+  font-family:inherit;
+}
+.dog-dialog::backdrop{background:#28291e6b}
+.dog-dialog form{
+  display:grid;
+  grid-template-columns:minmax(0,1fr);
+  gap:15px;
+  min-inline-size:0;
+  margin:0;
+  padding:var(--dialog-inset);
+}
+.dog-dialog form > *{min-inline-size:0}
+.dog-dialog header{
+  display:grid;
+  grid-template-columns:minmax(0,1fr) 44px;
+  gap:10px;
+  align-items:center;
+  margin:0;
+  padding:0;
+}
+.dog-dialog h2{margin:0;color:#40392b;font:750 clamp(1.22rem,4.9vw,1.45rem)/1.28 var(--body)}
+.dog-dialog .dg-x{
+  cursor:pointer;
+  min-width:44px;
+  width:44px;
+  height:44px;
+  padding:0;
+  display:grid;
+  place-items:center;
+  border:1px solid #e7dfcd;
+  border-radius:50%;
+  background:#f5f1e7;
+  color:#6c6352;
+  font-size:24px;
+  line-height:1;
+}
+.dog-dialog .dg-x:hover{background:#eee9db}
+.dog-dialog label{
+  display:grid;
+  grid-template-columns:minmax(0,1fr);
+  align-content:start;
+  gap:6px;
+  min-inline-size:0;
+  font-size:14px;
+  font-weight:680;
+  line-height:1.4;
+}
+.dog-dialog input:not([type=checkbox]),.dog-dialog select,.dog-dialog textarea,.dog-dialog .dg-btn{
+  display:block;
+  box-sizing:border-box;
+  inline-size:100%;
+  max-inline-size:100%;
+  min-inline-size:0;
+  min-block-size:48px;
+  margin:0;
+  border-radius:var(--control-radius);
+  font-family:inherit;
+  font-size:16px;
+}
+.dog-dialog input:not([type=checkbox]),.dog-dialog select,.dog-dialog textarea{
+  border:1px solid #d8cfbd;
+  background:#fffffb;
+  color:#443b30;
+  font-weight:500;
+  line-height:1.35;
+  padding:9px 11px;
+}
+.dog-dialog input[type=date]{
+  -webkit-appearance:none;
+  appearance:none;
+  -webkit-min-logical-width:0;
+  text-align:start;
+}
+.dog-dialog input[type=date]::-webkit-date-and-time-value{
+  text-align:start;
+  min-inline-size:0;
+  margin:0;
+}
+.dog-dialog input[type=date]::-webkit-datetime-edit,
+.dog-dialog input[type=date]::-webkit-datetime-edit-fields-wrapper{min-inline-size:0}
+.dog-dialog .dg-btn{
+  cursor:pointer;
+  border:1px solid #405439;
+  background:var(--action-main);
+  color:#fff;
+  font-weight:740;
+  line-height:1.4;
+  padding:9px 12px;
+}
+.dog-dialog .dg-btn:not(:disabled):hover{background:#43583b}
+.dog-dialog .dg-btn:disabled{opacity:.61;cursor:default}
+.dog-dialog .dg-context{
+  display:flex;
+  flex-wrap:wrap;
+  justify-content:space-between;
+  align-items:center;
+  gap:4px 12px;
+  padding:9px 11px;
+  border-radius:var(--control-radius);
+  border:1px solid #e8e0ce;
+  background:var(--surface-warm);
+  font-size:.85rem;
+  color:#6b5a47;
+}
+.dog-dialog .dg-context time{color:#4c4837;font-weight:680;font-variant-numeric:tabular-nums}
+.dog-dialog .dg-pair,.dog-dialog .dg-answers,.dog-dialog .dg-record-actions{
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:9px;
+}
+.dog-dialog .dg-details{border-block:1px solid #e8e0ce;padding:4px 0}
+.dog-dialog .dg-details summary{cursor:pointer;font-size:.9rem;line-height:1.5;padding:9px 0;color:#635846}
+.dog-dialog .dg-details[open] .dg-spans{margin:8px 0 10px}
+.dog-dialog .dg-spans{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:7px}
+.dog-dialog .dg-spans label span{display:flex;align-items:center;gap:5px}
+.dog-dialog .dg-spans i{display:inline-block;width:9px;height:9px;border-radius:50%;background:var(--tone);flex-shrink:0}
+.dog-dialog .dg-spans input{padding-inline:6px;text-align:center}
+.dog-dialog .dg-spans input[readonly]{background:#f4efe3;color:#6e6657}
+.dog-dialog .dg-preview{display:grid;gap:7px}
+.dog-dialog .dg-bar{display:flex;height:9px;border-radius:10px;overflow:hidden;background:#f0e9da}
+.dog-dialog .dg-bar i{min-width:3px}
+.dog-dialog .dg-summary{color:#625646;font-size:.83rem;line-height:1.5}
+.dog-dialog .dg-preview-label{font-size:.88rem;font-weight:680}
+.dog-dialog .dg-hint{font-size:.87rem;font-weight:400;line-height:1.6;color:#695c4d;margin:0;overflow-wrap:anywhere}
+.dog-dialog .dg-error{font-size:.87rem;line-height:1.5;color:#9d3734;margin:0}
+.dog-dialog .dg-auto,.dog-dialog .dg-minor{
+  background:none;
+  border:0;
+  padding:4px 6px;
+  min-block-size:44px;
+  color:#4e6342;
+  font-size:.84rem;
+  line-height:1.35;
+  text-decoration:underline;
+  text-underline-offset:3px;
+}
+.dog-dialog .dg-remove{color:#934944}
+.dog-dialog .dg-custom-help{display:flex;justify-content:space-between;gap:8px;align-items:center;padding-bottom:5px}
+.dog-dialog .dg-custom-help small{font-size:.78rem;color:#6e6050}
 .dog-dialog .dg-period-list{display:grid;gap:8px;list-style:none;padding:0;margin:0}
-.dog-dialog .dg-period-list li{padding:9px 11px;background:#f7ecdf;border-radius:10px}
-.dog-dialog .dg-record-actions{display:flex;gap:6px 14px;align-items:center;flex-wrap:wrap;margin-top:3px}
-.dog-dialog .dg-record-actions button,.dog-dialog .dg-add-period{min-height:40px}
+.dog-dialog .dg-period-list li{padding:10px;background:#f7f2e7;border:1px solid #ebe3d1;border-radius:13px;color:#534937;font-size:.88rem;line-height:1.45;overflow-wrap:anywhere;font-variant-numeric:tabular-nums}
+.dog-dialog .dg-record-actions{gap:6px;margin-top:7px}
+.dog-dialog .dg-record-actions button,.dog-dialog .dg-add-period{
+  text-decoration:none;
+  border:1px solid var(--action-border);
+  color:var(--action-ink);
+  background:var(--action-fill);
+  border-radius:10px;
+}
+.dog-dialog .dg-record-actions button:hover,.dog-dialog .dg-add-period:hover{background:#e9eddd}
+.dog-dialog .share-preview{min-block-size:8.25rem;resize:vertical}
+.dog-dialog .share-agreement{display:flex;align-items:flex-start;gap:9px;color:#605748}
+.dog-dialog .share-agreement input{
+  flex:0 0 auto;
+  accent-color:var(--action-main);
+  width:20px;height:20px;
+  padding:0;margin:0;
+}
+.dog-dialog select:focus-visible,.dog-dialog textarea:focus-visible{outline:3px solid #66865b;outline-offset:2px}
+#dog-toast{
+  position:fixed;bottom:max(18px,env(safe-area-inset-bottom));left:50%;transform:translateX(-50%);
+  background:#494636;color:white;border-radius:17px;padding:11px 16px;font:inherit;font-weight:600;
+  font-size:14px;line-height:1.5;box-shadow:0 5px 18px #43260f28;z-index:15;max-width:90vw;width:max-content;
+}
+#dog-toast button{font:inherit;font-weight:750;color:#fff2bc;border:0;background:none;padding:0 0 0 14px;cursor:pointer;text-decoration:underline;text-underline-offset:3px}
+@media(max-width:360px){
+  .dog-dialog form{gap:12px}
+  .dog-dialog .dg-spans{gap:5px}
+  .dog-dialog .dg-record-actions button{font-size:.78rem}
+}

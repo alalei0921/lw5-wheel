@@ -54,14 +54,11 @@
     picker.value = '4';
     range.append(picker);
     const previewLabel = node('label', '将要复制的日期');
-    const preview = node('textarea', '', {readonly: '', rows: '7', 'aria-label':'经期日期预览', spellcheck:'false'});
-    preview.style.cssText = 'width:100%;min-width:0;min-height:9rem;resize:vertical;padding:10px;border:1px solid #d7bfae;border-radius:12px;background:#fffefb;color:#44342e;font:inherit;font-size:16px;line-height:1.5';
+    const preview = node('textarea', '', {class: 'share-preview', readonly: '', rows: '7', 'aria-label':'经期日期预览', spellcheck:'false'});
     previewLabel.append(preview);
 
-    const agreementLabel = node('label');
-    agreementLabel.style.cssText = 'display:flex;align-items:flex-start;gap:9px;line-height:1.45;font-size:14px;';
+    const agreementLabel = node('label', '', {class: 'share-agreement'});
     const agreement = node('input', '', {type: 'checkbox'});
-    agreement.style.cssText = 'width:1.2rem;min-width:1.2rem;height:1.2rem;min-height:1.2rem;padding:0;margin-top:.15rem';
     agreementLabel.append(agreement, node('span', '我确认记录本人同意分享这些日期。'));
 
     const feedback = node('p', '', {class:'dg-hint', role:'status', 'aria-live':'polite'});

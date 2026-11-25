@@ -158,7 +158,7 @@
     const ends = new Set(periods.map(period => period.end));
     if (id('period-actions')) id('period-actions').hidden = !model.configured;
     if (id('period-end-btn')) id('period-end-btn').disabled = !model.anchor;
-    setText('period-end-btn', periods.some(period => period.start === model.anchor) ? '更正经期结束日' : '记经期结束日');
+    setText('period-end-text', periods.some(period => period.start === model.anchor) ? '更正经期结束日' : '记经期结束日');
     const note = id('demo-note');
     if (note) {
       note.hidden = model.personal;
@@ -319,46 +319,6 @@
     });
   }
 
-  const modalStyle = document.createElement('style');
-  modalStyle.textContent = `
-    .dog-dialog{box-sizing:border-box;position:fixed;inset:0;margin:auto;width:min(400px,calc(100vw - 30px));height:fit-content;max-height:88dvh;overflow:auto;color:#44342e;background:#fffaf3;border:1.5px solid #d7bfae;border-radius:24px;padding:0;box-shadow:0 18px 65px #47312738;font-family:inherit;}
-    .dog-dialog::backdrop{background:rgba(58,44,36,.38);}
-    .dog-dialog form{padding:23px;display:grid;gap:17px;}
-    .dog-dialog header{display:flex;justify-content:space-between;align-items:center;gap:12px;border:0;background:none;margin:0;padding:0;height:auto;}
-    .dog-dialog h2{margin:0;font-family:inherit;font-size:23px;font-weight:800;line-height:1.5;color:#4f3a30;}
-    .dog-dialog .dg-x{font:inherit;font-size:23px;line-height:1;color:#6e574a;background:#f2e8db;border:0;border-radius:50%;width:38px;height:38px;cursor:pointer;padding:0;display:grid;place-items:center;}
-    .dog-dialog label{display:grid;gap:6px;min-width:0;font-family:inherit;font-weight:650;font-size:15px;line-height:1.4;}
-    .dog-dialog input,.dog-dialog select{margin:0;min-width:0;box-sizing:border-box;background:#fffefb;width:100%;border:1.3px solid #cdbeb1;border-radius:12px;min-height:43px;padding:8px 11px;font-family:inherit;font-size:16px;font-weight:500;line-height:1.35;color:#42362d;}
-    .dog-dialog .dg-pair{display:grid;grid-template-columns:1.4fr 1fr;gap:12px;}
-    .dog-dialog .dg-details{border-top:1px dashed #dccdbb;border-bottom:1px dashed #dccdbb;padding:4px 0;}
-    .dog-dialog .dg-details summary{cursor:pointer;font-size:15px;line-height:1.5;padding:8px 0;color:#634f43;}
-    .dog-dialog .dg-details[open] .dg-spans{margin:8px 0 10px;}
-    .dog-dialog .dg-spans{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;}
-    .dog-dialog .dg-spans label{font-size:14px;align-content:start;}
-    .dog-dialog .dg-spans label span{display:flex;align-items:center;gap:4px;}
-    .dog-dialog .dg-spans i{display:inline-block;width:9px;height:9px;border-radius:50%;background:var(--tone);flex-shrink:0;}
-    .dog-dialog .dg-answers{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
-    .dog-dialog .dg-answers label{font-size:14px}
-    .dog-dialog .dg-preview{display:grid;gap:8px}
-    .dog-dialog .dg-bar{display:flex;height:9px;border-radius:9px;overflow:hidden;background:#f0e9da}
-    .dog-dialog .dg-bar i{min-width:3px}
-    .dog-dialog .dg-summary{display:flex;flex-wrap:wrap;gap:5px 10px;color:#645142;font-size:13px}
-    .dog-dialog .dg-preview-label{font-size:14px;font-weight:650}
-    .dog-dialog .dg-auto{font:inherit;color:#566c41;text-decoration:underline;text-underline-offset:2px;background:none;border:0;padding:3px;font-size:13px}
-    .dog-dialog .dg-custom-help{display:flex;justify-content:space-between;gap:7px;align-items:center;padding-bottom:7px}
-    .dog-dialog .dg-custom-help small{font-size:12px;color:#766457}
-    .dog-dialog .dg-spans input[readonly]{background:#f4eee5;color:#786959}
-    .dog-dialog .dg-hint{font:inherit;font-size:14px;font-weight:400;line-height:1.6;color:#715c4d;margin:0;}
-    .dog-dialog .dg-error{font-size:14px;line-height:1.5;color:#943e39;margin:0;}
-    .dog-dialog .dg-btn{font:inherit;font-weight:700;font-size:16px;line-height:1.5;min-height:45px;border-radius:14px;border:0;color:white;background:#684b3b;cursor:pointer;padding:8px 17px;}
-    .dog-dialog .dg-minor{background:none;border:0;padding:0;min-height:32px;color:#9b4a43;font:inherit;font-size:14px;cursor:pointer;}
-    .dog-dialog [hidden],#dog-toast[hidden]{display:none!important}
-    #dog-toast{position:fixed;bottom:max(18px,env(safe-area-inset-bottom));left:50%;transform:translateX(-50%);background:#513e33;color:white;border-radius:18px;padding:11px 17px;font:inherit;font-weight:600;font-size:14px;box-shadow:0 5px 18px #43260f28;z-index:15;max-width:90vw;width:max-content;line-height:1.5;}
-    #dog-toast button{font:inherit;font-weight:750;color:#fff2bc;border:0;background:none;padding:0 0 0 15px;cursor:pointer;text-decoration:underline;text-underline-offset:3px;}
-    @media(max-width:359px){.dog-dialog form{padding:17px;gap:12px}.dog-dialog .dg-spans{gap:5px}.dog-dialog .dg-spans input{padding:8px 5px;}}
-  `;
-  document.head.append(modalStyle);
-
   function dialog(title, fields, confirmText, onSave) {
     if (activeDialog?.open) return null;
     const returnFocus = document.activeElement;
@@ -478,7 +438,7 @@
     const fields='<label>'+(adding?'另一次开始日':'本次开始日')+'<input type="date" name="date" min="1900-01-01" max="'+today+
       '" value="'+(adding ? '' : original)+'" required></label>'+
       '<p class="dg-hint">'+(adding?'每次只记录一个开始日。上一次忘记填结束也没关系，可随时单独补记。':'这是更正同一次经期，不会新增记录；已填的结束日仍属于这一次。')+'</p>'+
-      '<button type="button" class="dg-minor"'+(!adding && active && original ? '' : ' hidden')+'>清除当前开始日</button>';
+      '<button type="button" class="dg-minor dg-remove"'+(!adding && active && original ? '' : ' hidden')+'>清除当前开始日</button>';
     const el=dialog(adding?'补记另一次经期':(original?'更正这次开始日':'设置开始日'),fields,adding?'新增记录':'保存日期',async(form,fail)=>{
       const error=await saveStart(form.elements.date.value,baseRevision,mode,adding?'':original);
       if (error===null) return false;
@@ -506,10 +466,11 @@
     if (next) bounds.push(dayAfter(next, -1));
     const max = bounds.sort()[0];
     const initialDate = existing?.end || (selected >= start && selected <= max ? selected : max);
-    const fields = '<p class="dg-hint">开始日：' + start + '。请选择最后一天出血的日期，可以补记。自动配色会参考本次记录，手动配色不变。</p>' +
+    const fields = '<div class="dg-context"><span>本次经期开始日</span><time datetime="' + start + '">' + start + '</time></div>' +
+      '<p class="dg-hint">请选择最后一天出血的日期，可以补记。自动配色会参考本次记录，手动配色不变。</p>' +
       '<label>经期结束日<input type="date" name="end" min="' + start + '" max="' +
       max + '" value="' + initialDate + '" required></label>' +
-      '<button type="button" class="dg-minor"' + (existing?.end ? '' : ' hidden') + '>清除这条结束日</button>';
+      '<button type="button" class="dg-minor dg-remove"' + (existing?.end ? '' : ' hidden') + '>清除这条结束日</button>';
     const el = dialog('记经期结束日', fields, '保存结束日', async (form, fail) => {
       const end = form.elements.end.value;
       if (!validPeriodEnd(start, end) || end > max || end > todayKey()) return fail('结束日应在开始日当天或之后，且不能是未来日期。');
