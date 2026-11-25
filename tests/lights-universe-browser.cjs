@@ -16,7 +16,7 @@ test.before(async () => {
 });
 test.after(async () => browser?.close());
 
-async function scene({ width = 390, height = 844, reducedMotion = 'no-preference', dialog = false, blockWebGL = false } = {}) {
+async function scene({ width = 390, height = 844, reducedMotion = 'no-preference', dialog = false, blockWebGL = false, timeline = false } = {}) {
   const context = await browser.newContext({ viewport: { width, height }, reducedMotion, serviceWorkers: 'block' });
   const requests = [], errors = [];
   await context.route('**/*', route => { requests.push(route.request().url()); return route.abort(); });
@@ -50,7 +50,7 @@ async function scene({ width = 390, height = 844, reducedMotion = 'no-preference
   }, blockWebGL);
   await page.addStyleTag({ content: style });
   await page.addScriptTag({ content: script });
-  await page.evaluate(() => { window.scene = window.LW5LightsUniverse.create(document.getElementById('host')); });
+  await page.evaluate(timeline => { window.scene = window.LW5LightsUniverse.create(document.getElementById('host'), { timeline, renderer: 'webgl' }); }, timeline);
   assert.equal(await page.locator('#host').getAttribute('data-renderer'), blockWebGL ? 'compatibility' : 'webgl');
   return { page, context, requests, errors };
 }
@@ -216,6 +216,64 @@ test('overlapping confirmations finish their own warm-up and repeated polls do n
     });
     const expected = [0, 0, .5, .5, 1.5, 2, 2, 0];
     values.forEach((v, i) => assert(Math.abs(v - expected[i]) < .001, `Unexpected light at snapshot ${i}: ${v}`));
+    clean(s);
+  } finally { await s.context.close(); }
+});
+
+test('a paused preview renders the same cloud, grains and wave after a backward seek', async () => {
+  for (const blockWebGL of [false, true]) {
+    const s = await scene({ width: 180, height: 300, blockWebGL, timeline: true });
+    try {
+      const result = await s.page.evaluate(() => {
+        const host = document.getElementById('host');
+        const canvas = host.querySelector('canvas');
+        window.scene.renderAt(4.55);
+        const crest = canvas.toDataURL();
+        window.scene.renderAt(4.55, 0);
+        const unlit = canvas.toDataURL();
+        window.scene.renderAt(12.3);
+        window.scene.renderAt(4.55);
+        return { lit: crest !== unlit, same: crest === canvas.toDataURL(), count: host.dataset.completed };
+      });
+      assert.deepEqual(result, { lit: true, same: true, count: '4' });
+      await expectStopped(s.page);
+      clean(s);
+    } finally { await s.context.close(); }
+  }
+});
+
+test('grains retain native pixel resolution when slow playback reduces volume samples', async () => {
+  const s = await scene({ width: 128, height: 192, timeline: true });
+  try {
+    const result = await s.page.evaluate(() => {
+      const gl = document.querySelector('#host canvas').getContext('webgl');
+      const nativeDraw = gl.drawArrays.bind(gl);
+      const start = performance.now();
+      let calls = [], elapsed = 0;
+      gl.drawArrays = (mode, first, count) => {
+        calls.push({ points: mode === gl.POINTS, width: gl.getParameter(gl.VIEWPORT)[2],
+          offscreen: Boolean(gl.getParameter(gl.FRAMEBUFFER_BINDING)) });
+        nativeDraw(mode, first, count);
+      };
+      Object.defineProperty(performance, 'now', { configurable: true, value: () => start + elapsed });
+      try {
+        for (let i = 0; i < 15; i++) {
+          calls = [];
+          elapsed += 88;
+          window.scene.renderAt(5 + elapsed / 1000, 5, true);
+        }
+        return { calls, width: gl.drawingBufferWidth, error: gl.getError() };
+      } finally {
+        delete performance.now;
+        delete gl.drawArrays;
+      }
+    });
+    const [volume, resolve, grains] = result.calls;
+    assert.equal(result.calls.length, 3);
+    assert(volume.offscreen && volume.width < result.width);
+    assert.deepEqual(resolve, { points: false, width: result.width, offscreen: false });
+    assert.deepEqual(grains, { points: true, width: result.width, offscreen: false });
+    assert.equal(result.error, 0);
     clean(s);
   } finally { await s.context.close(); }
 });

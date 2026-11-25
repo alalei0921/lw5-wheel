@@ -16,7 +16,7 @@
   let navigationTimer;
   let handoffTimer;
   let expiryTimer;
-  let universe;
+  let universe, sceneTimer;
 
   function pendingOff() {
     generation += 1;
@@ -92,6 +92,7 @@
     launch.disabled = false;
     help.hidden = true;
     links.replaceChildren();
+    clearTimeout(sceneTimer);
     try { universe?.destroy(); } catch {}
     universe = null;
   }
@@ -103,8 +104,15 @@
     launch.disabled = true;
     copy('连接中', '正在连接中控', true);
     dialog.showModal(); // Native modal makes the rest of the page inert.
-    try { universe = window.LW5LightsUniverse?.create(document.getElementById('lightsOnUniverse')); } catch {}
-    try { universe?.update({ status: 'connecting', completed: 0, total: 9 }); } catch {}
+    // Let the dialog accept taps and discovery start before compiling the scene.
+    // A fast handoff often leaves this page within its 180 ms transition.
+    sceneTimer = setTimeout(() => {
+      if (!dialog.open) return;
+      try {
+        universe = window.LW5LightsUniverse?.create(document.getElementById('lightsOnUniverse'));
+        universe?.update({ status: progress.hidden ? 'idle' : 'connecting', completed: 0 });
+      } catch {}
+    }, 250);
     close.focus({ preventScroll: true });
     if (navigator.onLine === false) {
       copy('请连接家庭 Wi-Fi', '尚未发送开灯请求');

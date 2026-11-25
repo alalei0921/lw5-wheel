@@ -42,46 +42,13 @@ v61 名称兼容：读取时将对应行的旧数字/中文序号占位名显示
 v62 说明兼容：仅为对应默认短名称下的空说明或原“点「编辑」填写名称和用量”占位说明补齐默认小字。读取时不重写原始存储，其他自定义名称、说明与当天开关保留。显式保存写入 `notesVersion:1`，之后尊重用户编辑，包括主动清空说明。默认公开说明仅限已获批准的四句，不上传本地配置或打卡。
 
 
-## Prerendered lighting film v77 (2026-11-18)
+## 实时开灯动画
 
-The [full-light film](assets/lights-film/v1/level-09.mp4?scene=77) and
-[900 × 1600 keyframe](assets/lights-film/v1/hero.jpg?scene=77) use Cycles volume plates
-with moving cloud banks, extended accretion wings and orbiting dust. The unlit disk starts in deep red and reaches a warm ivory peak at nine confirmations. [Production credits and asset licenses](assets/lights-film/v1/credits.html)
-accompany these renders.
+右下角灯泡、[开灯预览](smart-home/lights-demo.html) 和[九档调光预览](smart-home/lights-preview.html) 共用 `shared/lights-on-universe.js`。WebGL 实时绘制黑洞、云层、光流和粒子，仅支持软件光栅化或无法使用 WebGL 的设备会用 Canvas 2D 绘制。实际任务根据中控确认的灯数更新，预览使用独立的 16 秒时间轴，每秒模拟点亮一盏灯。离线安装会缓存预览页面、着色器所在的脚本和样式。
 
-The phone plays the Mac-rendered `assets/lights-film/v1/level-00.mp4` through
-`level-09.mp4`. All ten levels share the same 16-second, 24 fps timeline at
-720 × 1280; each has a matching phase-zero JPEG. H.264/yuv420p, no audio,
-faststart and regular keyframes allow native playback and short seeks. The player
-keeps at most two videos during a transition and switches only when the existing
-job snapshot confirms a different count. Video timing never changes progress;
-level 9 remains “确认中” until the job separately reports success.
+局域网中控在启动时嵌入渲染脚本。更新该服务时，复制新版 `shared/lights-on-universe.js` 和 CSS，保留原来的任务状态订阅。如果中控同时嵌入旧影片播放器，也同步更新 `shared/lights-on-film.js`。新版播放器默认使用实时场景。
 
-Ordinary portrait hosts (width/height 0.40–0.75) fill their viewport using a
-a cover crop positioned at 27% horizontally. Wider or unusually tall hosts contain the full composition,
-with a dim blurred poster behind it. Reduced motion uses the matching still.
-Missing video falls back to that still; loss of both restores the existing
-WebGL/2D renderer with the same snapshot. Add `?sceneRenderer=webgl` to explicitly
-use the old renderer. The earlier [single film](smart-home/blackhole-loop.mp4)
-remains available. The [public preview](smart-home/lights-preview.html?scene=77#loop) simulates
-progress without loading device code; its settings link to the film credits.
-
-The bridge keeps matching files under `assets/lights-film/v1/` and serves only
-those files plus `credits.html` at `/lights-film/v1/`, with GET/HEAD and byte-range
-support. Control APIs and submission rules are unchanged. Shared film JS/CSS
-and the manifest are copied beside `lights-on-http.js` for embedding at startup.
-The bulb dialog links to the [one-light-per-second preview](smart-home/lights-demo.html).
-It plays a single 16-second film, with the counter driven by the displayed video frames.
-The `lw5-home-v78-offline-lights-demo` service worker caches this page and its 3.4 MB film
-so they can play offline after installation. The live controller continues to stream the ten
-scene-revisioned films for confirmed lighting levels.
-
-Run the player tests with a local QA H.264 fixture (outside production assets):
-`LW5_FILM_TEST_VIDEO=/absolute/path/to/16-second-fixture.mp4 node --test tests/lights-film-browser.cjs`.
-Without that variable, decoder and public-preview checks use the preserved old
-v74 film as read-only test media; it is distinct from the v77 ten-level
-assets. No fixture replaces a production level asset.
-Other player cases mock media events; bridge regressions use mock requests only.
+v77 的[九档影片](assets/lights-film/v1/level-09.mp4?scene=77)及[素材署名](assets/lights-film/v1/credits.html)仍可单独查看。加载了影片播放器和清单的宿主可用 `sceneRenderer=film` 显式选择历史影片。
 
 ## Previous WebGL visual v74 (2026-11-18)
 

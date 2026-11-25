@@ -311,8 +311,8 @@
   }
   window.LW5LightsFilm = Object.freeze({ create });
   window.LW5LightsWebGL = legacy;
-  window.LW5LightsUniverse = Object.freeze({ create(host) {
+  window.LW5LightsUniverse = Object.freeze({ create(host, options) {
     const choice = host?.dataset.sceneRenderer || config.renderer || new URLSearchParams(location.search).get('sceneRenderer');
-    return choice === 'webgl' || !manifest ? legacy.create(host) : create(host);
+    return choice === 'film' && manifest ? create(host) : legacy.create(host, options);
   } });
 })();

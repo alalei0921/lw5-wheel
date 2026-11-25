@@ -15,7 +15,7 @@ test.before(async () => {
 test.after(async () => browser?.close());
 const pixel = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+P+/HgAFgwJ/lkV+FAAAAABJRU5ErkJggg==', 'base64');
 
-async function setup({ reducedMotion = 'no-preference', width = 390, height = 844, realVideo = null, rejectPosters = false, renderer, advancingMedia = false } = {}) {
+async function setup({ reducedMotion = 'no-preference', width = 390, height = 844, realVideo = null, rejectPosters = false, renderer = 'film', advancingMedia = false } = {}) {
   const context = await browser.newContext({ viewport: { width, height }, reducedMotion, serviceWorkers: 'block' });
   const requests = [], errors = [];
   await context.route('**/*', async route => {
@@ -262,13 +262,15 @@ test('cancelled phase locks restore the old film; rejected playback and hidden s
   } finally { await s.context.close(); }
 });
 
-test('explicit rollback bypasses film assets; host aspect ratio controls portrait fill and safe containment', async () => {
-  const legacy = await setup({ renderer: 'webgl' });
-  try {
-    assert.equal(await legacy.page.evaluate(() => window.__legacy.creates), 1);
-    assert.equal(await legacy.page.locator('video,img').count(), 0);
-    assert.deepEqual(legacy.requests, []);
-  } finally { await legacy.context.close(); }
+test('only an explicit film selection requests media; film framing follows the host aspect ratio', async () => {
+  for (const renderer of [null, 'webgl']) {
+    const procedural = await setup({ renderer });
+    try {
+      assert.equal(await procedural.page.evaluate(() => window.__legacy.creates), 1);
+      assert.equal(await procedural.page.locator('video,img').count(), 0);
+      assert.deepEqual(procedural.requests, []);
+    } finally { await procedural.context.close(); }
+  }
   const s = await setup({ reducedMotion: 'reduce', width: 1365, height: 768 });
   try {
     assert.equal(await s.page.locator('.lights-film-poster').evaluate(image => getComputedStyle(image).objectFit), 'contain');
@@ -309,48 +311,42 @@ test('real H264 playback changes level without resetting the sixteen-second phas
   } finally { await s.context.close(); }
 });
 
-test('the public preview plays and simulates nine levels without device requests', async () => {
-  const video = await fs.readFile(process.env.LW5_FILM_TEST_VIDEO || path.join(root, 'smart-home/blackhole-loop.mp4'));
-  const context = await browser.newContext({ viewport: { width: 390, height: 844 }, serviceWorkers: 'block' });
-  const errors = [], requests = [];
-  const allowed = new Set(['smart-home/lights-preview.html', 'shared/lights-on-universe.js', 'shared/lights-on-universe.css', 'shared/lights-on-film-manifest.js', 'shared/lights-on-film.js', 'shared/lights-on-film.css']);
+test('the public preview draws every selected level without media or device requests', async () => {
+  const context = await browser.newContext({ viewport: { width: 390, height: 844 }, reducedMotion: 'reduce', serviceWorkers: 'block' });
+  const errors = [];
+  const allowed = new Set(['smart-home/lights-preview.html', 'shared/lights-on-universe.js', 'shared/lights-on-universe.css']);
   await context.route('**/*', async route => {
     const request = route.request(), url = new URL(request.url());
-    requests.push(url.href);
-    assert.equal(request.method(), 'GET'); assert.equal(url.origin, 'https://preview.test');
     const relative = url.pathname.replace(/^\/lw5-wheel\//, '');
-    if (/^assets\/lights-film\/v1\/level-0[0-9]\.jpg$/.test(relative)) return route.fulfill({ contentType: 'image/png', body: pixel });
-    if (/^assets\/lights-film\/v1\/level-0[0-9]\.mp4$/.test(relative)) {
-      const range = request.headers().range?.match(/^bytes=(\d+)-(\d*)$/);
-      const start = range ? Number(range[1]) : 0, end = range?.[2] ? Math.min(video.length - 1, Number(range[2])) : video.length - 1;
-      return route.fulfill({ status: range ? 206 : 200, contentType: 'video/mp4', body: video.subarray(start, end + 1), headers: { 'accept-ranges': 'bytes', ...(range ? { 'content-range': `bytes ${start}-${end}/${video.length}` } : {}) } });
+    if (request.method() !== 'GET' || url.origin !== 'https://preview.test' || !allowed.has(relative)) {
+      errors.push('Unexpected request: ' + request.url());
+      return route.abort();
     }
-    assert(allowed.has(relative), 'Preview cannot request a device endpoint: ' + relative);
     return route.fulfill({ contentType: relative.endsWith('.html') ? 'text/html' : relative.endsWith('.js') ? 'text/javascript' : 'text/css', body: await fs.readFile(path.join(root, relative)) });
   });
-  const page = await context.newPage(); page.setDefaultTimeout(6000); page.on('pageerror', error => errors.push(error.message));
+  const page = await context.newPage(); page.on('pageerror', error => errors.push(error.message));
   try {
     await page.goto('https://preview.test/lw5-wheel/smart-home/lights-preview.html');
-    await page.waitForFunction(() => document.getElementById('universe').dataset.filmState === 'playing');
+    const canvas = page.locator('#universe canvas');
+    await canvas.waitFor();
+    assert.equal(await page.locator('video,img').count(), 0);
     assert.match(await page.locator('meta[http-equiv="Content-Security-Policy"]').getAttribute('content'), /connect-src 'none'/);
-    assert.equal(await page.locator('#universe').getAttribute('data-renderer'), 'film');
-    assert.equal(await page.locator('canvas').count(), 0);
     await page.locator('#play').click();
-    await page.waitForFunction(() => document.getElementById('count').textContent === '01');
+    await page.waitForFunction(() => Number(document.getElementById('count').textContent) >= 1);
     await page.evaluate(() => window.blackholePreview.setProgress(8));
-    await page.waitForFunction(() => document.getElementById('universe').dataset.filmLevel === '8');
+    assert.equal(await page.locator('#universe').getAttribute('data-completed'), '8');
     assert.equal(await page.locator('#count').textContent(), '08');
-    assert.equal(await page.locator('a', { hasText: '星空 ESO/S. Brunier' }).getAttribute('href'), 'https://www.eso.org/public/images/eso0932a/');
     for (const viewport of [{ width: 390, height: 844 }, { width: 1365, height: 768 }]) {
       await page.setViewportSize(viewport);
-      assert.equal(await page.locator('.lights-film-video').first().evaluate(video => getComputedStyle(video).objectFit), viewport.width === 390 ? 'cover' : 'contain');
+      const bounds = await canvas.boundingBox();
+      assert.equal(bounds.width, viewport.width);
+      assert.equal(bounds.height, viewport.height);
       assert.equal(await page.evaluate(() => document.documentElement.scrollWidth === innerWidth && document.documentElement.scrollHeight === innerHeight), true);
       if (process.env.SCREENSHOT_DIR) {
         await fs.mkdir(process.env.SCREENSHOT_DIR, { recursive: true });
-        await page.screenshot({ path: path.join(process.env.SCREENSHOT_DIR, `film-preview-${viewport.width}.png`) });
+        await page.screenshot({ path: path.join(process.env.SCREENSHOT_DIR, `canvas-preview-${viewport.width}.png`) });
       }
     }
-    assert(requests.some(url => new URL(url).pathname.endsWith('/level-08.mp4')));
     assert.deepEqual(errors, []);
   } finally { await context.close(); }
 });

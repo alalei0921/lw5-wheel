@@ -1,6 +1,5 @@
-const CACHE = 'lw5-home-v87-cycle-episodes';
+const CACHE = 'lw5-home-v91-fine-accretion';
 const DEMO_PAGE = './smart-home/lights-demo.html';
-const DEMO_VIDEO = './assets/lights-film/demo-v1.mp4';
 const ASSETS = [
   './',
   './index.html',
@@ -15,13 +14,10 @@ const ASSETS = [
   './shared/app-ui-v1.css',
   './shared/app-ui-v1.js',
   './shared/local-control-v1.js',
-  './shared/lights-on-v1.js?ui=78',
+  './shared/lights-on-v1.js?ui=90',
   './shared/lights-on-v1.css?ui=78',
-  './shared/lights-on-universe.js',
+  './shared/lights-on-universe.js?scene=91',
   './shared/lights-on-universe.css',
-  './shared/lights-on-film-manifest.js?scene=77',
-  './shared/lights-on-film.js?player=77.2',
-  './shared/lights-on-film.css?scene=77',
   './shared/elevator-v1.css',
   './shared/elevator-v1.js',
   './shared/elevator-ascent-v1.js',
@@ -98,8 +94,8 @@ const ASSETS = [
   './smart-home/chione.html',
   './smart-home/panel-mute.html',
   DEMO_PAGE,
-  DEMO_VIDEO,
-  './assets/lights-film/v1/credits.html',
+  './smart-home/lights-preview.html',
+  './licenses/blackhole-MIT.txt',
   './smart-home/hyperion-bg.jpg',
   './smart-home/aurora-bg.jpg',
   './smart-home/chione-bg.jpg',
@@ -120,38 +116,6 @@ self.addEventListener('activate', (event) => {
   );
 });
 
-// Mobile video players seek with byte ranges, including a two-byte probe in Safari.
-// Keep a single complete copy and slice it locally when the device is offline.
-async function serveDemoVideo(request, cacheKey) {
-  const cache = await caches.open(CACHE);
-  const full = await cache.match(cacheKey);
-  if (!full) {
-    const response = await fetch(request);
-    if (response.status === 200) await cache.put(cacheKey, response.clone()).catch(() => {});
-    return response;
-  }
-  const range = request.headers.get('Range');
-  if (!range) return full;
-  const limits = /^bytes=(\d*)-(\d*)$/i.exec(range.trim());
-  if (!limits || (!limits[1] && !limits[2])) return full;
-  const blob = await full.blob();
-  const size = blob.size;
-  const start = limits[1] ? Number(limits[1]) : Math.max(0, size - Number(limits[2]));
-  const end = limits[1] && limits[2] ? Math.min(Number(limits[2]), size - 1) : size - 1;
-  if (start > end) {
-    return new Response(null, { status: 416, headers: { 'Content-Range': 'bytes */' + size, 'Accept-Ranges': 'bytes' } });
-  }
-  return new Response(blob.slice(start, end + 1), {
-    status: 206,
-    headers: {
-      'Content-Type': 'video/mp4',
-      'Content-Length': String(end - start + 1),
-      'Content-Range': 'bytes ' + start + '-' + end + '/' + size,
-      'Accept-Ranges': 'bytes'
-    }
-  });
-}
-
 self.addEventListener('fetch', (event) => {
   const req = event.request;
   const url = new URL(req.url);
@@ -162,17 +126,12 @@ self.addEventListener('fetch', (event) => {
   // Keep this whole route out of the home worker's offline cache.
   const calendar = new URL('dog-calendar/', scope).pathname;
   if (url.pathname === calendar.slice(0, -1) || url.pathname.startsWith(calendar)) return;
-  const demo = new URL(DEMO_VIDEO, scope);
-  if (url.pathname === demo.pathname) {
-    event.respondWith(serveDemoVideo(req, demo.href));
-    return;
-  }
   if (url.pathname.endsWith('.mp4') || req.headers.has('range')) return;
   // Old links used timestamps to reload HTML. Keep one offline copy per page.
   const key = new URL(url);
   key.searchParams.delete('v');
   key.searchParams.delete('ts');
-  if (key.pathname === new URL(DEMO_PAGE, scope).pathname) key.search = '';
+  if ([DEMO_PAGE, './smart-home/lights-preview.html'].some(page => key.pathname === new URL(page, scope).pathname)) key.search = '';
   const navigation = req.mode === 'navigate' || url.pathname.endsWith('/') || url.pathname.endsWith('.html');
   event.respondWith((async () => {
     const cache = await caches.open(CACHE);

@@ -4,10 +4,9 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
   <meta name="theme-color" content="#030407">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self';script-src 'self' 'unsafe-inline';style-src 'self' 'unsafe-inline';img-src 'self' data:;media-src 'self';connect-src 'none';object-src 'none';base-uri 'none';form-action 'none'">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self';script-src 'self' 'unsafe-inline';style-src 'self' 'unsafe-inline';img-src data:;media-src 'none';connect-src 'none';object-src 'none';base-uri 'none';form-action 'none'">
   <title>吸积盘 · LW5 预览</title>
-  <link rel="stylesheet" href="../shared/lights-on-universe.css?scene=77">
-  <link rel="stylesheet" href="../shared/lights-on-film.css?scene=77">
+  <link rel="stylesheet" href="../shared/lights-on-universe.css">
   <style>
     :root{color-scheme:dark;font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif;color:#e7dfd2;background:#030407;font-synthesis:none}
     *{box-sizing:border-box}html,body{width:100%;height:100%;margin:0;overflow:hidden}body{overscroll-behavior:none;-webkit-tap-highlight-color:transparent}button,input{font:inherit}button,a,summary{color:inherit;touch-action:manipulation}button,summary{cursor:pointer}button:focus-visible,a:focus-visible,summary:focus-visible,input:focus-visible{outline:2px solid #e9c995;outline-offset:5px}[hidden]{display:none!important}
@@ -39,14 +38,11 @@
     <footer>
       <div id="progress" role="progressbar" aria-label="模拟点亮进度" aria-valuemin="0" aria-valuemax="9" aria-valuenow="0" aria-valuetext="0 / 9 盏灯（模拟）"><span class="count" aria-hidden="true"><span id="count">00</span><small> / 09</small></span></div>
       <button id="play" class="play" type="button" disabled aria-label="开始模拟九盏灯点亮"><svg id="playIcon" viewBox="0 0 20 20" aria-hidden="true"><path d="m7 4 9 6-9 6V4Z"/></svg><span id="playLabel">点亮</span></button>
-      <details class="tuning" id="tuning"><summary aria-label="手动调节模拟进度" title="调节进度"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 7h6m4 0h8M3 17h11m4 0h3"/><circle cx="11" cy="7" r="2"/><circle cx="16" cy="17" r="2"/></svg></summary><div class="panel"><label for="slider">进度<output id="output" for="slider">0 / 9</output></label><input id="slider" type="range" min="0" max="9" step="1" value="0" disabled aria-label="模拟已点亮灯数"><small>模拟预览 · <a href="../assets/lights-film/v1/credits.html" target="_blank" rel="noopener">制作署名</a><br><a href="https://www.eso.org/public/images/eso0932a/" target="_blank" rel="noopener">星空 ESO/S. Brunier</a></small></div></details>
+      <details class="tuning" id="tuning"><summary aria-label="手动调节模拟进度" title="调节进度"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 7h6m4 0h8M3 17h11m4 0h3"/><circle cx="11" cy="7" r="2"/><circle cx="16" cy="17" r="2"/></svg></summary><div class="panel"><label for="slider">进度<output id="output" for="slider">0 / 9</output></label><input id="slider" type="range" min="0" max="9" step="1" value="0" disabled aria-label="模拟已点亮灯数"><small>模拟预览 · <a href="../licenses/blackhole-MIT.txt" target="_blank" rel="noopener">制作署名</a></small></div></details>
     </footer>
     <span id="announcement" class="sr-only" aria-live="polite">独立模拟预览，不连接中控，不控制真实灯光。</span>
   </main>
-  <!-- Older app workers ignore the v query parameter when matching cached assets. -->
-  <script src="../shared/lights-on-universe.js?scene=77"></script>
-  <script src="../shared/lights-on-film-manifest.js?scene=77"></script>
-  <script src="../shared/lights-on-film.js?player=77.2"></script>
+  <script src="../shared/lights-on-universe.js?scene=91"></script>
   <script>
     // This page only simulates progress. It contains no device discovery or control.
     (() => {
@@ -57,10 +53,8 @@
       const slider = element('slider');
       const announcement = element('announcement');
       const progress = element('progress');
-      const universe = element('universe');
       const TOTAL = 9;
       const STEP_DELAY = 1200;
-      const MIN_VISIBLE = 500;
       const state = { completed: 0, phase: 'idle', active: false, ready: false };
       let scene = null;
       let timer = null;
@@ -160,30 +154,12 @@
         announcement.textContent = '模拟完成，九档亮度已全部点亮。';
       }
 
-      function holdScene(callback, delay) {
-        // Only the simulator waits for a film. The home controller owns its own clock.
-        let posterWaitLeft = 12000;
-        function checkFrame() {
-          const { renderer, filmState, filmLevel } = universe.dataset;
-          const still = universe.querySelector('.lights-film-poster');
-          const awaitingFilm = filmState === 'loading' || filmState === 'paused' || Number(filmLevel) !== state.completed;
-          const awaitingPoster = filmState !== 'playing' && still && !still.complete;
-          if (renderer === 'film' && (awaitingFilm || (awaitingPoster && posterWaitLeft > 0))) {
-            if (!awaitingFilm) posterWaitLeft -= 100;
-            schedule(checkFrame, 100);
-          } else {
-            schedule(callback, MIN_VISIBLE);
-          }
-        }
-        schedule(checkFrame, Math.max(0, delay - MIN_VISIBLE));
-      }
-
       function advance() {
         if (!state.active) return;
         const next = state.completed + 1;
         show(next === TOTAL ? 'verifying' : 'running', next);
         announcement.textContent = `模拟点亮 ${state.completed} / ${TOTAL}`;
-        holdScene(state.completed < TOTAL ? advance : finish, state.completed < TOTAL ? STEP_DELAY : 650);
+        schedule(state.completed < TOTAL ? advance : finish, state.completed < TOTAL ? STEP_DELAY : 650);
       }
 
       function play() {
@@ -201,7 +177,7 @@
           announcement.textContent = '开始模拟九档点亮。';
           schedule(() => {
             show('running', 0);
-            holdScene(advance, STEP_DELAY);
+            schedule(advance, STEP_DELAY);
           }, 650);
         } else if (nextTask) {
           schedule(nextTask, remaining);
@@ -209,7 +185,7 @@
           updateButton();
         } else {
           show('running', state.completed);
-          holdScene(advance, STEP_DELAY);
+          schedule(advance, STEP_DELAY);
         }
       }
 
