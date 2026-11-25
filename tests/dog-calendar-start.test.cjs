@@ -200,3 +200,47 @@ test('ambiguous legacy fallback marker is not an episode; no history invented on
     assert.equal(writes.length,0);
   },f);
 });
+
+test('one-click export copies every actual episode from the unlocked calendar without requiring an all-records preview',async()=>{
+  const f=fixture();
+  const historical=Array.from({length:8},(_,i)=>['2025-'+String(i+1).padStart(2,'0')+'-08','2025-'+String(i+1).padStart(2,'0')+'-11']);
+  f.periodEnds=Object.fromEntries(historical);
+  f.periodEnds['2027-03-08']='2027-03-12';
+  f.periodEnds['2025-02-30']='2025-03-04';
+  const expected=historical.map(([s,e])=>'开始：'+s+'｜结束：'+e).concat('开始：'+f.anchor+'｜结束：未记录');
+  await scenario(async({page,writes})=>{
+    const p=await page(), copied=[];
+    await p.exposeFunction('captureSyntheticCalendarCopy',value=>copied.push(value));
+    await p.evaluate(()=>Object.defineProperty(navigator,'clipboard',{configurable:true,value:{writeText:window.captureSyntheticCalendarCopy}}));
+    await p.locator('#share-periods-btn').click();
+    const dialog=p.locator('.period-share'), scope=dialog.getByRole('combobox');
+    const preview=dialog.getByRole('textbox',{name:'经期日期预览'});
+    const grant=dialog.getByRole('checkbox'), copy=dialog.getByRole('button',{name:'复制日期'});
+    const all=dialog.getByRole('button',{name:'一键导出全部'});
+    const dates=text=>text.split('\n').slice(1);
+    assert.equal(await scope.inputValue(),'4');
+    assert.deepEqual(dates(await preview.inputValue()),expected.slice(-4));
+    assert.equal(await all.isDisabled(),true);
+    assert.equal(await copy.isDisabled(),true);
+    assert.deepEqual(copied,[]);
+    await grant.check(); await all.click();
+    await p.waitForFunction(()=>document.querySelector('.period-share [role=status]')?.textContent.includes('已复制全部 9 条'));
+    assert.deepEqual(copied.map(dates),[expected]);
+    assert.deepEqual(dates(await preview.inputValue()),expected.slice(-4));
+    await scope.selectOption('6');
+    assert.equal(await grant.isChecked(),false);
+    assert.equal(await all.isDisabled(),true);
+    assert.equal(await copy.isDisabled(),true);
+    assert.deepEqual(dates(await preview.inputValue()),expected.slice(-6));
+    await grant.check();
+    await p.evaluate(()=>Object.defineProperty(navigator,'clipboard',{configurable:true,value:{writeText:async()=>{throw Error('blocked')}}}));
+    await all.click();
+    const fallback=dialog.getByRole('textbox',{name:'全部经期日期（手动复制）'});
+    assert.deepEqual(dates(await fallback.inputValue()),expected);
+    assert.equal(await fallback.getAttribute('readonly'),'');
+    assert.deepEqual(copied.map(dates),[expected]);
+    await grant.uncheck();
+    assert.equal(await fallback.count(),0);
+    assert.equal(writes.length,0);
+  },f);
+});
