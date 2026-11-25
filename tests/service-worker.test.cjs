@@ -52,7 +52,7 @@ test('offline manifest covers every module and shared asset without eager heavy 
   const media=s.installed.filter(url=>url.includes('.m4a')||url.includes('.mp4')||url.includes('/lights-film/')||url.includes('room-data'));
   assert.deepEqual(media,[]);
   assert(s.installed.includes(scope+'smart-home/lights-preview.html'));
-  for(const file of ['shared/lights-on-v1.js?ui=90','shared/lights-on-v1.css?ui=78','shared/lights-on-universe.js?scene=91','shared/lights-on-universe.css'])assert(s.installed.includes(scope+file));
+  for(const file of ['shared/lights-on-v1.js?ui=90','shared/lights-on-v1.css?ui=78','shared/lights-on-universe.js?scene=92','shared/lights-on-universe.css'])assert(s.installed.includes(scope+file));
 });
 
 test('activation only removes older LW5 caches, not unrelated apps',async()=>{

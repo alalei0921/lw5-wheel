@@ -16,8 +16,8 @@ test.before(async () => {
 });
 test.after(async () => browser?.close());
 
-async function scene({ width = 390, height = 844, reducedMotion = 'no-preference', dialog = false, blockWebGL = false, timeline = false } = {}) {
-  const context = await browser.newContext({ viewport: { width, height }, reducedMotion, serviceWorkers: 'block' });
+async function scene({ width = 390, height = 844, deviceScaleFactor = 1, reducedMotion = 'no-preference', dialog = false, blockWebGL = false, timeline = false } = {}) {
+  const context = await browser.newContext({ viewport: { width, height }, deviceScaleFactor, reducedMotion, serviceWorkers: 'block' });
   const requests = [], errors = [];
   await context.route('**/*', route => { requests.push(route.request().url()); return route.abort(); });
   const page = await context.newPage();
@@ -242,15 +242,17 @@ test('a paused preview renders the same cloud, grains and wave after a backward 
   }
 });
 
-test('grains retain native pixel resolution when slow playback reduces volume samples', async () => {
-  const s = await scene({ width: 128, height: 192, timeline: true });
+test('retina grains keep their native resolution while volume samples adapt and recover', async () => {
+  const s = await scene({ width: 72, height: 96, deviceScaleFactor: 3, timeline: true });
   try {
     const result = await s.page.evaluate(() => {
       const gl = document.querySelector('#host canvas').getContext('webgl');
       const nativeDraw = gl.drawArrays.bind(gl);
       const start = performance.now();
-      let calls = [], elapsed = 0;
+      let calls = [], elapsed = 0, recordFrame = true;
       gl.drawArrays = (mode, first, count) => {
+        // Only submit the frames measured below to the software GPU.
+        if (!recordFrame) return;
         calls.push({ points: mode === gl.POINTS, width: gl.getParameter(gl.VIEWPORT)[2],
           offscreen: Boolean(gl.getParameter(gl.FRAMEBUFFER_BINDING)) });
         nativeDraw(mode, first, count);
@@ -258,21 +260,32 @@ test('grains retain native pixel resolution when slow playback reduces volume sa
       Object.defineProperty(performance, 'now', { configurable: true, value: () => start + elapsed });
       try {
         for (let i = 0; i < 15; i++) {
-          calls = [];
+          recordFrame = i === 14;
           elapsed += 88;
           window.scene.renderAt(5 + elapsed / 1000, 5, true);
         }
-        return { calls, width: gl.drawingBufferWidth, error: gl.getError() };
+        const slow = calls;
+        calls = [];
+        for (let i = 0; i < 105; i++) {
+          recordFrame = i === 104;
+          elapsed += 40;
+          window.scene.renderAt(5 + elapsed / 1000, 5, true);
+        }
+        return { slow, recovered: calls, width: gl.drawingBufferWidth, error: gl.getError() };
       } finally {
         delete performance.now;
         delete gl.drawArrays;
       }
     });
-    const [volume, resolve, grains] = result.calls;
-    assert.equal(result.calls.length, 3);
+    assert.equal(result.width, 72 * 3);
+    const [volume, resolve, grains] = result.slow;
+    assert.equal(result.slow.length, 3);
     assert(volume.offscreen && volume.width < result.width);
     assert.deepEqual(resolve, { points: false, width: result.width, offscreen: false });
     assert.deepEqual(grains, { points: true, width: result.width, offscreen: false });
+    assert.deepEqual(result.recovered, [
+      { points: false, width: result.width, offscreen: false }, grains,
+    ]);
     assert.equal(result.error, 0);
     clean(s);
   } finally { await s.context.close(); }
@@ -378,10 +391,11 @@ test('canvas fits small mobile and desktop layouts at capped resolution', async 
   }
 });
 
-test('WebGL unavailable falls back without advancing or losing actual confirmations', async () => {
-  const s = await scene({ blockWebGL: true, reducedMotion: 'reduce' });
+test('WebGL unavailable falls back at native phone resolution and preserves confirmations', async () => {
+  const s = await scene({ width: 240, height: 400, deviceScaleFactor: 3, blockWebGL: true, reducedMotion: 'reduce' });
   try {
     assert.equal(await s.page.locator('#host').getAttribute('data-renderer-reason'),'unavailable');
+    assert.deepEqual(await s.page.locator('#host canvas').evaluate(canvas => [canvas.width, canvas.height]), [720, 1200]);
     await update(s.page,{status:'running',completed:4,currentIndex:5});
     await expectStopped(s.page);
     assert.equal(await s.page.locator('#host').getAttribute('data-completed'),'4');

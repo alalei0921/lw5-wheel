@@ -60,9 +60,11 @@ is an artistic rendering, not a physically accurate black-hole simulation.
 
 Only job snapshots update progress; the renderer never fetches or sends commands.
 Reduced-motion mode is static. Hidden or closed scenes stop scheduling frames.
-The render buffer is capped at 520,000 pixels and scales down after sustained slow
-frames. WebGL failure/context loss falls back to the previous Canvas renderer;
-context restoration preserves the job snapshot. Disposal releases GPU resources.
+WebGL draws stars at up to three device pixels per CSS pixel within the display
+pixel budget. The gas layer uses a separate buffer that scales down during slow
+playback and recovers when frame times improve. The Canvas fallback also draws
+stars at display resolution. Context restoration preserves the job snapshot.
+Disposal releases GPU resources.
 The WebGL scaffold/hash attribution and MIT notice are embedded in the engine,
 with an additional copy at `licenses/blackhole-MIT.txt`.
 

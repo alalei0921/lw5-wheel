@@ -151,45 +151,58 @@
 
   const PHASES = new Set(['idle', 'queued', 'connecting', 'running', 'verifying', 'succeeded', 'failed']);
   const VERTEX = 'attribute vec2 aPos; void main(){gl_Position=vec4(aPos,0.,1.);}';
-  // Three seeded populations share a single point draw and the volume's camera.
+  // Point materials and the five inclined arms follow nebula-visuals-v2.
+  // Orbital dust, the lensed rim and the inflow share one native-resolution draw.
   const GRAIN_VERTEX = `precision highp float;
 attribute vec4 aGrain;
 uniform vec2 uRes;
 uniform float uTime, uProgress;
 varying mediump vec3 vTint;
-varying mediump float vLight, vDistance;
-varying mediump vec4 vKernel;
+varying mediump vec4 vKernel, vStyle;
 void main() {
  const float tau=6.2831853072;
- float lane=fract(aGrain.x), phase=uTime/16.;
+ float lane=fract(aGrain.x), kind=floor(aGrain.x), phase=uTime/16., phi=phase*tau;
  vec3 ro=vec3(0.,.80,8.4), forward=normalize(-ro);
  vec3 up=normalize(cross(vec3(1.,0.,0.),forward));
  vec3 p;
  float life=1., breadth=1.;
- if(aGrain.x<1.) {
-  // Sheared lanes bunch into asymmetrical knots, and merge again further
-  // along their orbit. Their vertical dispersion follows the volumetric folds.
-  float band=floor(aGrain.z*12.);
-  float local=fract(aGrain.z*12.)-.5;
-  float orbit=(band+.5+local*(.28+2.15*local*local))/12.;
-  float angle=tau*(lane+phase*(1.+floor((1.-aGrain.z)*2.99)));
-  angle+=.078*sin(7.*angle+band*1.27)+.029*sin(13.*angle-band*.65);
-  float r=1.27+pow(orbit,.84)*3.63+.11*sin(3.*angle+band*.72)+.045*cos(7.*angle-band*.31);
-  angle+=.34*r;
-  float lift=.22*sin(angle*3.-r*1.8)+.10*sin(6.*angle+r);
-  p=vec3(r*cos(angle),lift*(.42+.38*orbit)+(aGrain.y-.5)*(.12+.47*orbit),r*sin(angle));
-  float exposed=.11+.89*smoothstep(.14,.75,abs(p.x)/r);
-  life=(.54+.46*sin(angle+.65)*sin(angle+.65))*mix(1.,exposed,smoothstep(0.,1.,p.z));
- } else if(aGrain.x<2.) {
-  // The far, lensed dust follows the variable-width shoulder of the photon
-  // arc. Offset from the shadow by more than the projected sprite radius.
-  float a=tau*(lane+phase*(1.+floor(aGrain.z*2.)));
-  a+=.10*sin(5.*a+floor(aGrain.z*2.)*2.3);
-  float shoulder=.065+.18*pow(aGrain.y,1.65)+.038*sin(a*3.+phase*tau);
-  float r=1.032+shoulder*(.64+.36*pow(sin(a-.36),2.));
-  p=(vec3(cos(a),0.,0.)+up*sin(a))*r;
-  life=(.16+.62*smoothstep(-.27,.87,sin(a)))*(.45+.55*abs(sin(3.*a+2.1)));
-  breadth=.77;
+ if(kind<1. || kind==3.) {
+  // Each spiral is a particle cloud with its own inclined plane. Position,
+  // jitter and vertical scatter are fixed in material coordinates during orbit.
+  float arm=floor(lane*5.), jitter=fract(lane*5.)-.5;
+  float t=aGrain.y, r=1.21+pow(t,.83)*2.30;
+  float angle=arm*tau/5.+t*5.9+phi+.31*sin(phi+r*1.1);
+  float width=jitter+.61*(aGrain.z-.5);
+  float diffuse=kind==3.?1.:0.;
+  angle+=width*(.16+.24*t+.61*diffuse);
+  r+=width*(.052+r*(.073+.19*diffuse));
+  float lift=sin(1.6*(angle-phi)+arm+.19*sin(phi))*.18*r;
+  lift+=(aGrain.z-.5)*(.10+r*(.12+.28*diffuse));
+  float tilt=(arm-2.)*.275+.08*sin(phi+arm);
+  float z=r*sin(angle);
+  p=vec3(r*cos(angle),lift*cos(tilt)-z*sin(tilt),z*cos(tilt)+lift*sin(tilt));
+  life=.74+.26*cos(angle+.46)*cos(angle+.46);
+  if(diffuse>.5) life*=.70;
+ } else if(kind==1.) {
+  // Three dusty arcs follow the lensed image. Their gaps and inclinations
+  // change the apparent density around the otherwise continuous photon rim.
+  float band=floor(aGrain.y*3.);
+  float a=tau*lane+.14*sin(phi+band)+phi;
+  float r=1.25+band*.265+(fract(aGrain.y*3.)-.5)*.098;
+  vec2 ring=r*vec2(cos(a),sin(a)*(.72+.085*band));
+  float tilt=(band-1.)*.53;
+  ring=mat2(cos(tilt),sin(tilt),-sin(tilt),cos(tilt))*ring;
+  p=vec3(ring.x,0.,0.)+up*ring.y-forward*(.13+.14*sin(a));
+  life=(.32+.68*smoothstep(-.60,.78,sin(a)))*(.46+.54*abs(sin(3.*a+.8*band)));
+  breadth=.85;
+ } else if(kind==4.) {
+  // Suspended ionized grains occupy the open volume between arms and knots.
+  float r=1.43+pow(aGrain.y,.65)*2.62;
+  float h=2.*aGrain.z-1., span=sqrt(max(0.,1.-h*h));
+  float a=lane*tau+phi+.17*sin(phi+r);
+  p=r*vec3(cos(a)*span,h*.52,sin(a)*span);
+  life=.48*(1.-smoothstep(3.1,4.1,r));
+  breadth=.79;
  } else {
   float travel=fract(phase*(2.+floor(3.*aGrain.z))+aGrain.y);
   float band=floor(aGrain.z*3.);
@@ -212,53 +225,84 @@ void main() {
  vec3 ray=p-ro;
  float depth=dot(ray,forward), focal=sqrt(dot(ro,ro)-1.);
  vec2 view=vec2(ray.x,dot(ray,up))*focal/depth;
- float roll=.49+.004*sin(phase*tau);
- float c=cos(roll), s=sin(roll);
- vec2 screenView=mat2(c,s,-s,c)*view;
+ float roll=.49+.004*sin(phi), c=cos(roll), s=sin(roll);
  float aspect=uRes.x/uRes.y, framing=min(.38,aspect*.44);
- vec2 ndc=(screenView*framing+vec2(-.06*aspect,.24))/vec2(aspect,1.);
+ vec2 ndc=(mat2(c,s,-s,c)*view*framing+vec2(-.06*aspect,.24))/vec2(aspect,1.);
  gl_Position=vec4(ndc,0.,1.);
  vec3 dir=normalize(ray);
  float closest=clamp(-dot(ro,dir),0.,length(ray));
- float visible=smoothstep(.998,1.045,length(ro+dir*closest));
- float mass=pow(aGrain.w,4.6);
- // Convolve each projected grain with a pixel footprint. At a small render
- // size the wider kernel receives the same integrated energy as the tiny core.
- float sigma=uRes.y*framing*.5*focal/depth*(.0044+.0077*mass)*breadth;
- vec2 intrinsic=vec2(1.,5.4)*sigma*sigma;
- vec2 variance=intrinsic+vec2(.19);
- gl_PointSize=clamp(ceil(5.65*sqrt(variance.y)),3.,48.);
+ float seen=smoothstep(.998,1.045,length(ro+dir*closest));
+ float dust=kind==3.?1.:0., accent=kind==1.?1.:0.;
+ float mass=pow(aGrain.w,3.);
+ float diameter=mix(.030,.077,mass)*breadth;
+ if(dust>.5) diameter=mix(.18,.39,aGrain.w);
+ if(accent>.5) diameter=mix(.041,.076,aGrain.w);
+ float worldToPixel=uRes.y*framing*.5*focal/depth;
+ float width=diameter*worldToPixel;
+ // Reference sprite uses exp(-28r²) and exp(-7r²). Integrate each core over
+ // a pixel footprint so a moving subpixel point keeps its light at any DPR.
+ vec2 intrinsic=width*width/vec2(224.,56.);
+ if(dust>.5) intrinsic=vec2(width*width/32.);
+ vec2 variance=intrinsic+vec2(.16);
+ gl_PointSize=clamp(ceil(6.*sqrt(variance.y)),2.,82.);
  vKernel=vec4(.125*gl_PointSize*gl_PointSize/variance,intrinsic/variance);
- vTint=mix(vec3(.65,.65,.95),vec3(1.,.66,.42),aGrain.z);
- vTint=mix(vTint,vec3(1.,.9,.75),mass*.77);
- vLight=visible*life*(.56+.42*mass)*(.48+.52*uProgress);
- vDistance=length(p);
+ float margin=gl_PointSize*.55/worldToPixel;
+ seen*=smoothstep(1.+margin,1.065+margin,length(view));
+ float radius=length(p);
+ float colorSeed=fract(11.37*aGrain.z+7.39*aGrain.w);
+ vec3 cool=mix(vec3(.18,.45,.68),vec3(.28,.70,.76),colorSeed);
+ vec3 warm=mix(vec3(1.,.26,.055),vec3(1.,.72,.32),colorSeed);
+ vec3 ion=mix(vec3(.18,.57,.66),vec3(.64,.88,1.),colorSeed);
+ vec3 lit=mix(warm,ion,smoothstep(1.75,3.1,radius)*step(.35,colorSeed));
+ vTint=mix(cool,lit,pow(uProgress,.83));
+ vTint=mix(vTint,vec3(1.,.88,.65),.23*accent*uProgress);
+ // The volume is already tone-mapped. Bring the linear particle palette
+ // through the reference exposure and display curve before screen blending.
+ vec3 exposed=vTint*(.68+.74*uProgress);
+ vTint=pow(clamp((exposed*(2.51*exposed+.03))/(exposed*(2.43*exposed+.59)+.14),0.,1.),vec3(.4545));
+ // Whole loop harmonics preserve the 16s film clock across seeks and replay.
+ float twinkle=.76+.24*sin(phi*(2.+floor(aGrain.z*4.))+aGrain.y*40.);
+ float alpha=seen*life*(.63+.51*uProgress)*twinkle;
+ if(dust>.5) alpha*=.048+.026*uProgress;
+ if(accent>.5) alpha*=1.17;
+ if(kind==2.) alpha*=.76;
+ float glint=step(.975,fract(aGrain.w*23.83+lane))*(.14+.86*uProgress)*(1.-dust);
+ vStyle=vec4(alpha,radius,dust,glint);
 }`;
   const GRAIN_FRAGMENT = `precision mediump float;
 uniform sampler2D uHeat;
 varying mediump vec3 vTint;
-varying mediump float vLight, vDistance;
-varying mediump vec4 vKernel;
+varying mediump vec4 vKernel, vStyle;
 void main() {
  vec2 d=gl_PointCoord*2.-1.;
  float r2=dot(d,d);
+ if(r2>1.) discard;
  vec2 shape=exp(-r2*vKernel.xy)*vKernel.zw;
- float wave=texture2D(uHeat,vec2(vDistance/6.,.5)).r;
- vec3 colour=mix(vTint,vec3(1.,.91,.75),wave*.9);
- gl_FragColor=vec4(colour*(shape.x+.065*shape.y)*vLight*(.91+1.44*wave),0.);
+ float light=mix(.72*shape.x+.60*shape.y,.55*shape.y,vStyle.z);
+ if(vStyle.w>0.) {
+  vec2 crossLight=exp(-abs(d)*45.)*exp(-abs(d.yx)*3.5);
+  light+=dot(crossLight,vec2(.18))*vStyle.w*vKernel.z;
+ }
+ float wave=texture2D(uHeat,vec2(vStyle.y/6.,.5)).r;
+ vec3 colour=mix(vTint,vec3(1.,.88,.64),wave*.78);
+ gl_FragColor=vec4(colour*light*vStyle.x*(1.+1.35*wave)*(1.-smoothstep(.62,1.,r2)),0.);
 }`;
 
-  const orbitGrains = 2560, haloGrains = 640, streamGrains = 1280;
-  const grainCount = orbitGrains + haloGrains + streamGrains;
+  const orbitGrains = 5300, haloGrains = 800, streamGrains = 2300;
+  const cloudGrains = 1600, mantleGrains = 1800;
+  const grainCount = orbitGrains + haloGrains + streamGrains + cloudGrains + mantleGrains;
   function makeGrainSeeds() {
     const seeds = new Float32Array(grainCount * 4);
-    let state = 43783;
-    for (let i = 0; i < seeds.length; i++) {
-      state = state * 16807 % 2147483647;
-      seeds[i] = state / 2147483647;
-    }
-    for (let i = orbitGrains; i < grainCount; i++) {
-      seeds[i * 4] += i < orbitGrains + haloGrains ? 1 : 2;
+    let index = 0, state = 73421;
+    for (const [kind, count] of [orbitGrains, haloGrains, streamGrains, cloudGrains, mantleGrains].entries()) {
+      for (let i = 0; i < count; i++) {
+        for (let component = 0; component < 4; component++) {
+          state = (Math.imul(state, 1664525) + 1013904223) >>> 0;
+          seeds[index + component] = state / 4294967296;
+        }
+        seeds[index] += kind;
+        index += 4;
+      }
     }
     return seeds;
   }
@@ -808,9 +852,24 @@ uniform sampler2D uVolume;
 uniform vec2 uVolumeSize;
 varying vec2 uv;
 void main(){
- vec2 pixel=uv*uVolumeSize-.5, f=fract(pixel);
- vec2 weight=mix(f,f*f*(3.-2.*f),.42);
- gl_FragColor=texture2D(uVolume,(floor(pixel)+weight+.5)/uVolumeSize);
+ // Catmull-Rom reconstruction with combined bilinear centre taps. Omit
+ // the four tiny corner products and renormalize the remaining weights.
+ vec2 position=uv*uVolumeSize-.5;
+ vec2 base=floor(position)+.5;
+ vec2 f=fract(position), f2=f*f, f3=f2*f;
+ vec2 left=-.5*(f3+f)+f2;
+ vec2 right=.5*(f3-f2);
+ vec2 middle=1.-left-right;
+ vec2 center=base+(.5*f+2.*f2-1.5*f3)/middle;
+ vec2 texel=1./uVolumeSize;
+ vec4 weights=vec4(left.x*middle.y,right.x*middle.y,middle.x*left.y,middle.x*right.y);
+ float w=middle.x*middle.y;
+ vec3 colour=texture2D(uVolume,center*texel).rgb*w;
+ colour+=texture2D(uVolume,vec2(base.x-1.,center.y)*texel).rgb*weights.x;
+ colour+=texture2D(uVolume,vec2(base.x+2.,center.y)*texel).rgb*weights.y;
+ colour+=texture2D(uVolume,vec2(center.x,base.y-1.)*texel).rgb*weights.z;
+ colour+=texture2D(uVolume,vec2(center.x,base.y+2.)*texel).rgb*weights.w;
+ gl_FragColor=vec4(clamp(colour/(w+dot(weights,vec4(1.))),0.,1.),1.);
 }`;
 
   function create(host, { timeline = false, renderer, pixelBudget } = {}) {
@@ -842,15 +901,15 @@ void main(){
     // An offline timeline capture can request a fixed native sample budget.
     const capturePixels = timeline && Number.isFinite(pixelBudget) && pixelBudget > 0
       ? Math.min(pixelBudget, 4096 * 2160) : 0;
-    const volumeBudget = capturePixels || (software ? 100000 : 720000);
-    const displayBudget = capturePixels || (software ? 100000 : 2073600);
+    const volumeBudget = capturePixels || (software ? 100000 : 1200000);
+    const displayBudget = capturePixels || 4000000;
     let resolveProgram, volumeFramebuffer, volumeColour, sizeUniform;
     let volumeWidth=0, volumeHeight=0, separateVolume=false, framebufferUnavailable=false;
     let program, buffer, texture, cloudTexture, heatTexture, shaders=[], uniforms={};
     let grainProgram, grainBuffer, grainUniforms={}, previousHeat=false;
     const heatRow = new Uint8Array(128);
     let destroyed=false, contextLost=false, fallback=null, frame=0, intersecting=true;
-    let width=0, height=0, quality=1, lastPaint=-Infinity, lastTick=null, slowFrames=0;
+    let width=0, height=0, quality=1, lastPaint=-Infinity, lastTick=null, slowFrames=0, fastFrames=0;
     let heatWaveUntil=0, timelineSeconds=0, hydrated=false;
     let state={status:'idle',completed:0,currentIndex:null}, successAt=null;
     const impactTimes=Array(9).fill(-Infinity), epoch=performance.now();
@@ -970,7 +1029,7 @@ void main(){
       if((dialog&&!dialog.open)||host.closest('[hidden]')||!host.getClientRects().length)return false;
       const style=getComputedStyle(host);return style.visibility!=='hidden'&&style.display!=='none';
     }
-    function stop(){if(frame)cancelAnimationFrame(frame);frame=0;lastTick=null;}
+    function stop(){if(frame)cancelAnimationFrame(frame);frame=0;lastTick=null;slowFrames=0;fastFrames=0;}
     function reconcile(){
       if(!visible()){
         stop();
@@ -987,7 +1046,7 @@ void main(){
       const rect=host.getBoundingClientRect();width=rect.width;height=rect.height;
       if(contextLost)return;
       const pixels=Math.max(1,width*height);
-      const displayScale=Math.min(window.devicePixelRatio||1,2,Math.sqrt(displayBudget/pixels));
+      const displayScale=Math.min(window.devicePixelRatio||1,3,Math.sqrt(displayBudget/pixels));
       const rayScale=Math.min(displayScale,Math.sqrt(volumeBudget/pixels))*quality;
       const rw=Math.max(2,Math.round(width*rayScale)), rh=Math.max(2,Math.round(height*rayScale));
       let w=Math.max(2,Math.round(width*displayScale)), h=Math.max(2,Math.round(height*displayScale));
@@ -1047,10 +1106,18 @@ void main(){
       drawGrains(t,light/9);
     }
     function adaptResolution(time){
-      if(lastTick!==null){slowFrames=time-lastTick>50?slowFrames+1:Math.max(0,slowFrames-1);}
+      const interval=lastTick===null?0:time-lastTick;
       lastTick=time;
-      if(slowFrames<12 || quality<=.52) return false;
-      quality=Math.max(.5,quality*.8);slowFrames=0;resize();
+      if(!interval)return false;
+      // Preview frames are requested at 24 Hz; a 50 ms interval can be
+      // ordinary vsync quantization. Recover after sustained headroom.
+      slowFrames=interval>(timeline?64:53)?slowFrames+1:Math.max(0,slowFrames-1);
+      fastFrames=interval<(timeline?52:35)?fastFrames+1:0;
+      const floor=software ? .5 : .62;
+      if(slowFrames>=12 && quality>floor)quality=Math.max(floor,quality*.8);
+      else if(fastFrames>=96 && quality<1)quality=Math.min(1,quality/.8);
+      else return false;
+      slowFrames=0;fastFrames=0;resize();
       return true;
     }
     function tick(time){
@@ -1096,7 +1163,7 @@ void main(){
       if(fallback) fallback.renderAt(timelineSeconds,next.completed,playing);
       else if(visible()){
         if(playing && !motion.matches && adaptResolution(performance.now())) return;
-        if(!playing){lastTick=null;slowFrames=0;}
+        if(!playing){lastTick=null;slowFrames=0;fastFrames=0;}
         paint(timelineSeconds*1000);
       }
     }
@@ -1144,8 +1211,17 @@ void main(){
     const software = host.dataset.rendererReason === 'software';
     // Keep all paint surfaces on the CPU together. Mixing GPU-backed cloud
     // buffers with a software canvas makes each blend transfer raster data.
-    const surfaceOptions = software ? { willReadFrequently: true } : {};
-    const ctx = canvas.getContext('2d', { alpha: false, ...surfaceOptions });
+    // A seekable presentation must resolve identical splats after export or
+    // readback. Pin that path too: some browsers migrate a canvas to CPU
+    // raster after its first capture, changing sprite interpolation mid-loop.
+    const surfaceOptions = software || timeline ? { willReadFrequently: true } : {};
+    // Density and scattering tolerate a coarse grid. Resolve the field onto
+    // the presentation canvas between depth layers; stars and event-horizon
+    // edges are painted directly into the device-resolution buffer.
+    const volume = document.createElement('canvas');
+    const gas = volume.getContext('2d', surfaceOptions);
+    const display = canvas.getContext('2d', { alpha: false, ...surfaceOptions });
+    let ctx = gas, displayScale = 1;
     const pixelBudget = software ? 215000 : 1000000;
     const frameInterval = software ? 55 : 30;
     const motion = window.matchMedia('(prefers-reduced-motion: reduce)');
@@ -1217,18 +1293,38 @@ void main(){
     });
     // Neighbouring grains share an orbit with their luminous gas pocket.
     // Each pocket shears and breathes independently in the tilted disc.
-    const pockets = Array.from({ length: 72 }, (_, i) => {
+    const pockets = Array.from({ length: 72 }, () => {
       const orbit = 1.2 + random() ** 1.4 * 2.65;
       return { orbit, angle: random() * TAU, speed: orbit < 1.9 ? 2 : 1,
-        lift: (random() - .5) * .34, size: .16 + random() * .34,
-        grains: Array.from({ length: 27 + i % 9 }, () => {
-          // Sample a short swept lane, with a tightly packed crest and
-          // looser peripheral dust. Rare larger grains catch the light.
-          const lane = random() - .5;
-          return { angle: lane * .82, offset: lane * .38 + (random() - .5) * .28,
-            lift: (random() - .5) * (.08 + Math.abs(lane) * .32),
-            size: .45 + 1.28 * random() ** 3, light: .43 + .57 * random() };
-        }) };
+        lift: (random() - .5) * .34, size: .16 + random() * .34 };
+    });
+    // Five inclined spiral filaments, diffuse gas, an outer ion halo and
+    // three thin bands follow the populations used by the home nebula.
+    // Seed their geometry once; the instantaneous lighting stays per grain.
+    const dust = Array.from({ length: 8000 }, (_, i) => {
+      const t = random(), seed = random(), light = random(), lane = i % 5;
+      const fog = i >= 4900 && i < 5900;
+      const halo = i >= 5900 && i < 7420;
+      const rim = i >= 7420;
+      let orbit, angle, lift;
+      if (rim) {
+        const band = i % 3;
+        orbit = 1.18 + band * .19 + (random() - .5) * .035;
+        angle = t * TAU;
+        lift = Math.sin(angle + band * .8) * (.04 + band * .10);
+      } else if (fog || halo) {
+        orbit = 1.12 + t ** .7 * (fog ? 2.55 : 3.1);
+        angle = random() * TAU;
+        lift = (random() + random() - 1) * orbit * (fog ? .19 : .53);
+      } else {
+        orbit = 1.11 + t ** .82 * 2.72 + (random() + random() - 1) * (.04 + t * .16);
+        angle = lane * TAU / 5 + t * 5.9 + (random() - .5) * (.18 + .32 * t);
+        lift = orbit * (Math.sin(angle * 1.6 + lane) * .081 +
+          Math.sin(angle) * (lane - 2) * .081 + (random() + random() - 1) * (.034 + t * .05));
+      }
+      const size = fog ? 5.1 + seed * 5 : rim ? .73 + .62 * seed : .60 + .98 * seed ** 3;
+      return { orbit, angle, lift, size, light, fog, halo, rim, seed,
+        kind: fog ? 1 : random() > .975 ? 2 : 0, speed: orbit < 1.6 ? 2 : 1 };
     });
     for (const thread of streams) {
       thread.grains = Array.from({ length: 7 }, () => ({
@@ -1236,6 +1332,7 @@ void main(){
       }));
     }
 
+    const crestDust = [[], [], []];
     function puffMap(hot, variant) {
       const size = software ? 128 : 192, map = document.createElement('canvas'); map.width = map.height = size;
       const painter = map.getContext('2d', surfaceOptions); if (!painter) return map;
@@ -1276,12 +1373,22 @@ void main(){
         data.data[j + 2] = hot ? 112 + white * 125 : 21 + light * 60;
         data.data[j + 3] = alpha * (hot ? crest : 1) * 255;
       }
+      if (hot) {
+        // Lift fine grains from the actual sunlit cloud surface. Sampling the
+        // computed light field keeps stars out of its hollow, shadowed gaps.
+        for (let i = 0; i < 260; i++) {
+          const x = random(), y = random();
+          const j = (Math.floor(y * size) * size + Math.floor(x * size)) * 4;
+          const light = data.data[j + 3] / 255;
+          if (light > .36 && random() < light) crestDust[variant].push({ x, y, light, phase: random(), size: random() });
+        }
+      }
       painter.putImageData(data, 0, 0); return map;
     }
     const shadowPuffs = [0, 1, 2].map(i => puffMap(false, i)), lightPuffs = [0, 1, 2].map(i => puffMap(true, i));
 
     function visible() {
-      if (destroyed || !ctx || document.hidden || !intersecting || !host.isConnected || !width || !height) return false;
+      if (destroyed || !display || !gas || document.hidden || !intersecting || !host.isConnected || !width || !height) return false;
       const dialog = host.closest('dialog');
       if ((dialog && !dialog.open) || host.closest('[hidden]') || !host.getClientRects().length) return false;
       const style = getComputedStyle(host);
@@ -1310,8 +1417,11 @@ void main(){
       if (destroyed) return;
       const rect = host.getBoundingClientRect(); width = rect.width; height = rect.height;
       dpr = Math.min(window.devicePixelRatio || 1, 1.5, Math.sqrt(pixelBudget / Math.max(1, width * height)));
-      const w = Math.max(1, Math.round(width * dpr)), h = Math.max(1, Math.round(height * dpr));
-      if (canvas.width !== w || canvas.height !== h) { canvas.width = w; canvas.height = h; lastPaint = -Infinity; }
+      displayScale = Math.min(window.devicePixelRatio || 1, 3, Math.sqrt(3500000 / Math.max(1, width * height)));
+      for (const [surface, scale] of [[volume, dpr], [canvas, displayScale]]) {
+        const w = Math.max(1, Math.round(width * scale)), h = Math.max(1, Math.round(height * scale));
+        if (surface.width !== w || surface.height !== h) { surface.width = w; surface.height = h; lastPaint = -Infinity; }
+      }
       reconcile();
     }
     function progress(time) {
@@ -1364,41 +1474,52 @@ void main(){
       }
       return Math.min(1, light);
     }
-    // Tiny grains with similar luminance share one fill. Storing the circle
-    // subpaths in a small set of palettes also preserves subpixel coverage.
-    const grainTints = ['168,192,238', '247,157,125', '255,229,191'];
-    const grainBatches = grainTints.flatMap(tint => [.13, .27, .43, .62, .84, 1].map(alpha => ({
-      color: 'rgba(' + tint + ',' + alpha + ')', points: [],
-    })));
-    function addGrain(x, y, radius, light, tint) {
-      if (light < .052) return;
-      const bucket = Math.min(5, Math.floor(light * 6));
-      grainBatches[tint * 6 + bucket].points.push(x, y, radius);
+    // Bake the home nebula's point-fragment falloff into analytic splats.
+    // The separate broad dust lobe and occasional diffraction cross use the
+    // same feathered support as the tight two-Gaussian luminous core.
+    const tints = [[78,170,205], [95,204,198], [251,134,84], [255,194,126], [255,235,193], [160,221,250]];
+    const tile = 40, atlas = document.createElement('canvas');
+    atlas.width = tints.length * tile; atlas.height = 3 * tile;
+    const atlasCtx = atlas.getContext('2d', surfaceOptions);
+    const pixels = atlasCtx.createImageData(atlas.width, atlas.height);
+    for (let kind = 0; kind < 3; kind++) for (let tint = 0; tint < tints.length; tint++) {
+      for (let y = 0; y < tile; y++) for (let x = 0; x < tile; x++) {
+        const u = (x + .5) * 2 / tile - 1, v = (y + .5) * 2 / tile - 1;
+        const r2 = u * u + v * v;
+        let value = kind === 1 ? .55 * Math.exp(-4 * r2) : .60 * Math.exp(-7 * r2) + .72 * Math.exp(-28 * r2);
+        if (kind === 2) value += .18 * (Math.exp(-45 * Math.abs(u) - 3.5 * Math.abs(v)) +
+          Math.exp(-45 * Math.abs(v) - 3.5 * Math.abs(u)));
+        const j = 4 * ((y + kind * tile) * atlas.width + tint * tile + x);
+        const rgb = tints[tint];
+        pixels.data[j] = rgb[0]; pixels.data[j + 1] = rgb[1]; pixels.data[j + 2] = rgb[2];
+        pixels.data[j + 3] = 255 * clamp(value * (1 - smooth((r2 - .62) / .38)));
+      }
+    }
+    atlasCtx.putImageData(pixels, 0, 0);
+    const splats = Array.from({length: 3 * tints.length * 8}, () => []);
+    function addGrain(x, y, radius, light, tint, kind = 0) {
+      if (light <= .008 || x + radius < 0 || y + radius < 0 || x - radius > width || y - radius > height) return;
+      const bucket = Math.min(7, Math.floor(Math.sqrt(light) * 8));
+      splats[(kind * tints.length + tint) * 8 + bucket].push(x, y, radius);
     }
     function drawGrains() {
-      for (const { color, points } of grainBatches) {
+      display.save(); display.globalCompositeOperation = 'lighter';
+      for (let i = 0; i < splats.length; i++) {
+        const points = splats[i];
         if (!points.length) continue;
-        ctx.fillStyle = color; ctx.beginPath();
-        for (let i = 0; i < points.length; i += 3) {
-          const x = points[i], y = points[i + 1], r = points[i + 2];
-          // Subpixel dust occupies approximately one output pixel. A small
-          // quad is sufficient there; resolved grains have circular edges.
-          if (r * dpr < .75) ctx.rect(x - r * .86, y - r * .86, r * 1.72, r * 1.72);
-          else { ctx.moveTo(x + r, y); ctx.arc(x, y, r, 0, TAU); }
+        const sprite = i >> 3, sx = (sprite % tints.length) * tile, sy = Math.floor(sprite / tints.length) * tile;
+        display.globalAlpha = ((i % 8 + .5) / 8) ** 2;
+        for (let j = 0; j < points.length; j += 3) {
+          const r = points[j + 2];
+          display.drawImage(atlas, sx, sy, tile, tile, points[j] - r, points[j + 1] - r, r * 2, r * 2);
         }
-        ctx.fill();
         points.length = 0;
       }
+      display.restore();
     }
-    function dot(x, y, size, alpha, cool) {
-      if (alpha < .024) return;
-      const tint = cool ? '169,196,246' : '255,216,171';
-      if (size > 1.45) {
-        ctx.fillStyle = 'rgba(' + tint + ',' + alpha * .15 + ')';
-        ctx.beginPath(); ctx.arc(x, y, size * 2.4, 0, TAU); ctx.fill();
-      }
-      ctx.fillStyle = 'rgba(' + (size > 1.45 && !cool ? '255,242,216' : tint) + ',' + alpha + ')';
-      ctx.beginPath(); ctx.arc(x, y, size, 0, TAU); ctx.fill();
+    function resolveVolume() {
+      display.drawImage(volume, 0, 0, width, height);
+      gas.save(); gas.resetTransform(); gas.clearRect(0, 0, volume.width, volume.height); gas.restore();
     }
     function orbitalDust(radius, phase, energy, near) {
       ctx.globalCompositeOperation = 'screen';
@@ -1415,19 +1536,34 @@ void main(){
         radial(0, 0, 0, extent, [[0, 'rgba(254,183,140,' + amber + ')'],
           [.44, 'rgba(187,106,111,' + amber * .63 + ')'], [1, 'rgba(93,86,127,0)']]);
         ctx.restore();
-        for (const grain of pocket.grains) {
-          const r = pocket.orbit + grain.offset;
-          const angle = a + grain.angle + grain.offset * .21 * Math.sin(phase + pocket.angle);
-          const p = orbitPoint(r * radius, angle, (lift + grain.lift) * radius);
-          const heat = waveLight(r);
-          const size = grain.size * (near ? 1 : .83) * (1 + .28 * heat);
-          const brightness = (.28 + energy * .69 + heat * .77) * (.63 + lit * .37) * grain.light;
-          const tint = heat > .18 || size > 1.1 ? 2 : near ? 1 : 0;
-          addGrain(p.x, p.y, size, brightness, tint);
-          if (size > 1.48) addGrain(p.x, p.y, size * 2.1, brightness * .17, 1);
-        }
       }
-      drawGrains();
+      const transform = ctx.getTransform();
+      const sizeScale = Math.min(1.45, Math.max(.76, radius / 84));
+      const bright = energy ** 1.25;
+      for (const g of dust) {
+        const a = g.angle + phase * g.speed + .060 * Math.sin(phase + g.seed * TAU);
+        const sin = Math.sin(a);
+        if ((sin >= 0) !== near) continue;
+        const heat = waveLight(g.orbit);
+        const r = g.orbit + heat * .070;
+        const x = Math.cos(a) * r * radius;
+        const y = radius * (sin * r * FLATNESS + g.lift + .031 * Math.sin(a * 2 - phase + g.seed * 7));
+        const px = (transform.a * x + transform.c * y + transform.e) / dpr;
+        const py = (transform.b * x + transform.d * y + transform.f) / dpr;
+        const twinkle = .77 + .23 * Math.sin(phase * (2 + Math.floor(g.light * 4)) + g.seed * 40);
+        const edge = 1 - smooth((g.orbit - 2.95) / 1.3);
+        const alpha = (.63 + bright * .58 + heat * .57) * twinkle * edge * (.57 + .43 * g.light);
+        // Tangent views compress many grains onto the same pixels. Reduce
+        // intensity there so the inner bands retain individual cores.
+        const tangent = .70 + .30 * Math.abs(sin);
+        const strength = g.fog ? .070 : g.halo ? .80 : g.rim ? .77 * tangent :
+          g.kind === 2 ? .95 : .87 * tangent;
+        const tint = heat > .48 || (g.rim && bright > .48) ? 4 :
+          (g.halo || g.orbit > 2.05) && g.light > .48 ? (bright > .38 ? 5 : 1) :
+          g.seed < .8 * bright ? (g.light > .50 ? 3 : 2) : (g.light > .43 ? 1 : 0);
+        const extent = g.size * (g.fog ? 2 : 2.3) * sizeScale * (near ? 1 : .87) * (1 + .64 * heat);
+        addGrain(px, py, extent, alpha * strength, tint, g.kind);
+      }
     }
     function diskHalf(radius, time, energy, near) {
       ctx.save(); ctx.rotate(TILT);
@@ -1555,7 +1691,8 @@ void main(){
           if (j) ctx.lineTo(point.x, point.y); else ctx.moveTo(point.x, point.y);
         }
         ctx.stroke();
-        dot(headPoint.x, headPoint.y, .72 + 1.12 * thread.spread, glow, !near);
+        addGrain(headPoint.x, headPoint.y, 2.5 + 2.7 * thread.spread, glow,
+          near && energy > .30 ? 3 : 5, thread.phase > .975 ? 2 : 0);
         for (const grain of thread.grains) {
           const p = (travel + grain.phase) % 1;
           const at = bezier(start, c1, c2, end, p);
@@ -1571,15 +1708,15 @@ void main(){
           }
           const x = at.x + grain.scatter * radius * .08 * envelope;
           const light = envelope * (.30 + energy * .66 + flash * .7) * thread.strength;
-          addGrain(x, at.y, grain.size * (.86 + p * .29 + flash * .22), light, flash > .12 || near ? 2 : 0);
+          addGrain(x, at.y, grain.size * (2.4 + p * .6 + flash), light,
+            flash > .12 ? 4 : energy > .35 && near ? 3 : 1);
         }
         for (const wave of waves) {
           if (wave.age >= .38 || Math.abs(thread.spread - ((wave.level * .618) % 1)) > .09) continue;
           const surge = bezier(start, c1, c2, end, .26 + .74 * wave.age / .38);
-          dot(surge.x, surge.y, 1.15 + thread.strength * .9, Math.sin(Math.PI * wave.age / .38), false);
+          addGrain(surge.x, surge.y, 4.1 + thread.strength * 1.8, Math.sin(Math.PI * wave.age / .38), 4, 2);
         }
       }
-      drawGrains();
       ctx.restore();
     }
     function capturedFlow(radius, cx, cy, time, energy, near) {
@@ -1651,6 +1788,14 @@ void main(){
         const illumination = (.18 + .82 * Math.exp(-sourceDistance * 2.0)) * (.72 + cloud.highlight * .28);
         ctx.globalCompositeOperation = 'screen'; ctx.globalAlpha = (.008 + energy * .98) * illumination;
         ctx.drawImage(lightPuffs[cloud.texture], x - r, y - r * cloud.aspect, r * 2, r * cloud.aspect * 2);
+        for (const seed of crestDust[cloud.texture]) {
+          const rise = (time / 16 + cloud.highlight + seed.phase) % 1;
+          const px = x + r * (2 * seed.x - 1 + .07 * rise + .019 * Math.sin(phase + seed.phase * TAU));
+          const py = y + r * cloud.aspect * (2 * seed.y - 1 - .19 * rise);
+          const alpha = Math.sin(Math.PI * rise) * seed.light * (.11 + .78 * energy) * (.48 + illumination * .52);
+          const tint = seed.phase < illumination * energy ? (seed.light > .78 ? 4 : 3) : 5;
+          addGrain(px, py, 1.1 + 1.9 * seed.size ** 2, alpha, tint, seed.size > .975 ? 2 : 0);
+        }
       }
       ctx.restore();
     }
@@ -1670,7 +1815,7 @@ void main(){
       ctx.restore();
     }
     function paint(time) {
-      if (!ctx || !width || !height || destroyed) return;
+      if (!display || !gas || !width || !height || destroyed) return;
       if (!timeline && !motion.matches && lastMotionTime) orbitTime += Math.max(0, (time - lastMotionTime) / 1000);
       lastMotionTime = time; lastPaint = time;
       paintedLevel = state.completed; paintedStatus = state.status; paintedReduced = motion.matches;
@@ -1686,6 +1831,8 @@ void main(){
       }
       const t = motion.matches ? 3.5 : (timeline ? elapsed : orbitTime) % 16, theta = t * TAU / 16, energy = progress(time);
       const radius = Math.min(height * .19, width * .22) * (1 + .009 * Math.sin(theta)), cx = width * (.47 + .004 * Math.cos(theta)), cy = height * (.38 + .004 * Math.sin(theta));
+      ctx = gas;
+      display.setTransform(displayScale, 0, 0, displayScale, 0, 0);
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over';
       ctx.fillStyle = '#04060b'; ctx.fillRect(0, 0, width, height);
       for (const star of stars) {
@@ -1707,17 +1854,28 @@ void main(){
       capturedFlow(radius, cx, cy, t, energy, false);
       ctx.save(); ctx.translate(cx, cy);
       diskHalf(radius, t, energy, false);
-      lensArc(radius, t, energy);
-      // Every far-side layer is now behind this fully opaque silhouette.
+      ctx.restore();
+      resolveVolume();
+      drawGrains();
+      // Resolve all rear particles first. The native-resolution horizon then
+      // occludes them, while the front of the disc can still cross its face.
+      ctx = display;
+      ctx.save(); ctx.translate(cx, cy); lensArc(radius, t, energy);
       ctx.fillStyle = '#010204'; ctx.beginPath(); ctx.arc(0, 0, radius, 0, TAU); ctx.fill();
-      diskHalf(radius, t, energy, true);
+      ctx.restore();
+      ctx = gas;
+      ctx.save(); ctx.translate(cx, cy); diskHalf(radius, t, energy, true);
       ctx.restore();
       streamVolume(radius, cx, cy, t, energy, true);
       infall(radius, cx, cy, t, energy, true);
       capturedFlow(radius, cx, cy, t, energy, true);
       radial(cx + radius * .128, cy + radius * .241, 0, radius * .22, [[0, 'rgba(255,247,223,' + energy * .40 + ')'], [.28, 'rgba(247,181,144,' + energy * .14 + ')'], [1, 'rgba(130,70,50,0)']]);
       radial(width * .78, height * .69, 0, width * .145, [[0, 'rgba(255,247,225,' + energy * .48 + ')'], [.24, 'rgba(255,208,169,' + energy * .19 + ')'], [1, 'rgba(147,78,52,0)']]);
+      resolveVolume();
+      drawGrains();
+      ctx = display;
       cloudSea(t, energy, true);
+      drawGrains();
       forwardDust(radius, cx, cy, t, energy);
       if (!motion.matches && successAt !== null && state.completed === 9) {
         const age = (time - successAt) / 1800;
@@ -1775,6 +1933,7 @@ void main(){
       canvas.remove();
       for (const texture of [copperCloud, hotCloud, ...shadowPuffs, ...lightPuffs]) texture.width = texture.height = 0;
       if (!hadClass) host.classList.remove('lights-universe');
+      volume.width = volume.height = atlas.width = atlas.height = 0;
       delete host.dataset.phase; delete host.dataset.completed;
     }
     document.addEventListener('visibilitychange', reconcile);

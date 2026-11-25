@@ -1,4 +1,4 @@
-const CACHE = 'lw5-home-v91-fine-accretion';
+const CACHE = 'lw5-home-v92-nebula-grains';
 const DEMO_PAGE = './smart-home/lights-demo.html';
 const ASSETS = [
   './',
@@ -16,7 +16,7 @@ const ASSETS = [
   './shared/local-control-v1.js',
   './shared/lights-on-v1.js?ui=90',
   './shared/lights-on-v1.css?ui=78',
-  './shared/lights-on-universe.js?scene=91',
+  './shared/lights-on-universe.js?scene=92',
   './shared/lights-on-universe.css',
   './shared/elevator-v1.css',
   './shared/elevator-v1.js',
