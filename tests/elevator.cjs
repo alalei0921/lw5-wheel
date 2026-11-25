@@ -368,22 +368,22 @@ test('ascent honors OS reduced motion and caps the drawing resolution on dense s
   assert.equal(s.requests.length,0);await finish(s);
 });
 
-test('cultivator preview unfolds wings, dashes and fades without becoming a call result',async()=>{
+test('traveller rides the lift through the shaft, cloud break and lightning without becoming a call result',async()=>{
   const s=await setup({disabled:true,reducedMotion:'no-preference'});
   await s.page.clock.install();await open(s.page);await state(s.page,'preview');
-  await s.page.clock.runFor(2200);assert.match(await s.page.locator('#elevatorPhase').innerText(),/风雷展翼/);
-  const wings=await s.page.locator('#elevatorAscent').evaluate(c=>c.toDataURL());
-  await s.page.clock.runFor(2400);assert.match(await s.page.locator('#elevatorPhase').innerText(),/一线凌空/);
-  const dash=await s.page.locator('#elevatorAscent').evaluate(c=>c.toDataURL());assert.notEqual(wings,dash);
-  // Pause while the rings are breaking apart: particles must freeze exactly and
-  // resume the same flight without creating any device state or extra timer.
+  await s.page.clock.runFor(2200);assert.match(await s.page.locator('#elevatorPhase').innerText(),/穿井/);
+  const shaft=await s.page.locator('#elevatorAscent').evaluate(c=>c.toDataURL());
+  await s.page.clock.runFor(2400);assert.match(await s.page.locator('#elevatorPhase').innerText(),/破云/);
+  const dawn=await s.page.locator('#elevatorAscent').evaluate(c=>c.toDataURL());assert.notEqual(shaft,dawn);
+  // Pause during the cloud break. The scene must freeze exactly and
+  // resume the same ascent without creating any device state or extra timer.
   await s.page.clock.runFor(500);
   await s.page.locator('#elevatorPreviewToggle').click();await state(s.page,'preview_paused');
   const impact=await s.page.locator('#elevatorAscent').evaluate(c=>c.toDataURL());
   await s.page.clock.runFor(400);assert.equal(await s.page.locator('#elevatorAscent').evaluate(c=>c.toDataURL()),impact);
   await s.page.locator('#elevatorPreviewToggle').click();await state(s.page,'preview');
-  await s.page.clock.runFor(800);assert.match(await s.page.locator('#elevatorPhase').innerText(),/气浪回响/);
-  await s.page.clock.runFor(2000);assert.match(await s.page.locator('#elevatorPhase').innerText(),/天际余辉/);
+  await s.page.clock.runFor(800);assert.match(await s.page.locator('#elevatorPhase').innerText(),/引雷/);
+  await s.page.clock.runFor(2000);assert.match(await s.page.locator('#elevatorPhase').innerText(),/云上/);
   await state(s.page,'preview');assert.equal(s.requests.length,0);
   assert(await s.page.locator('#elevatorReceipt').isHidden());
   assert.doesNotMatch(await s.page.locator('#elevatorTitle').innerText(),/成功|受理|到达/);

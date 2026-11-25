@@ -1,4 +1,4 @@
-const CACHE = 'lw5-home-v87-cycle-episodes';
+const CACHE = 'lw5-home-v88-cloudbreak';
 const DEMO_PAGE = './smart-home/lights-demo.html';
 const DEMO_VIDEO = './assets/lights-film/demo-v1.mp4';
 const ASSETS = [
