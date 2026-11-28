@@ -204,6 +204,19 @@
       error.denied = denied;
       throw error;
     }
+    if (name === 'lw5_dog_flow_read' || name === 'lw5_dog_flow_save') {
+      const expected = payload.p_revision;
+      if (!body || body.date !== payload.p_date ||
+          !Number.isSafeInteger(body.revision) || body.revision < 0 ||
+          ![null,'light','medium','heavy'].includes(body.flow) ||
+          (body.revision === 0 && body.flow !== null) ||
+          (name === 'lw5_dog_flow_save' && (
+            typeof body.ok !== 'boolean' ||
+            (body.ok && (body.flow !== payload.p_flow || body.revision !== expected + 1)) ||
+            (!body.ok && body.revision <= expected)
+          ))) throw new Error('无法确认这一天的经量，请重新读取。');
+      return body;
+    }
     if (!body || !Number.isSafeInteger(body.revision) || body.revision < 0 || !Object.hasOwn(body, 'state'))
       throw new Error('云端返回异常，请重新同步。');
     return body;

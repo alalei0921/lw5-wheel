@@ -89,10 +89,40 @@ test('shared calendar routes and callback URLs bypass the offline cache',async()
   await s.event('install');
   assert(!s.installed.some(url=>new URL(url).pathname.startsWith(new URL('dog-calendar',scope).pathname)));
   assert(s.installed.some(url=>url.includes('/shared/dog-calendar-core-v3.js')),'only generic shared code is precached');
-  for(const url of ['dog-calendar','dog-calendar/','dog-calendar/?code=example','dog-calendar/records']) {
+  const home=fs.readFileSync(path.join(root,'index.html'),'utf8');
+  const tag=home.match(/<a\b[^>]*\bid="dogCalendarLaunch"[^>]*>/)?.[0];
+  const homeEntry=tag?.match(/\bhref="([^"]+)"/)?.[1];
+  assert.ok(homeEntry,'the home dog needs a real calendar link');
+  assert.equal(new URL(homeEntry,scope).pathname,new URL('dog-calendar/',scope).pathname);
+  s.setNetwork(async()=>{throw new Error('synthetic offline');});
+  for(const url of [homeEntry,'dog-calendar','dog-calendar/','dog-calendar/?code=example',
+    'dog-calendar/records','dog-calendar/app.js?v=synthetic-new-release',
+    'dog-calendar/period-sharing.js','dog-calendar/assets/good.webp']) {
     assert.equal(await s.event('fetch',s.request(url)),undefined);
   }
+  for(const op of ['read','save']) {
+    const url='https://cloud.example.test/functions/v1/lw5-dog-calendar/lw5_dog_flow_'+op;
+    assert.equal(await s.event('fetch',s.request(url,{method:'POST',mode:'cors'})),undefined);
+  }
+  assert.deepEqual([...s.stores.get(s.name).keys()],[],'no calendar URL or private response stored');
   assert.equal(s.calls,0);
+});
+
+test('an installed home worker loads the new calendar core alongside its cached legacy copy',async()=>{
+  const s=setup(), cache=await s.caches.open(s.name);
+  const html=fs.readFileSync(path.join(root,'dog-calendar/index.html'),'utf8');
+  const tag=html.match(/<script\b[^>]*\bsrc="([^"]*dog-calendar-core[^"]*)"/);
+  assert.ok(tag,'calendar must reference its shared state and transport core');
+  const url=new URL(tag[1],new URL('dog-calendar/',scope)).href;
+  const oldCore=scope+'shared/dog-calendar-core-v3.js';
+  // v92 precaches the original query, then strips v/ts on runtime cache reads.
+  await cache.put(oldCore+'?v=87',response('legacy core'));
+  await cache.put(oldCore,response('legacy core'));
+  s.setNetwork(async()=>response('new core'));
+  const r=await s.event('fetch',s.request(url,{mode:'cors'}));
+  assert.equal(await r.text(),'new core');
+  assert.equal(s.calls,1);
+  assert.equal(await (await cache.match(oldCore)).text(),'legacy core');
 });
 
 test('offline demo navigation reuses the precached page for presentation query parameters',async()=>{

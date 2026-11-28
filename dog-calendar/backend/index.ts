@@ -134,9 +134,9 @@ function fileOf(revision: number): string {
   return "r" + String(revision).padStart(10, "0") + ".json";
 }
 
-async function listLatest(limit: number): Promise<string[]> {
+async function listLatest(limit: number, directory = DIR): Promise<string[]> {
   const response = await storage("/object/list/" + BUCKET, "POST", {
-    prefix: DIR + "/", sortBy: { column: "name", order: "desc" }, limit, offset: 0,
+    prefix: directory + "/", sortBy: { column: "name", order: "desc" }, limit, offset: 0,
   });
   if (!response.ok) throw new Error("Calendar unavailable");
   const rows = await response.json();
@@ -148,11 +148,11 @@ async function listLatest(limit: number): Promise<string[]> {
   });
 }
 
-async function latest(): Promise<Snapshot> {
+async function latest(directory = DIR): Promise<Snapshot> {
   for (let attempt = 0; attempt < 3; attempt++) {
-    const [name] = await listLatest(1);
+    const [name] = await listLatest(1, directory);
     if (!name) return { revision: 0, state: null };
-    const response = await storage("/object/authenticated/" + BUCKET + "/" + DIR + "/" + name);
+    const response = await storage("/object/authenticated/" + BUCKET + "/" + directory + "/" + name);
     if (!response.ok) {
       if (await errorKind(response) === "missing") continue;
       throw new Error("Calendar unavailable");
@@ -164,20 +164,75 @@ async function latest(): Promise<Snapshot> {
   throw new Error("Calendar unavailable");
 }
 
-async function prune(confirmed: number): Promise<void> {
-  if (confirmed < 3) return;
-  const names = await listLatest(32);
-  const old = names.slice(2).filter(name => revisionOf(name) < confirmed - 1);
+async function prune(confirmed: number, directory = DIR, keep = 2): Promise<void> {
+  if (confirmed <= keep) return;
+  const names = await listLatest(32, directory);
+  const old = names.slice(keep).filter(name => revisionOf(name) <= confirmed - keep);
   if (!old.length) return;
-  const result = await storage("/object/" + BUCKET, "DELETE", { prefixes: old.map(n => DIR + "/" + n) });
+  const result = await storage("/object/" + BUCKET, "DELETE", { prefixes: old.map(n => directory + "/" + n) });
   await result.body?.cancel();
+}
+
+type FlowAmount = "light" | "medium" | "heavy" | null;
+
+function isAmount(value: unknown): value is FlowAmount {
+  return value === null || value === "light" || value === "medium" || value === "heavy";
+}
+
+function flowDate(value: unknown, offsetMinutes: unknown = 480): string {
+  // The existing calendar uses local civil dates. The offset allows the same
+  // selected date to work across phones and time zones at midnight.
+  if (typeof value !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(value) || value < "1900-01-01" ||
+      typeof offsetMinutes !== "number" || !Number.isInteger(offsetMinutes) ||
+      offsetMinutes < -720 || offsetMinutes > 840) throw new ClientError(400, "22023");
+  const parsed = new Date(value + "T00:00:00Z");
+  const today = new Date(Date.now() + offsetMinutes * 60_000).toISOString().slice(0, 10);
+  if (!Number.isFinite(parsed.getTime()) || parsed.toISOString().slice(0, 10) !== value || value > today) {
+    throw new ClientError(400, "22023");
+  }
+  return value;
+}
+
+async function flowSnapshot(date: string, directory: string) {
+  const { revision, state } = await latest(directory);
+  if (state === null && revision === 0) return { date, revision, flow: null };
+  if (!state || !isAmount(state.flow)) throw new Error("Calendar unavailable");
+  return { date, revision, flow: state.flow };
+}
+
+async function handleFlow(data: Record<string, unknown>, write: boolean): Promise<Response> {
+  const date = flowDate(data.p_date, data.p_offset_minutes);
+  const value = data.p_flow, expected = data.p_revision;
+  if (write && (typeof expected !== "number" || !Number.isInteger(expected) || expected < 0 ||
+      expected >= 2147483647 || !isAmount(value))) throw new ClientError(400, "22023");
+  // Legacy callers can only read and write files under revisions/. A separate
+  // stream per date keeps both old snapshots and simultaneous other-day edits intact.
+  const directory = "flow-days/" + date;
+  await ensurePrivate();
+  const current = await flowSnapshot(date, directory);
+  if (!write) return reply(200, current);
+  if (current.revision !== expected) return reply(200, { ok: false, ...current });
+  if (current.flow === value) return reply(200, { ok: true, ...current });
+  const next = current.revision + 1;
+  const created = await storage("/object/" + BUCKET + "/" + directory + "/" + fileOf(next), "POST", { flow: value });
+  if (!created.ok) {
+    if (await errorKind(created) !== "duplicate") throw new Error("Calendar unavailable");
+    return reply(200, { ok: false, ...await flowSnapshot(date, directory) });
+  }
+  await created.body?.cancel();
+  // Verify the stored value, including when a delayed request recreates an
+  // old object after pruning. A clear retains a null revision to prevent ABA.
+  const saved = await flowSnapshot(date, directory);
+  if (saved.revision !== next || saved.flow !== value) return reply(200, { ok: false, ...saved });
+  await prune(next, directory, 1).catch(() => {});
+  return reply(200, { ok: true, ...saved });
 }
 
 Deno.serve(async request => {
   try {
     const origin = request.headers.get("origin");
     if (origin !== null && origin !== ORIGIN) return reply(403, { code: "42501" });
-    const route = new URL(request.url).pathname.match(/^(?:\/functions\/v1)?\/lw5-dog-calendar\/(lw5_dog_read|lw5_dog_save)\/?$/);
+    const route = new URL(request.url).pathname.match(/^(?:\/functions\/v1)?\/lw5-dog-calendar\/(lw5_dog_read|lw5_dog_save|lw5_dog_flow_read|lw5_dog_flow_save)\/?$/);
     if (!route) return reply(404, { code: "not_found" });
     if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: cors });
     if (request.method !== "POST") return reply(405, { code: "method_not_allowed" });
@@ -186,6 +241,9 @@ Deno.serve(async request => {
     }
     const data = await requestBody(request);
     if (!await authorized(data.p_key)) return reply(401, { code: "42501" });
+    if (route[1] === "lw5_dog_flow_read" || route[1] === "lw5_dog_flow_save") {
+      return await handleFlow(data, route[1] === "lw5_dog_flow_save");
+    }
     const write = route[1] === "lw5_dog_save";
     const revision = data.p_revision, state = data.p_state;
     if (write && (typeof revision !== "number" || !Number.isSafeInteger(revision) || revision < 0 ||

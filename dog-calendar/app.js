@@ -28,6 +28,102 @@
   const id = name => document.getElementById(name);
   const setText = (name, text) => { if (id(name)) id(name).textContent = text; };
   const M = moodId => MOODS.find(mood => mood.id === moodId);
+  const flowLabels = Object.freeze({light:'量少', medium:'中等', heavy:'量多'});
+  // A displayed or forecast date does not authorize a daily flow entry.
+  // Keep this date-scoped state outside the snapshot used by older calendars and date sharing.
+  let flowDate = '', flowSnapshot = null, flowMode = 'idle', flowMessage = '', flowReadSerial = 0;
+  const pendingFlow = new Set();
+  function renderFlow() {
+    const ready = flowMode === 'ready' && !!flowSnapshot;
+    let message = flowMessage;
+    if (!flowDate) message = '先点选要记录的日期';
+    else if (flowDate > todayKey()) message = '未来日期不能记录经量';
+    else if (flowMode === 'loading') message = '正在读取…';
+    else if (flowMode === 'saving') message = '正在保存…';
+    else if (ready && !message) message = flowSnapshot.flow ? '已保存 · ' + flowLabels[flowSnapshot.flow] : '未记录经量';
+    setText('flow-date', flowDate ? flowDate : '请选择日期');
+    setText('flow-status', message);
+    const panel = id('flow-panel');
+    if (panel) panel.dataset.state = flowMode;
+    for (const button of document.querySelectorAll('#flow-options [data-flow]')) {
+      button.disabled = !ready;
+      button.setAttribute('aria-pressed', String(ready && flowSnapshot.flow === button.dataset.flow));
+    }
+    if (id('flow-today')) id('flow-today').hidden = !!flowDate && flowDate <= todayKey();
+    if (id('flow-clear')) id('flow-clear').hidden = !(ready && flowSnapshot.flow);
+    if (id('flow-retry')) id('flow-retry').hidden = flowMode !== 'error';
+  }
+  function selectFlowDate(date) {
+    flowReadSerial++;
+    flowDate = date;
+    flowSnapshot = null;
+    flowMessage = '';
+    flowMode = pendingFlow.has(date) ? 'saving' : 'idle';
+    renderFlow();
+    if (date && date <= todayKey() && flowMode !== 'saving') readFlow();
+  }
+  async function readFlow() {
+    const date = flowDate, session = epoch;
+    if (!accessKey || !date || date > todayKey()) return true;
+    if (pendingFlow.has(date)) return false;
+    const request = ++flowReadSerial;
+    flowMode = 'loading';
+    renderFlow();
+    try {
+      const result = await rpc('lw5_dog_flow_read', {p_key:accessKey, p_date:date, p_offset_minutes:-new Date().getTimezoneOffset()});
+      if (session !== epoch || request !== flowReadSerial) return false;
+      if (flowSnapshot && result.revision < flowSnapshot.revision) throw new Error('旧版本');
+      flowSnapshot = result;
+      flowMode = 'ready';
+      flowMessage = '';
+      renderFlow();
+      return true;
+    } catch (error) {
+      if (session !== epoch) return false;
+      if (error.denied) lockCalendar(error.message);
+      else if (request === flowReadSerial) {
+        flowMode = 'error';
+        flowMessage = '未能读取，请重新读取后再记录';
+        renderFlow();
+      }
+      return false;
+    }
+  }
+  async function saveFlow(value) {
+    const date = flowDate, session = epoch, current = flowSnapshot;
+    if (!accessKey || date !== selected || !validKey(date) || date > todayKey() ||
+        flowMode !== 'ready' || !current || current.flow === value ||
+        (value !== null && !Object.hasOwn(flowLabels,value))) return;
+    if (navigator.onLine === false) {
+      flowMessage = '当前离线，本次未保存';
+      renderFlow();
+      return;
+    }
+    pendingFlow.add(date);
+    flowReadSerial++;
+    flowMode = 'saving';
+    renderFlow();
+    try {
+      const result = await rpc('lw5_dog_flow_save', {p_key:accessKey, p_date:date, p_offset_minutes:-new Date().getTimezoneOffset(),
+        p_revision:current.revision, p_flow:value});
+      if (session !== epoch) return;
+      const saved = result.flow ? '已保存 · ' + flowLabels[result.flow] : '已清除经量';
+      const message = result.ok ? saved : '本次未保存，另一台设备已更新为「' + (flowLabels[result.flow] || '未记录') + '」';
+      if (date === flowDate) {
+        flowSnapshot = result;
+        flowMode = 'ready';
+        flowMessage = message;
+      } else announce(date + ' 经量 · ' + message);
+    } catch (error) {
+      if (session !== epoch) return;
+      if (error.denied) { lockCalendar(error.message); return; }
+      const message = '未能确认保存，请重新读取后核对';
+      if (date === flowDate) { flowMode = 'error'; flowMessage = message; }
+      else announce(date + ' 经量 · ' + message);
+    } finally {
+      if (session === epoch) { pendingFlow.delete(date); renderFlow(); }
+    }
+  }
   function syncLabel(text) { setText('sync-label',text); }
   async function rpc(name, payload) {
     const controller = new AbortController();
@@ -55,6 +151,7 @@
     epoch++; readSerial++;
     for (const controller of controllers) controller.abort();
     writing = false; accessKey = ''; revision = -1; model = initial();
+    pendingFlow.clear(); selectFlowDate('');
     selected = todayKey(); monthKey=selected.slice(0,7);
     id('calendar-app').hidden = true; id('calendar-lock').hidden = false;
     if (activeDialog) { activeDialog.close(); activeDialog.remove(); activeDialog=null; }
@@ -84,7 +181,7 @@
       applySnapshot(result); accessKey=key; remember(persistent ? key : '');
       id('login-key').value='';setText('login-error','');
       id('calendar-lock').hidden=true;id('calendar-app').hidden=false;
-      syncLabel('云端已同步');render();
+      syncLabel('云端已同步');render();renderFlow();
       if (!model.configured) openSettings();
     } catch (error) {
       if (mine!==epoch) return;
@@ -100,8 +197,12 @@
     try {
       const fresh=await rpc('lw5_dog_read',{p_key:accessKey});
       if (mine!==epoch || read!==readSerial || writing) return;
-      applySnapshot(fresh);render();syncLabel('云端已同步');
-      if (manual) announce('已同步最新日历');
+      applySnapshot(fresh);render();
+      const flowSynced = await readFlow();
+      if (mine!==epoch || read!==readSerial || writing) return;
+      const message = flowSynced ? '云端已同步' : flowMode === 'error' ? '日历已同步，经量待核对' : '日历已同步';
+      syncLabel(message);
+      if (manual) announce(flowSynced ? '已同步最新日历' : message);
     } catch (error) {
       if (mine!==epoch || read!==readSerial || writing) return;
       if (error.denied) return lockCalendar(error.message);
@@ -261,9 +362,10 @@
     const detailHost = id('selected-status');
     if (detailHost) detailHost.dataset.mood = detail?.mood.id || '';
   }
-  function select(key) {
+  function select(key, explicitDate = false) {
     selected = key;
     monthKey = key.slice(0, 7);
+    selectFlowDate(explicitDate ? key : '');
     render();
   }
   function viewMonth(year, month) {
@@ -497,6 +599,7 @@
 
   function openPeriodRecords() {
     const today = todayKey(), current = load();
+    const recordDate = validKey(selected) && selected <= today ? selected : today;
     const records=episodeRecords(current,today), estimate=historyEstimate(current,today);
     const guidance=estimate
       ? '近期 '+estimate.samples+' 个周期间隔：约 '+estimate.cycle+' 天；通常出血约 '+estimate.bleed+' 天。可在「周期设置」手动套用。'
@@ -505,6 +608,7 @@
       '</div><div class="dg-record-actions"><button type="button" class="dg-auto" data-correct-start="'+start+'">更正开始日</button>'+
       '<button type="button" class="dg-auto" data-period-start="'+start+'">'+(end?'更正或清除结束日':'补记这次结束日')+'</button></div></li>').join('');
     const el=dialog('经期记录','<p class="dg-hint">'+guidance+'</p>'+
+      '<button type="button" class="dg-auto" data-flow-date="'+recordDate+'">记 '+recordDate+' 的经量</button>'+
       (entries?'<ul class="dg-period-list">'+entries+'</ul>':'<p class="dg-hint">还没有经期记录。</p>')+
       '<button type="button" class="dg-auto dg-add-period">＋ 补记另一次开始</button>'+
       '<p class="dg-hint">日历颜色只是预计，不能用来确定排卵、黄体期或避孕。</p>','关闭记录',()=>{});
@@ -514,6 +618,11 @@
       let next;
       if(b.dataset.periodStart) next=()=>openPeriodEnd(b.dataset.periodStart);
       else if(b.dataset.correctStart) next=()=>openPeriodHistory(b.dataset.correctStart);
+      else if(b.dataset.flowDate) next=()=>{
+        select(recordDate, true);
+        const panel = id('flow-panel');
+        if (panel) { panel.tabIndex=-1; panel.focus({preventScroll:true}); panel.scrollIntoView({block:'center'}); }
+      };
       else if(b.classList.contains('dg-add-period')) next=()=>openPeriodHistory('','new');
       if(next) {el.addEventListener('close',()=>{if(accessKey) next();},{once:true});el.close();}
     });
@@ -620,7 +729,14 @@
   const listen = (name, event, callback) => id(name)?.addEventListener(event, callback);
   listen('prev-month', 'click', () => moveMonth(-1));
   listen('next-month', 'click', () => moveMonth(1));
-  listen('today-btn', 'click', () => select(todayKey()));
+  listen('today-btn', 'click', () => select(todayKey(), true));
+  listen('flow-today', 'click', () => select(todayKey(), true));
+  listen('flow-retry', 'click', readFlow);
+  listen('flow-clear', 'click', () => saveFlow(null));
+  listen('flow-options', 'click', event => {
+    const option = event.target.closest('button[data-flow]');
+    if (option && !option.disabled) saveFlow(option.dataset.flow);
+  });
   listen('month-label', 'click', openMonth);
   listen('settings-btn', 'click', openSettings);
   listen('demo-note', 'click', openSettings);
@@ -655,7 +771,7 @@
     if (cell) {
       const key = cell.dataset.date;
       const fromKeyboard = event.detail === 0;
-      select(key);
+      select(key, true);
       if (fromKeyboard) grid.querySelector('[data-date="' + key + '"]')?.focus();
     }
   });
@@ -666,7 +782,7 @@
     event.preventDefault();
     const key = dayAfter(cell.dataset.date, delta);
     if (!validKey(key)) return;
-    select(key);
+    select(key, true);
     grid.querySelector('[data-date="' + key + '"]')?.focus();
   });
   listen('login-form','submit',event=>{
@@ -683,7 +799,8 @@
   function refreshClock() {
     const now = todayKey();
     if (now === lastToday) return;
-    if (selected === lastToday) { selected = now; monthKey = now.slice(0,7); }
+    if (selected === lastToday) { selected = now; monthKey = now.slice(0,7); selectFlowDate(''); }
+    else if (flowDate > now || flowDate > lastToday) selectFlowDate('');
     lastToday = now;
     render();
   }

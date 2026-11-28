@@ -1,11 +1,12 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const path = require('node:path');
-const {chromium} = require('playwright');
+const {chromium, webkit} = require('playwright');
 
 const script = path.resolve(__dirname, '../dog-calendar/period-sharing.js');
+const engine = process.env.LW5_UI_ENGINE === 'webkit' ? webkit : chromium;
 test('date export is local, bounded, opt-in, and redacts unrelated fields', async () => {
-  const browser = await chromium.launch({headless:true});
+  const browser = await engine.launch({headless:true});
   try {
     const page = await browser.newPage({viewport:{width:375,height:812}});
     const outbound = [];
@@ -14,7 +15,8 @@ test('date export is local, bounded, opt-in, and redacts unrelated fields', asyn
     await page.addScriptTag({path:script});
     await page.evaluate(() => {
       window.samples = [
-        {start:'2026-11-20',end:'',mood:'private-note',passphrase:'never-copy',id:'private-id'},
+        {start:'2026-11-20',end:'',mood:'private-note',passphrase:'never-copy',id:'private-id',
+         flow:'heavy', flowByDate:{'2026-11-21':'量多'}},
         {start:'2026-10-20',end:'2026-10-24'},
         {start:'2026-09-20',end:'2026-09-24'},
         {start:'2026-08-20',end:'2026-08-24'},
@@ -35,7 +37,9 @@ test('date export is local, bounded, opt-in, and redacts unrelated fields', asyn
     const rows = await preview.inputValue();
     assert.match(rows,/2026-08-20/);
     assert.match(rows,/2026-11-20｜结束：未记录/);
-    assert.doesNotMatch(rows,/private-|never-copy|2026-07-20|2026-12-20|2026-02-30/);
+    assert.doesNotMatch(rows,/private-|never-copy|heavy|量多|2026-11-21|2026-07-20|2026-12-20|2026-02-30/);
+    const copyAll = dialog.getByRole('button',{name:'一键导出全部'});
+    assert.equal(await copyAll.isDisabled(),true);
     assert.equal(await copy.isDisabled(),true);
     assert.deepEqual(await page.evaluate(() => copies),[]);
     await grant.check();
@@ -45,11 +49,19 @@ test('date export is local, bounded, opt-in, and redacts unrelated fields', asyn
     await grant.check();
     await copy.click();
     assert.deepEqual(await page.evaluate(() => copies),[await preview.inputValue()]);
+    await copyAll.click();
+    const allDates = '经期记录（仅实际记录，未填不补估算）\n' + [
+      '开始：2026-07-20｜结束：2026-07-24', '开始：2026-08-20｜结束：2026-08-24',
+      '开始：2026-09-20｜结束：2026-09-24', '开始：2026-10-20｜结束：2026-10-24',
+      '开始：2026-11-20｜结束：未记录',
+    ].join('\n');
+    assert.deepEqual(await page.evaluate(() => copies),[await preview.inputValue(),allDates]);
     await page.evaluate(() => LW5Share.close());
     assert.equal(await dialog.count(),0);
     assert.equal(await page.evaluate(() => document.activeElement.id),'opener');
     await opener.click();
     assert.equal(await copy.isDisabled(),true);
+    assert.equal(await copyAll.isDisabled(),true);
     await page.keyboard.press('Escape');
     assert.equal(await dialog.count(),0);
     assert.deepEqual(outbound,[]);
@@ -58,7 +70,7 @@ test('date export is local, bounded, opt-in, and redacts unrelated fields', asyn
   }
 });
 test('clipboard rejection stays in local preview and leaves copy manual', async () => {
-  const browser = await chromium.launch({headless:true});
+  const browser = await engine.launch({headless:true});
   try {
     const page = await browser.newPage();
     await page.setContent('<main></main>');

@@ -5,13 +5,13 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="referrer" content="no-referrer">
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src https://lrtglriomkxjxmxpzivj.supabase.co; form-action 'none'; base-uri 'none'; object-src 'none'">
-  <meta name="theme-color" content="#fbf8ee">
+  <meta name="theme-color" content="#f3f1e9">
   <title>狗狗日历 · LW &amp; 5</title>
-  <link rel="stylesheet" href="style.css?v=89">
-  <script src="../shared/dog-calendar-core-v3.js?v=87" defer></script>
+  <link rel="stylesheet" href="style.css?v=93">
+  <script src="../shared/dog-calendar-core-v3.js?calendar=93" defer></script>
   <script src="../shared/dog-status-v1.js?v=84" defer></script>
   <script src="period-sharing.js?v=90" defer></script>
-  <script src="app.js?v=88" defer></script>
+  <script src="app.js?v=93" defer></script>
 </head>
 <body>
   <svg class="icon-library" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><defs>
@@ -41,7 +41,7 @@
   <div id="calendar-app" hidden>
   <header class="masthead">
     <div class="masthead-inner">
-      <a href="../" class="brand lock-home" aria-label="返回 LW 和 5 首页"><span class="brand-mark"><svg aria-hidden="true"><use href="#i-paw"/></svg></span><span class="brand-name">LW <span>&amp;</span> 5</span><span class="brand-divider"></span><span class="brand-book">狗狗手帐</span></a>
+      <a href="../" class="brand lock-home" aria-label="返回 LW 和 5 首页"><span class="brand-mark"><svg aria-hidden="true"><use href="#i-paw"/></svg></span><span class="brand-name">LW <span>&amp;</span> 5</span></a>
       <div class="header-actions">
         <button id="period-btn" class="period-btn" type="button"><svg aria-hidden="true"><use href="#i-drop"/></svg><span id="period-text">设置我的周期</span></button>
         <button type="button" id="settings-btn" class="settings-btn" aria-label="周期设置" title="周期设置"><svg aria-hidden="true"><use href="#i-gear"/></svg><span>周期设置</span></button>
@@ -49,48 +49,80 @@
     </div>
   </header>
   <main class="workspace">
-    <section class="hero" aria-labelledby="page-title">
-      <div class="hero-art" aria-hidden="true"></div>
-      <div class="hero-copy">
-        <div class="hero-date"><svg aria-hidden="true"><use href="#i-calendar"/></svg><span id="hero-date"></span></div>
-        <h1 id="page-title">狗狗日历</h1>
-      </div>
-    </section>
     <div class="journal-layout">
       <section class="paper calendar-panel" aria-label="狗狗月历">
-        <div class="calendar-toolbar">
-          <div class="month-title"><button type="button" id="month-label" aria-label="选择年份和月份">月历</button><svg aria-hidden="true"><use href="#i-down"/></svg></div>
-          <div class="calendar-nav" aria-label="切换月份">
-            <button type="button" id="prev-month" aria-label="上个月" title="上个月"><svg aria-hidden="true"><use href="#i-left"/></svg></button>
-            <button type="button" id="today-btn">今天</button>
-            <button type="button" id="next-month" aria-label="下个月" title="下个月"><svg aria-hidden="true"><use href="#i-right"/></svg></button>
+        <header class="hero" aria-labelledby="page-title">
+          <div class="hero-copy">
+            <h1 id="page-title">狗狗日历</h1>
+            <div class="hero-date"><svg aria-hidden="true"><use href="#i-calendar"/></svg><span id="hero-date"></span></div>
+          </div>
+        </header>
+        <div class="calendar-body">
+          <div class="calendar-toolbar">
+            <div class="month-title"><button type="button" id="month-label" aria-label="选择年份和月份">月历</button><svg aria-hidden="true"><use href="#i-down"/></svg></div>
+            <div class="calendar-nav" role="group" aria-label="切换月份">
+              <button type="button" id="prev-month" aria-label="上个月" title="上个月"><svg aria-hidden="true"><use href="#i-left"/></svg></button>
+              <button type="button" id="today-btn">今天</button>
+              <button type="button" id="next-month" aria-label="下个月" title="下个月"><svg aria-hidden="true"><use href="#i-right"/></svg></button>
+            </div>
+          </div>
+          <div id="weekdays" class="weekdays"><span>一</span><span>二</span><span>三</span><span>四</span><span>五</span><span>六</span><span>日</span></div>
+          <div id="calendar-grid" class="calendar-grid" role="group" aria-label="选择日期"></div>
+          <div class="calendar-footer">
+            <div class="status-legend" aria-label="月历图例">
+              <span><i class="legend-ring"></i>预计</span><span><i class="legend-solid"></i>已记</span><span><i class="legend-start" aria-hidden="true"></i>开始日</span>
+            </div>
+            <div class="calendar-links">
+              <button type="button" id="demo-note" class="quiet-action" hidden>示例预估</button>
+              <a class="flow-jump" href="#flow-panel">记经量<svg aria-hidden="true"><use href="#i-down"/></svg></a>
+            </div>
           </div>
         </div>
-        <div id="weekdays" class="weekdays"><span>周一</span><span>周二</span><span>周三</span><span>周四</span><span>周五</span><span>周六</span><span>周日</span></div>
-        <div id="calendar-grid" class="calendar-grid" role="group" aria-label="选择日期"></div>
-        <div class="calendar-footer"><div class="status-legend"><span><i class="legend-ring"></i>预计</span><span><i class="legend-solid"></i>已记</span></div><button type="button" id="demo-note" class="demo-note" hidden>示例预估</button><button type="button" class="demo-note" id="period-history" hidden>设置 / 更正开始日</button></div>
-        <section id="period-actions" class="period-actions" aria-labelledby="period-actions-title" hidden>
-          <h2 id="period-actions-title">经期管理</h2>
+      </section>
+      <div class="journal-side">
+        <section class="paper mood-panel" aria-labelledby="mood-title">
+          <header class="day-summary" aria-live="polite">
+            <div class="summary-text">
+              <h2 class="section-label" id="mood-title"><svg aria-hidden="true"><use href="#i-paw"/></svg>当日手帐</h2>
+              <div class="summary-date"><strong id="selected-date"></strong><span id="selected-weekday"></span></div>
+              <span id="selected-status"></span>
+            </div>
+            <div class="summary-portrait"><img id="selected-dog" alt="" src="assets/tired.webp" width="64" height="64"></div>
+          </header>
+          <div class="recorder">
+            <div class="recorder-head"><span class="record-guide">点一只狗，记下状态</span><span class="future-guide">到了这一天，就可以记录状态</span><button type="button" class="quiet-action" id="undo-btn" hidden>清除记录</button></div>
+            <div id="mood-options" class="mood-options" role="group" aria-label="记录当天状态">
+              <button type="button" class="mood-option tired" data-mood="tired" aria-pressed="false"><img src="assets/tired.webp" alt="" width="58" height="58"><span><i></i>疲劳</span></button>
+              <button type="button" class="mood-option good" data-mood="good" aria-pressed="false"><img src="assets/good.webp" alt="" width="58" height="58"><span><i></i>好</span></button>
+              <button type="button" class="mood-option best" data-mood="best" aria-pressed="false"><img src="assets/best.webp" alt="" width="58" height="58"><span><i></i>最好</span></button>
+              <button type="button" class="mood-option grumpy" data-mood="grumpy" aria-pressed="false"><img src="assets/grumpy.webp" alt="" width="58" height="58"><span><i></i>暴躁</span></button>
+            </div>
+          </div>
+          <section class="flow-panel" id="flow-panel" tabindex="-1" aria-labelledby="flow-heading">
+            <div class="flow-heading">
+              <h3 id="flow-heading"><svg aria-hidden="true"><use href="#i-drop"/></svg>经量</h3>
+              <span id="flow-date">请选择日期</span>
+            </div>
+            <div id="flow-options" class="flow-options" role="group" aria-labelledby="flow-heading" aria-describedby="flow-date">
+              <button type="button" data-flow="light" aria-pressed="false" disabled><span class="flow-gauge" aria-hidden="true"><i></i><i></i><i></i></span>量少</button>
+              <button type="button" data-flow="medium" aria-pressed="false" disabled><span class="flow-gauge" aria-hidden="true"><i></i><i></i><i></i></span>中等</button>
+              <button type="button" data-flow="heavy" aria-pressed="false" disabled><span class="flow-gauge" aria-hidden="true"><i></i><i></i><i></i></span>量多</button>
+            </div>
+            <div class="flow-feedback">
+              <span id="flow-status" role="status" aria-live="polite" aria-atomic="true"></span>
+              <button type="button" id="flow-today" class="quiet-action">选今天</button>
+              <button type="button" id="flow-clear" class="quiet-action" hidden>清除经量</button>
+              <button type="button" id="flow-retry" class="quiet-action" hidden>重新读取</button>
+            </div>
+          </section>
+        </section>
+        <section id="period-actions" class="period-actions paper" aria-labelledby="period-actions-title" hidden>
+          <div class="period-heading"><h2 id="period-actions-title">经期管理</h2><button type="button" class="quiet-action" id="period-history" hidden>设置 / 更正开始日</button></div>
           <button type="button" id="period-end-btn"><svg aria-hidden="true"><use href="#i-drop"/></svg><span id="period-end-text">记经期结束日</span></button>
           <button type="button" id="period-records-btn"><svg aria-hidden="true"><use href="#i-records"/></svg><span>经期记录</span></button>
-          <button type="button" class="period-export" id="share-periods-btn"><svg aria-hidden="true"><use href="#i-export"/></svg><span>导出日期给银月</span></button>
+          <button type="button" class="period-export" id="share-periods-btn"><svg aria-hidden="true"><use href="#i-export"/></svg><span>导出日期给银月</span><svg class="action-arrow" aria-hidden="true"><use href="#i-right"/></svg></button>
         </section>
-      </section>
-      <section class="paper mood-panel" aria-labelledby="mood-title">
-        <span class="bookmark" aria-hidden="true"></span>
-        <header class="mood-heading"><svg aria-hidden="true"><use href="#i-paw"/></svg><h2 id="mood-title">当日手帐</h2></header>
-        <div class="day-summary" aria-live="polite">
-          <div class="summary-text"><div class="summary-date"><strong id="selected-date"></strong><span id="selected-weekday"></span></div><span id="selected-status"></span></div>
-          <div class="summary-portrait"><img id="selected-dog" alt="" src="assets/tired.webp" width="64" height="64"></div>
-        </div>
-        <div class="recorder-head"><span class="record-guide">点一只狗，记下状态</span><span class="future-guide">到了这一天，就可以记录状态</span><button type="button" class="undo-btn" id="undo-btn" hidden>清除记录</button></div>
-        <div id="mood-options" class="mood-options" role="group" aria-label="记录当天状态">
-          <button type="button" class="mood-option tired" data-mood="tired" aria-pressed="false"><img src="assets/tired.webp" alt="" width="58" height="58"><span><i></i>疲劳</span></button>
-          <button type="button" class="mood-option good" data-mood="good" aria-pressed="false"><img src="assets/good.webp" alt="" width="58" height="58"><span><i></i>好</span></button>
-          <button type="button" class="mood-option best" data-mood="best" aria-pressed="false"><img src="assets/best.webp" alt="" width="58" height="58"><span><i></i>最好</span></button>
-          <button type="button" class="mood-option grumpy" data-mood="grumpy" aria-pressed="false"><img src="assets/grumpy.webp" alt="" width="58" height="58"><span><i></i>暴躁</span></button>
-        </div>
-      </section>
+      </div>
     </div>
     <footer class="cloud-account" aria-label="日历同步与锁定">
       <span id="sync-label" role="status" aria-live="polite"></span>
