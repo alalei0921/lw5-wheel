@@ -125,13 +125,55 @@
     }
   }
   function syncLabel(text) { setText('sync-label',text); }
-  async function rpc(name, payload) {
+  async function rpc(name, payload, signal) {
     const controller = new AbortController();
+    const abort = () => controller.abort();
+    if (signal?.aborted) throw new DOMException('已取消', 'AbortError');
+    signal?.addEventListener('abort', abort, {once:true});
     const timer = setTimeout(() => controller.abort(), 14000);
     controllers.add(controller);
     try {
       return await window.LW5CalendarCore.rpc(name, payload, controller.signal);
-    } finally { clearTimeout(timer); controllers.delete(controller); }
+    } finally {
+      clearTimeout(timer);
+      signal?.removeEventListener('abort', abort);
+      controllers.delete(controller);
+    }
+  }
+  async function prepareManualExport({since, noFlow, onProgress, signal}) {
+    const session = epoch, today = todayKey();
+    function checkSession() {
+      if (signal.aborted || !accessKey || session !== epoch) throw new DOMException('已取消', 'AbortError');
+      if (writing || pendingFlow.size) throw Object.assign(new Error('记录正在保存'), {code:'calendar_busy'});
+    }
+    checkSession();
+    const flows = new Map();
+    if (noFlow !== true && (!validKey(since) || since > today)) throw new Error('请确认最早可能填写经量的日期。');
+    if (flowSnapshot?.flow && (noFlow === true || flowSnapshot.date < since))
+      throw Object.assign(new Error('经量与确认的范围不符'), {code:'flow_scope_mismatch'});
+    // v93 stores flow independently, including on dates with no episode or dog.
+    // Read every day of the explicitly confirmed range, without a history cap.
+    // Serial reads allow cancelling immediately and keep phone/server load bounded.
+    if (noFlow !== true) {
+      const total = apart(today, since) + 1, offset = -new Date().getTimezoneOffset();
+      try {
+        for (let day = 0; day < total; day++) {
+          checkSession();
+          if (navigator.onLine === false) throw new Error('连接已中断。请联网重新准备完整记录。');
+          const date = dayAfter(since, day);
+          const row = await rpc('lw5_dog_flow_read', {p_key:accessKey, p_date:date, p_offset_minutes:offset}, signal);
+          checkSession();
+          if (row.flow !== null) flows.set(date, row.flow);
+          onProgress(day + 1, total);
+        }
+      } catch (error) {
+        if (session === epoch && error.denied) lockCalendar(error.message);
+        throw error;
+      }
+    }
+    checkSession();
+    const snapshot = load();
+    return window.LW5ManualExport.format({records:episodeRecords(snapshot, today), moods:snapshot.moods, flows, today});
   }
   function applySnapshot(result) {
     if (result.revision < revision) return;
@@ -742,7 +784,12 @@
   listen('demo-note', 'click', openSettings);
   listen('period-btn', 'click', primaryPeriod);
   listen('period-history', 'click', () => openPeriodHistory());
-  listen('share-periods-btn','click',()=>{if(!accessKey) return;const today=todayKey(); window.LW5Share?.open({records:episodeRecords(load(),today).map(({start,end})=>({start,end})),today});});
+  listen('share-periods-btn', 'click', () => {
+    if (!accessKey) return;
+    const today = todayKey();
+    const records = episodeRecords(load(),today).map(({start,end}) => ({start,end}));
+    window.LW5Share?.open({records, today, prepareManualExport});
+  });
   listen('period-end-btn', 'click', () => openPeriodEnd());
   listen('period-records-btn', 'click', openPeriodRecords);
   listen('undo-btn', 'click', clearMood);
